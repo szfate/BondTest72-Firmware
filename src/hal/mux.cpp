@@ -51,6 +51,12 @@ void MuxController::setChannel(uint8_t logicalPad, Bus bus) {
     writeSwitch(e.chip, computeAddr(static_cast<uint8_t>(bus), e.channel), true);
 }
 
+void MuxController::clearChannel(uint8_t logicalPad, Bus bus) {
+    if (logicalPad >= 72) return;
+    const MuxEntry& e = MUX_MAP[logicalPad];
+    writeSwitch(e.chip, computeAddr(static_cast<uint8_t>(bus), e.channel), false);
+}
+
 void MuxController::clearAll() {
     digitalWrite(RST_PIN, HIGH);
     digitalWrite(RST_PIN, LOW);

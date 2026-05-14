@@ -20,7 +20,7 @@ Items are ordered by dependency. Each phase unblocks the next.
 
 - [x] **CH446X datasheet** — provided in English and Mandarin. Note: datasheet covers
   both CH446Q and CH446X variants; schematic uses CH446X — confirm any behavioural
-  differences between variants before writing the bit-bang serial driver.
+  differences between variants before writing the abit-bang serial driver.
 
 - [x] **AT21CS01 datasheet** — provided.
 

@@ -13,5 +13,6 @@ class MuxController {
 public:
     void begin();
     void setChannel(uint8_t logicalPad, Bus bus);
+    void clearChannel(uint8_t logicalPad, Bus bus);
     void clearAll();
 };
