@@ -1,14 +1,15 @@
 #include <Arduino.h>
+#include "hal/mux.h"
+#include "debug/mux_waveform_test.h"
+
+MuxController mux;
 
 void setup() {
     Serial.begin(115200);
-    pinMode(LED_BUILTIN, OUTPUT);
+    mux.begin();
 }
 
 void loop() {
-    Serial.println("Hello, World!");
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(5);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(500);
+    muxWaveformTest();
+    delay(50);
 }
