@@ -6,11 +6,15 @@ static constexpr uint8_t NO_NEIGHBOUR = 0xFF;
 // One measurement: which pad to test, which pad is the GND reference,
 // and which physical neighbours to sense for shorts.
 // All indices are mezzanine connector pins (adapter-space).
+//
+// Use NO_NEIGHBOUR when a physical neighbour is a GND pad. GND pads are the
+// current injection point (BUS_D), so routing one to BUS_A or BUS_C would read
+// ~0 V and falsely flag as a short to neighbour.
 struct TestCase {
     uint8_t pad;    // pad under test (BUS_B return path)
     uint8_t gnd;    // injection/reference pad (BUS_D sense)
-    uint8_t left;   // left neighbour short sense (BUS_A), NO_NEIGHBOUR if absent
-    uint8_t right;  // right neighbour short sense (BUS_C), NO_NEIGHBOUR if absent
+    uint8_t left;   // left neighbour short sense (BUS_A), NO_NEIGHBOUR if GND pad
+    uint8_t right;  // right neighbour short sense (BUS_C), NO_NEIGHBOUR if GND pad
 };
 
 struct PadMap {

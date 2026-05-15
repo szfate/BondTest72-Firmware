@@ -16,4 +16,5 @@ public:
     virtual AdapterModel getAdapterModel()       const = 0;
     virtual uint8_t      getAdapterVersion()     const = 0;
     virtual uint8_t      getSupportedPadmapId()  const = 0;  // 0xFF = unset
+    virtual uint8_t      channelForPin(uint8_t mezPin) const = 0;
 };
