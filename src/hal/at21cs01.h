@@ -14,8 +14,14 @@ public:
     // Required before read() / write(); also used on first adapter detection.
     bool ping();
 
+    // Read the factory-programmed 64-bit serial number from security register 0x00–0x07.
+    bool readSerial(uint8_t serial[8]);
+
     // Read len bytes from EEPROM starting at addr.
     bool read(uint8_t addr, uint8_t* buf, uint8_t len);
+
+    // Scan all 8 possible slave addresses and log which one(s) ACK. Debug use only.
+    void scanAddresses();
 
     // Write len bytes to EEPROM starting at addr.
     // Handles page boundaries (8 bytes/page) automatically.

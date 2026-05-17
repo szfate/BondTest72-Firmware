@@ -1,4 +1,6 @@
 #include "test_runner.h"
+#include "../debug/log.h"
+#include <Arduino.h>
 
 TestRunner::TestRunner(MuxController& mux, AdcDriver& adc, DutDetector& dutDetector)
     : _mux(mux)
@@ -49,10 +51,23 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
             AdcReadings r  = _adc.readAll();
             PadResult   pr = classify(r, tc, padMap);
 
+            LOG_D("slot%u pad%u: sense=%.3f left=%.3f right=%.3f",
+                  slot, tc.pad, r.sense, r.leftNeighbour, r.rightNeighbour);
+
+            bool ok = pr.bond == BondResult::GOOD && !pr.leftShort && !pr.rightShort;
+            if (!ok) {
+                LOG_I("slot%u pad%u FAIL: bond=%s%s%s sense=%.3f",
+                      slot, tc.pad,
+                      pr.bond == BondResult::SHORT_GND ? "SHORT_GND" :
+                      pr.bond == BondResult::OPEN      ? "OPEN"      : "GOOD",
+                      pr.leftShort  ? " +LEFT_SHORT"  : "",
+                      pr.rightShort ? " +RIGHT_SHORT" : "",
+                      r.sense);
+            }
+
             sr.pads[adapter.channelForPin(tc.pad)] = pr;
             sr.testedCount++;
-            if (pr.bond == BondResult::GOOD && !pr.leftShort && !pr.rightShort)
-                sr.goodCount++;
+            if (ok) sr.goodCount++;
         }
 
         if (!_dutDetector.checkNow()) {

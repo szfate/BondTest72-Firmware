@@ -1,21 +1,25 @@
 #include "eeprom_test.h"
 #include "hal/at21cs01.h"
+#include "adapter/eeprom_layout.h"
+#include "adapter/adapter_base.h"
 #include <Arduino.h>
 
 extern AT21CS01Driver eeprom;
 
-// GP17 — matches SWI_PIN in at21cs01.cpp. Needed here to simulate the adapter's
-// pull-up resistor (normally provided by the adapter board hardware).
-static constexpr uint8_t SWI_PIN = 17;
-
 // Scratch address in the reserved area (bytes 24–127) — safe to overwrite.
 static constexpr uint8_t SCRATCH_ADDR = 0x7F;
 
-void eepromTest() {
-    // Enable internal pull-up to simulate the adapter board's pull-up resistor.
-    // Remove once real hardware is available — the adapter provides this in production.
-    pinMode(SWI_PIN, INPUT_PULLUP);
+void eepromErase() {
+    Serial.println("\n--- EEPROM erase (fill 0xFF) ---");
+    uint8_t blank[128];
+    memset(blank, 0xFF, sizeof(blank));
+    if (eeprom.write(0x00, blank, sizeof(blank)))
+        Serial.println("erase: OK");
+    else
+        Serial.println("erase: FAIL");
+}
 
+void eepromTest() {
     Serial.println("\n--- EEPROM test ---");
 
     // 1. Presence check
@@ -23,7 +27,7 @@ void eepromTest() {
     Serial.printf("ping:         %s\n", present ? "OK" : "FAIL — no device");
     if (!present) return;
 
-    // 2. Hex-dump first 24 bytes (the header fields per ARCHITECTURE.md)
+    // 2. Hex-dump first 24 bytes (header)
     uint8_t buf[24];
     if (eeprom.read(0x00, buf, sizeof(buf))) {
         Serial.println("read 0x00–0x17:");
@@ -35,7 +39,22 @@ void eepromTest() {
         return;
     }
 
-    // 3. Write a known pattern then read back to verify round-trip
+    // 3. Provision if blank
+    if (buf[0] == 0xFF && buf[1] == 0xFF) {
+        Serial.println("header blank — provisioning defaults");
+        EepromData d = {};
+        d.adapterModel      = AdapterModel::Mezzanine70;
+        d.adapterVersion    = 1;
+        d.supportedPadmapId = EepromData::PADMAP_UNSET;
+        d.designedLifespan  = 10000;
+        eepromSerialize(d, buf);
+        if (eeprom.write(0x00, buf, sizeof(buf)))
+            Serial.println("provision:    OK");
+        else
+            Serial.println("provision:    FAIL");
+    }
+
+    // 4. Write a known pattern then read back to verify round-trip
     const uint8_t pattern[4] = {0xA5, 0x5A, 0xDE, 0xAD};
     uint8_t verify[4]         = {};
 

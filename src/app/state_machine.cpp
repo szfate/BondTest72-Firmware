@@ -1,7 +1,22 @@
 #include "state_machine.h"
 #include "../adapter/adapter_registry.h"
 #include "../test/pad_map_registry.h"
+#include "../debug/log.h"
 #include <Arduino.h>
+
+static const char* stateName(StateMachine::State s) {
+    switch (s) {
+        case StateMachine::State::NO_ADAPTER:        return "NO_ADAPTER";
+        case StateMachine::State::ADAPTER_DETECTED:  return "ADAPTER_DETECTED";
+        case StateMachine::State::READY:             return "READY";
+        case StateMachine::State::WRONG_ORIENTATION: return "WRONG_ORIENTATION";
+        case StateMachine::State::TESTING:           return "TESTING";
+        case StateMachine::State::PASS:              return "PASS";
+        case StateMachine::State::FAIL:              return "FAIL";
+        case StateMachine::State::FAULT:             return "FAULT";
+        default:                                     return "?";
+    }
+}
 
 // LED colours
 static constexpr uint8_t YELLOW_R = 200, YELLOW_G = 150, YELLOW_B = 0;
@@ -32,8 +47,11 @@ StateMachine::StateMachine(MuxController&    mux,
 }
 
 void StateMachine::begin() {
+    LOG_I("begin, eeprom present=%d", _eeprom.isPresent());
     if (_eeprom.isPresent()) {
-        _state = tryInitAdapter() ? State::ADAPTER_DETECTED : State::FAULT;
+        bool ok = tryInitAdapter();
+        _state = ok ? State::ADAPTER_DETECTED : State::FAULT;
+        LOG_I("adapter init %s -> %s", ok ? "ok" : "FAILED", stateName(_state));
     }
     updateLeds();
 }
@@ -83,6 +101,7 @@ void StateMachine::update() {
 // ——————————————————————————————————————————————————————————————————————————
 
 void StateMachine::transition(State next) {
+    LOG_I("state %s -> %s", stateName(_state), stateName(next));
     _state = next;
 
     if (next == State::ADAPTER_DETECTED && _adapter) {
@@ -142,19 +161,51 @@ void StateMachine::handleCommand(HostCommand cmd) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
+bool StateMachine::provisionEeprom() {
+    EepromData d = {};
+    d.adapterModel      = AdapterModel::Mezzanine70;
+    d.adapterVersion    = 1;
+    d.supportedPadmapId = EepromData::PADMAP_UNSET;
+    d.designedLifespan  = 10000;
+    d.dateOfManufacture = 0;
+    d.insertionCount    = 0;
+    d.testCount         = 0;
+    d.eolReached        = 0x00;
+
+    uint8_t buf[24];
+    eepromSerialize(d, buf);
+    if (!_eeprom.write(0, buf, 24)) { LOG_E("adapter: eeprom provision write failed"); return false; }
+    LOG_I("adapter: eeprom provisioned (Mezzanine70 v1)");
+    return true;
+}
+
 bool StateMachine::tryInitAdapter() {
     uint8_t buf[24];
-    if (!_eeprom.ping())           return false;
-    if (!_eeprom.read(0, buf, 24)) return false;
+    if (!_eeprom.read(0, buf, 24)) { LOG_E("adapter: eeprom read failed");         return false; }
+
+    LOG_I("eeprom[0..7]: %02X %02X %02X %02X %02X %02X %02X %02X",
+          buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
+
+    // Blank EEPROM (never programmed) — provision with defaults and re-read.
+    if (buf[0] == 0xFF && buf[1] == 0xFF) {
+        LOG_W("adapter: eeprom blank, provisioning defaults");
+        if (!provisionEeprom())              { return false; }
+        if (!_eeprom.read(0, buf, 24))       { LOG_E("adapter: eeprom re-read after provision failed"); return false; }
+    }
 
     EepromData data;
-    if (!eepromDeserialize(buf, data)) return false;
+    if (!eepromDeserialize(buf, data)) { LOG_E("adapter: eeprom deserialize failed"); return false; }
+
+    LOG_I("adapter: model=%u ver=%u padmap=%u ins=%lu tests=%lu",
+          (uint8_t)data.adapterModel, data.adapterVersion, data.supportedPadmapId,
+          data.insertionCount, data.testCount);
 
     _adapter = AdapterRegistry::create(data);
-    if (!_adapter) return false;
+    if (!_adapter) { LOG_E("adapter: unknown model %u", (uint8_t)data.adapterModel); return false; }
 
     _dutDetector.setAdapter(_adapter);
     selectPadMap();
+    LOG_I("adapter: init ok, padmap=%s", _padMap ? "set" : "null");
     return true;
 }
 
@@ -174,6 +225,7 @@ void StateMachine::checkAdapterAlive() {
 
 void StateMachine::startTest() {
     checkAdapterAlive();
+    LOG_I("test start: slots=%u pads=%u", _adapter->getDutCount(), _padMap->caseCount);
 
     _hostProtocol.sendTestStart(
         (uint8_t)_adapter->getAdapterModel(),
@@ -184,8 +236,14 @@ void StateMachine::startTest() {
     updateLeds();
 
     _lastResult = _testRunner.run(*_adapter, *_padMap);
-    sendResults();
 
+    static const char* const outcomeStr[] = { "PASS", "FAIL", "FAIL_DUT_REMOVED", "WRONG_ORIENTATION" };
+    uint8_t oi = (uint8_t)_lastResult.outcome;
+    LOG_I("test done: outcome=%s", oi < 4 ? outcomeStr[oi] : "?");
+    for (uint8_t s = 0; s < _lastResult.slotCount; s++)
+        LOG_I("  slot %u: %u/%u good", s, _lastResult.slots[s].goodCount, _lastResult.slots[s].testedCount);
+
+    sendResults();
     transition(_lastResult.outcome == TestOutcome::PASS ? State::PASS : State::FAIL);
 }
 

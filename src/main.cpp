@@ -8,6 +8,7 @@
 #include "test/test_runner.h"
 #include "app/host_protocol.h"
 #include "app/state_machine.h"
+#include "debug/eeprom_test.h"
 
 MuxController    mux;
 AT21CS01Driver   eeprom;
@@ -22,6 +23,9 @@ StateMachine stateMachine(mux, adc, leds, buttons, eeprom, dutDetector, testRunn
 
 void setup() {
     Serial.begin(115200);
+#ifndef NDEBUG
+    while (!Serial && millis() < 5000) {}  // wait for USB host, max 5 s
+#endif
     pinMode(LED_BUILTIN, OUTPUT);
     mux.begin();
     eeprom.begin();

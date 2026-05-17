@@ -28,7 +28,6 @@ public:
     void begin();   // call once from setup()
     void update();  // call every loop()
 
-private:
     enum class State : uint8_t {
         NO_ADAPTER,
         ADAPTER_DETECTED,
@@ -40,12 +39,14 @@ private:
         FAULT,
     };
 
+private:
     void transition(State next);
     void handleDutEvent(DutEvent ev);
     void handleCommand(HostCommand cmd);
     void updateLeds();
     bool blinkOn(uint32_t periodMs);
     bool tryInitAdapter();
+    bool provisionEeprom();
     void selectPadMap();
     void checkAdapterAlive();
     void startTest();
