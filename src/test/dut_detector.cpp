@@ -1,4 +1,6 @@
+#include <Arduino.h>
 #include "dut_detector.h"
+#include "../debug/log.h"
 
 DutDetector::DutDetector(MuxController& mux, AdcDriver& adc)
     : _mux(mux)
@@ -20,20 +22,16 @@ void DutDetector::setPadMap(const PadMap* padMap) {
 bool DutDetector::checkPresence(uint8_t padA, uint8_t padB) {
     if (!_adapter || !_padMap) return false;
 
-    // Each pad is a known-GND mez pin. Connect to Bus::D (27K pull-up to 3.3V):
-    // DUT inserted → pad shorted to GND → COM_D ≈ 0V.
-    // DUT absent   → floating           → COM_D ≈ 3.3V.
-    // Both pads must be low to confirm presence.
+    // padA → Bus::D (27K pull-up), padB → Bus::B (GND return).
+    // DUT inserted → GND pads shorted through DUT → COM_D pulled low ≈ 0V.
+    // DUT absent   → open circuit → COM_D ≈ 3.3V.
     _mux.clearAll();
     _mux.setChannel(_adapter->channelForPin(padA), Bus::D);
-    float vA = _adc.readVoltage(0);  // COM_D
-
+    _mux.setChannel(_adapter->channelForPin(padB), Bus::B);
+    float v = _adc.readVoltage(0);  // COM_D
     _mux.clearAll();
-    _mux.setChannel(_adapter->channelForPin(padB), Bus::D);
-    float vB = _adc.readVoltage(0);  // COM_D
-
-    _mux.clearAll();
-    return vA < _padMap->presenceThresholdV && vB < _padMap->presenceThresholdV;
+    LOG_D("dut presence: mez%u→D mez%u→B: %.3fV", padA, padB, v);
+    return v < _padMap->presenceThresholdV;
 }
 
 DutEvent DutDetector::poll() {
