@@ -2,6 +2,7 @@
 #include "../adapter/adapter_registry.h"
 #include "../test/pad_map_registry.h"
 #include "../debug/log.h"
+#include "../debug/adapter_self_test.h"
 #include <Arduino.h>
 
 static const char* stateName(StateMachine::State s) {
@@ -203,6 +204,7 @@ bool StateMachine::tryInitAdapter() {
     _adapter = AdapterRegistry::create(data);
     if (!_adapter) { LOG_E("adapter: unknown model %u", (uint8_t)data.adapterModel); return false; }
 
+    adapterSelfTest(_adapter);
     _dutDetector.setAdapter(_adapter);
     selectPadMap();
     LOG_I("adapter: init ok, padmap=%s", _padMap ? "set" : "null");

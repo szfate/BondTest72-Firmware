@@ -4,7 +4,7 @@
 // Log levels — set LOG_LEVEL before including or in build flags.
 // 0 = off, 1 = ERROR, 2 = WARN, 3 = INFO, 4 = DEBUG
 #ifndef LOG_LEVEL
-#define LOG_LEVEL 3
+#define LOG_LEVEL 4
 #endif
 
 #if LOG_LEVEL > 0

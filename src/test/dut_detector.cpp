@@ -17,14 +17,23 @@ void DutDetector::setPadMap(const PadMap* padMap) {
     _padMap = padMap;
 }
 
-bool DutDetector::checkPresence(uint8_t pinA, uint8_t pinB) {
-    if (!_adapter) return false;
+bool DutDetector::checkPresence(uint8_t padA, uint8_t padB) {
+    if (!_adapter || !_padMap) return false;
+
+    // Each pad is a known-GND mez pin. Connect to Bus::D (27K pull-up to 3.3V):
+    // DUT inserted → pad shorted to GND → COM_D ≈ 0V.
+    // DUT absent   → floating           → COM_D ≈ 3.3V.
+    // Both pads must be low to confirm presence.
     _mux.clearAll();
-    _mux.setChannel(_adapter->channelForPin(pinA), Bus::A);
-    _mux.setChannel(_adapter->channelForPin(pinB), Bus::D);
-    float v = _adc.readVoltage(1);  // COM_A
+    _mux.setChannel(_adapter->channelForPin(padA), Bus::D);
+    float vA = _adc.readVoltage(0);  // COM_D
+
     _mux.clearAll();
-    return v < _padMap->presenceThresholdV;
+    _mux.setChannel(_adapter->channelForPin(padB), Bus::D);
+    float vB = _adc.readVoltage(0);  // COM_D
+
+    _mux.clearAll();
+    return vA < _padMap->presenceThresholdV && vB < _padMap->presenceThresholdV;
 }
 
 DutEvent DutDetector::poll() {

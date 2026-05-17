@@ -22,9 +22,9 @@ struct PadMap {
     const char*      name;
     const TestCase*  cases;
     uint8_t          caseCount;
-    uint8_t          presencePadA;        // mezzanine pin — shorted through DUT PCB
-    uint8_t          presencePadB;        // mezzanine pin
-    float            presenceThresholdV;  // COM_A reading below this → DUT present
+    uint8_t          presencePadA;        // mezzanine GND pin — pulled to GND by DUT when inserted
+    uint8_t          presencePadB;        // mezzanine GND pin (second, for confirmation)
+    float            presenceThresholdV;  // COM_D reading below this → pad is at GND → DUT present
 
     float            senseGoodMin;        // COM_D: below → SHORT_GND   (e.g. 0.5 V)
     float            senseGoodMax;        // COM_D: above → OPEN         (e.g. 0.7 V)
