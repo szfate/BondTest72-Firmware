@@ -12,7 +12,8 @@
 #include "../test/result.h"
 #include "host_protocol.h"
 
-constexpr uint32_t ADAPTER_POLL_INTERVAL_MS = 2000;
+constexpr uint32_t ADAPTER_POLL_INTERVAL_MS  = 2000;
+constexpr uint32_t DUT_INSERT_SETTLE_MS      = 1000;  // debounce: ignore poll after insertion until connector is seated
 
 class StateMachine {
 public:
@@ -46,7 +47,7 @@ private:
     void updateLeds();
     bool blinkOn(uint32_t periodMs);
     bool tryInitAdapter();
-    bool provisionEeprom();
+    bool provisionEeprom(uint8_t padmapId = EepromData::PADMAP_UNSET);
     void selectPadMap();
     void checkAdapterAlive();
     void startTest();
@@ -68,6 +69,7 @@ private:
     TestResult    _lastResult      = {};
     EepromData    _eepromData;
 
-    uint32_t      _lastAdapterPoll = 0;
-    uint32_t      _lastDutPoll     = 0;
+    uint32_t      _lastAdapterPoll  = 0;
+    uint32_t      _lastDutPoll      = 0;
+    uint32_t      _dutSettleUntil   = 0;
 };

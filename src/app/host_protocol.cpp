@@ -28,6 +28,10 @@ HostCommand HostProtocol::processLine(const char* line) {
     if (strcmp(line, "RUN") == 0)         return HostCommand::RUN;
     if (strcmp(line, "GET_RESULTS") == 0) return HostCommand::GET_RESULTS;
     if (strcmp(line, "DISCOVER") == 0)    return HostCommand::DISCOVER;
+    if (strncmp(line, "PROVISION", 9) == 0) {
+        _provisionPadmapId = (line[9] == ' ') ? (uint8_t)atoi(line + 10) : 0xFF;
+        return HostCommand::PROVISION;
+    }
     if (strncmp(line, "SET_PADMAP ", 11) == 0) {
         _setPadmapId = (uint8_t)atoi(line + 11);
         return HostCommand::SET_PADMAP;

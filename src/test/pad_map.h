@@ -15,6 +15,7 @@ struct TestCase {
     uint8_t gndPin;    // mez GND pin — injection/reference (BUS_D sense)
     uint8_t leftPin;   // mez pin of left neighbour (BUS_A), NO_NEIGHBOUR if GND pad
     uint8_t rightPin;  // mez pin of right neighbour (BUS_C), NO_NEIGHBOUR if GND pad
+    uint8_t diePad;    // die pad number (for logging)
 };
 
 struct PadMap {
@@ -35,4 +36,4 @@ struct PadMap {
 // Helper for simple ring-layout dies: populates out[count] from an ordered
 // ring of pads sharing one GND. Neighbours wrap around at ring ends.
 // Caller owns the output array (typically a static local in pad_map_registry.cpp).
-void buildRingCases(TestCase* out, const uint8_t* ring, uint8_t count, uint8_t gnd);
+void buildRingCases(TestCase* out, const uint8_t* ring, const uint8_t* diePads, uint8_t count, uint8_t gnd);

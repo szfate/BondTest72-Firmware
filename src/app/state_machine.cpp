@@ -84,13 +84,16 @@ void StateMachine::update() {
     if (_state != State::TESTING &&
         _state != State::NO_ADAPTER &&
         _state != State::FAULT) {
-        if (now - _lastDutPoll >= DUT_POLL_INTERVAL_MS) {
+        if (now >= _dutSettleUntil && now - _lastDutPoll >= DUT_POLL_INTERVAL_MS) {
             handleDutEvent(_dutDetector.poll());
             _lastDutPoll = now;
         }
     }
 
     if (_state == State::READY && _buttons.startPressed())
+        startTest();
+    else if ((_state == State::PASS || _state == State::FAIL) &&
+             _buttons.startPressed() && _dutDetector.checkNow())
         startTest();
 
     // Poll for adapter in NO_ADAPTER state
@@ -128,9 +131,11 @@ void StateMachine::handleDutEvent(DutEvent ev) {
             _eepromData.insertionCount++;
             flushEeprom();
             transition(State::READY);
+            _dutSettleUntil = millis() + DUT_INSERT_SETTLE_MS;
             break;
         case DutEvent::REMOVED:
             _hostProtocol.sendDutRemoved();
+            _buttons.startPressed();  // discard any press that arrived while DUT was in
             if (_state != State::PASS && _state != State::FAIL)
                 transition(State::ADAPTER_DETECTED);
             if (_adapter && _padMap)
@@ -162,6 +167,17 @@ void StateMachine::handleCommand(HostCommand cmd) {
             }
             break;
         }
+        case HostCommand::PROVISION:
+            if (!_eeprom.isPresent()) {
+                _hostProtocol.sendError("no adapter");
+            } else if (!provisionEeprom(_hostProtocol.provisionPadmapId())) {
+                _hostProtocol.sendError("provision write failed");
+            } else {
+                _adapter = nullptr; _padMap = nullptr;
+                transition(tryInitAdapter() ? State::ADAPTER_DETECTED : State::FAULT);
+                Serial.println("OK PROVISION");
+            }
+            break;
         case HostCommand::DISCOVER:
             _hostProtocol.sendError("DISCOVER not implemented");
             break;
@@ -172,11 +188,11 @@ void StateMachine::handleCommand(HostCommand cmd) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
-bool StateMachine::provisionEeprom() {
+bool StateMachine::provisionEeprom(uint8_t padmapId) {
     EepromData d = {};
     d.adapterModel            = AdapterModel::Mezzanine70;
     d.adapterVersion          = 1;
-    d.supportedPadmapIds[0]   = EepromData::PADMAP_UNSET;
+    d.supportedPadmapIds[0]   = padmapId;
     d.supportedPadmapIds[1]   = EepromData::PADMAP_UNSET;
     d.supportedPadmapIds[2]   = EepromData::PADMAP_UNSET;
     d.supportedPadmapIds[3]   = EepromData::PADMAP_UNSET;

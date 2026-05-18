@@ -29,7 +29,7 @@ bool Mezzanine70::connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
         delay(1);
         float v = adc.readVoltage(0);  // COM_D
         if (v < ISOLATION_SHORT_THRESHOLD_V) {
-            LOG_W("connector isolation: mez%u sense=%.3fV SHORT?", tc.mezPin, v);
+            LOG_W("connector isolation: amez%u sense=%.3fV SHORT?", tc.mezPin, v);
             ok = false;
         }
     }

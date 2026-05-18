@@ -30,7 +30,7 @@ bool DutDetector::checkPresence(uint8_t padA, uint8_t padB) {
     _mux.setChannel(_adapter->channelForPin(padB), Bus::B);
     float v = _adc.readVoltage(0);  // COM_D
     _mux.clearAll();
-    LOG_D("dut presence: mez%u→D mez%u→B: %.3fV", padA, padB, v);
+    LOG_D("dut presence: amez%u→D amez%u→B: %.3fV", padA, padB, v);
     return v < _padMap->presenceThresholdV;
 }
 
