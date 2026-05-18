@@ -16,11 +16,11 @@ PadResult TestRunner::classify(const AdcReadings& r, const TestCase& tc, const P
     else if (r.sense > padMap.senseGoodMax) pr.bond = BondResult::OPEN;
     else                                    pr.bond = BondResult::GOOD;
 
-    pr.leftShort  = (tc.left  != NO_NEIGHBOUR) &&
+    pr.leftShort  = (tc.leftPin  != NO_NEIGHBOUR) &&
                     (r.leftNeighbour  < padMap.neighbourGoodMin ||
                      r.leftNeighbour  > padMap.neighbourGoodMax);
 
-    pr.rightShort = (tc.right != NO_NEIGHBOUR) &&
+    pr.rightShort = (tc.rightPin != NO_NEIGHBOUR) &&
                     (r.rightNeighbour < padMap.neighbourGoodMin ||
                      r.rightNeighbour > padMap.neighbourGoodMax);
 
@@ -43,21 +43,21 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
             const TestCase& tc = padMap.cases[i];
 
             _mux.clearAll();
-            _mux.setChannel(adapter.channelForPin(tc.gnd), Bus::D);
-            _mux.setChannel(adapter.channelForPin(tc.pad), Bus::B);
-            if (tc.left  != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.left),  Bus::A);
-            if (tc.right != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.right), Bus::C);
+            _mux.setChannel(adapter.channelForPin(tc.gndPin),   Bus::D);
+            _mux.setChannel(adapter.channelForPin(tc.mezPin),   Bus::B);
+            if (tc.leftPin  != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.leftPin),  Bus::A);
+            if (tc.rightPin != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.rightPin), Bus::C);
 
             AdcReadings r  = _adc.readAll();
             PadResult   pr = classify(r, tc, padMap);
 
-            LOG_D("slot%u pad%u: sense=%.3f left=%.3f right=%.3f",
-                  slot, tc.pad, r.sense, r.leftNeighbour, r.rightNeighbour);
+            LOG_I("slot%u pad%u: sense=%.3f left=%.3f right=%.3f",
+                  slot, tc.mezPin, r.sense, r.leftNeighbour, r.rightNeighbour);
 
             bool ok = pr.bond == BondResult::GOOD && !pr.leftShort && !pr.rightShort;
             if (!ok) {
                 LOG_I("slot%u pad%u FAIL: bond=%s%s%s sense=%.3f",
-                      slot, tc.pad,
+                      slot, tc.mezPin,
                       pr.bond == BondResult::SHORT_GND ? "SHORT_GND" :
                       pr.bond == BondResult::OPEN      ? "OPEN"      : "GOOD",
                       pr.leftShort  ? " +LEFT_SHORT"  : "",
@@ -65,7 +65,7 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
                       r.sense);
             }
 
-            sr.pads[adapter.channelForPin(tc.pad)] = pr;
+            sr.byChannel[adapter.channelForPin(tc.mezPin)] = pr;
             sr.testedCount++;
             if (ok) sr.goodCount++;
         }

@@ -51,6 +51,7 @@ private:
     void checkAdapterAlive();
     void startTest();
     void sendResults();
+    void flushEeprom();
 
     MuxController&    _mux;
     AdcDriver&        _adc;
@@ -65,6 +66,7 @@ private:
     AdapterBase*  _adapter         = nullptr;
     const PadMap* _padMap          = nullptr;
     TestResult    _lastResult      = {};
+    EepromData    _eepromData;
 
     uint32_t      _lastAdapterPoll = 0;
     uint32_t      _lastDutPoll     = 0;

@@ -11,10 +11,10 @@ static constexpr uint8_t NO_NEIGHBOUR = 0xFF;
 // current injection point (BUS_D), so routing one to BUS_A or BUS_C would read
 // ~0 V and falsely flag as a short to neighbour.
 struct TestCase {
-    uint8_t pad;    // pad under test (BUS_B return path)
-    uint8_t gnd;    // injection/reference pad (BUS_D sense)
-    uint8_t left;   // left neighbour short sense (BUS_A), NO_NEIGHBOUR if GND pad
-    uint8_t right;  // right neighbour short sense (BUS_C), NO_NEIGHBOUR if GND pad
+    uint8_t mezPin;    // mez pin under test (BUS_B return path)
+    uint8_t gndPin;    // mez GND pin — injection/reference (BUS_D sense)
+    uint8_t leftPin;   // mez pin of left neighbour (BUS_A), NO_NEIGHBOUR if GND pad
+    uint8_t rightPin;  // mez pin of right neighbour (BUS_C), NO_NEIGHBOUR if GND pad
 };
 
 struct PadMap {

@@ -3,6 +3,9 @@
 70-pin 0.4 mm mezzanine connector. Left column top-to-bottom (pins 1–35),
 right column bottom-to-top (pins 36–70) — snake routing.
 
+**All pin numbers here are adapter-side mezzanine pin numbers** (what the tester sees).
+The COB-side numbering is mirrored — do not use COB-side pin numbers in firmware.
+
 **Tester channel = mezzanine pin − 1**  (0-indexed logical pad)
 
 Tester channels 70–71: on-adapter diode (adapter self-test, not a die pad).
@@ -15,79 +18,79 @@ Type key: **IO** = testable bond pad · **GND** = die GND pad (all shorted to GN
 
 | Mez | Ch | Type     | Die pad | Signal |
 |----:|---:|----------|--------:|--------|
-|   1 |  0 | IO       |       8 |        |
-|   2 |  1 | IO       |       7 |        |
-|   3 |  2 | IO       |       6 |        |
-|   4 |  3 | IO       |       5 |        |
-|   5 |  4 | IO       |       4 |        |
-|   6 |  5 | IO       |       3 |        |
-|   7 |  6 | IO       |       2 |        |
-|   8 |  7 | IO       |       1 |        |
-|   9 |  8 | VDDIO    |      74 |        |
-|  10 |  9 | GND      |      73 |        |
-|  11 | 10 | VDD_CORE |      72 |        |
-|   — |    | GND      |      71 |        |
-|  12 | 11 | IO       |      70 |        |
-|  13 | 12 | IO       |      69 |        |
-|  14 | 13 | IO       |      68 |        |
-|  15 | 14 | IO       |      67 |        |
-|  16 | 15 | IO       |      66 |        |
-|  17 | 16 | IO       |      65 |        |
-|  18 | 17 | GND      |      63 |        |
-|  19 | 18 | PWR_AUX  |      64 |        |
-|  20 | 19 | IO       |      62 |        |
-|  21 | 20 | IO       |      61 |        |
-|  22 | 21 | IO       |      60 |        |
-|  23 | 22 | IO       |      59 |        |
-|  24 | 23 | VDDIO    |      58 |        |
-|  25 | 24 | GND      |      57 |        |
-|  26 | 25 | IO       |      56 |        |
-|  27 | 26 | IO       |      55 |        |
-|  28 | 27 | IO       |      54 |        |
-|  29 | 28 | IO       |      53 |        |
-|  30 | 29 | IO       |      52 |        |
-|  31 | 30 | IO       |      51 |        |
-|  32 | 31 | IO       |      50 |        |
-|  33 | 32 | IO       |      49 |        |
-|  34 | 33 | IO       |      48 |        |
-|  35 | 34 | IO       |      47 |        |
-|   — |    | GND      |      46 |        |
-|  36 | 35 | IO       |      45 |        |
-|  37 | 36 | IO       |      44 |        |
-|  38 | 37 | IO       |      43 |        |
-|  39 | 38 | IO       |      42 |        |
-|  40 | 39 | IO       |      41 |        |
-|  41 | 40 | IO       |      40 |        |
-|  42 | 41 | IO       |      39 |        |
-|  43 | 42 | IO       |      38 |        |
-|  44 | 43 | VDDIO    |      37 |        |
-|  45 | 44 | GND      |      36 |        |
-|  46 | 45 | VDD_CORE |      35 |        |
+|   1 |  0 | IO       |      10 |        |
+|   2 |  1 | IO       |      11 |        |
+|   3 |  2 | IO       |      12 |        |
+|   4 |  3 | IO       |      13 |        |
+|   5 |  4 | IO       |      14 |        |
+|   6 |  5 | IO       |      15 |        |
+|   7 |  6 | IO       |      16 |        |
+|   8 |  7 | IO       |      17 |        |
+|   9 |  8 | VDDIO    |      18 |        |
+|  10 |  9 | GND      |      19 |        |
+|  11 | 10 | IO       |      20 |        |
+|  12 | 11 | IO       |      21 |        |
+|  13 | 12 | IO       |      22 |        |
+|  14 | 13 | IO       |      23 |        |
+|  15 | 14 | IO       |      24 |        |
+|  16 | 15 | IO       |      25 |        |
+|  17 | 16 | PWR_AUX  |      26 |        |
+|  18 | 17 | GND      |      27 |        |
+|  19 | 18 | IO       |      28 |        |
+|  20 | 19 | IO       |      29 |        |
+|  21 | 20 | IO       |      30 |        |
+|  22 | 21 | IO       |      31 |        |
+|  23 | 22 | IO       |      32 |        |
+|  24 | 23 | IO       |      33 |        |
 |   — |    | GND      |      34 |        |
-|  47 | 46 | IO       |      33 |        |
-|  48 | 47 | IO       |      32 |        |
-|  49 | 48 | IO       |      31 |        |
-|  50 | 49 | IO       |      30 |        |
-|  51 | 50 | IO       |      29 |        |
-|  52 | 51 | IO       |      28 |        |
-|  53 | 52 | GND      |      27 |        |
-|  54 | 53 | PWR_AUX  |      26 |        |
-|  55 | 54 | IO       |      25 |        |
-|  56 | 55 | IO       |      24 |        |
-|  57 | 56 | IO       |      23 |        |
-|  58 | 57 | IO       |      22 |        |
-|  59 | 58 | IO       |      21 |        |
-|  60 | 59 | IO       |      20 |        |
-|  61 | 60 | GND      |      19 |        |
-|  62 | 61 | VDDIO    |      18 |        |
-|  63 | 62 | IO       |      17 |        |
-|  64 | 63 | IO       |      16 |        |
-|  65 | 64 | IO       |      15 |        |
-|  66 | 65 | IO       |      14 |        |
-|  67 | 66 | IO       |      13 |        |
-|  68 | 67 | IO       |      12 |        |
-|  69 | 68 | IO       |      11 |        |
-|  70 | 69 | IO       |      10 |        |
+|  25 | 24 | VDD_CORE |      35 |        |
+|  26 | 25 | GND      |      36 |        |
+|  27 | 26 | VDDIO    |      37 |        |
+|  28 | 27 | IO       |      38 |        |
+|  29 | 28 | IO       |      39 |        |
+|  30 | 29 | IO       |      40 |        |
+|  31 | 30 | IO       |      41 |        |
+|  32 | 31 | IO       |      42 |        |
+|  33 | 32 | IO       |      43 |        |
+|  34 | 33 | IO       |      44 |        |
+|  35 | 34 | IO       |      45 |        |
+|   — |    | GND      |      46 |        |
+|  36 | 35 | IO       |      47 |        |
+|  37 | 36 | IO       |      48 |        |
+|  38 | 37 | IO       |      49 |        |
+|  39 | 38 | IO       |      50 |        |
+|  40 | 39 | IO       |      51 |        |
+|  41 | 40 | IO       |      52 |        |
+|  42 | 41 | IO       |      53 |        |
+|  43 | 42 | IO       |      54 |        |
+|  44 | 43 | IO       |      55 |        |
+|  45 | 44 | IO       |      56 |        |
+|  46 | 45 | GND      |      57 |        |
+|  47 | 46 | VDDIO    |      58 |        |
+|  48 | 47 | IO       |      59 |        |
+|  49 | 48 | IO       |      60 |        |
+|  50 | 49 | IO       |      61 |        |
+|  51 | 50 | IO       |      62 |        |
+|  52 | 51 | PWR_AUX  |      64 |        |
+|  53 | 52 | GND      |      63 |        |
+|  54 | 53 | IO       |      65 |        |
+|  55 | 54 | IO       |      66 |        |
+|  56 | 55 | IO       |      67 |        |
+|  57 | 56 | IO       |      68 |        |
+|  58 | 57 | IO       |      69 |        |
+|  59 | 58 | IO       |      70 |        |
+|   — |    | GND      |      71 |        |
+|  60 | 59 | VDD_CORE |      72 |        |
+|  61 | 60 | GND      |      73 |        |
+|  62 | 61 | VDDIO    |      74 |        |
+|  63 | 62 | IO       |       1 |        |
+|  64 | 63 | IO       |       2 |        |
+|  65 | 64 | IO       |       3 |        |
+|  66 | 65 | IO       |       4 |        |
+|  67 | 66 | IO       |       5 |        |
+|  68 | 67 | IO       |       6 |        |
+|  69 | 68 | IO       |       7 |        |
+|  70 | 69 | IO       |       8 |        |
 |   — |    | GND      |       9 |        |
 
 ---
@@ -111,5 +114,5 @@ Type key: **IO** = testable bond pad · **GND** = die GND pad (all shorted to GN
 ## Notes for TestCase definition
 
 - `gnd` field: use the mez pin of the nearest die GND pad
-  (mez 10/18/25/45/53/61 — all electrically equivalent on the adapter)
+  (mez 10/18/26/46/53/61 — all electrically equivalent on the adapter)
 - `pad` field: use the mez pin of the IO pad under test

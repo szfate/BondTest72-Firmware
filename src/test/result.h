@@ -14,7 +14,7 @@ struct PadResult {
 };
 
 struct SlotResult {
-    PadResult pads[72];   // indexed by mez channel; only IO pad entries are valid
+    PadResult byChannel[72];   // indexed by tester channel (= mez_pin − 1); only tested entries are valid
     uint8_t   testedCount;
     uint8_t   goodCount;
 };

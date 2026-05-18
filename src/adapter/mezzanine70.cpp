@@ -1,13 +1,45 @@
 #include "mezzanine70.h"
 #include "../hal/mux.h"
 #include "../hal/adc.h"
+#include "../test/pad_map.h"
 #include "../debug/log.h"
 #include <Arduino.h>
+
+static constexpr uint8_t EOL_LED_PIN = 18;  // CON5 = GP18
 
 Mezzanine70::Mezzanine70(const EepromData& eeprom)
     : _version(eeprom.adapterVersion)
     , _padmapId(eeprom.supportedPadmapId)
 {
+    pinMode(EOL_LED_PIN, OUTPUT);
+    digitalWrite(EOL_LED_PIN, LOW);
+}
+
+static constexpr float ISOLATION_SHORT_THRESHOLD_V = 1.5f;
+
+bool Mezzanine70::connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
+                                           const PadMap& padMap) const {
+    LOG_I("connector isolation sweep: %u pads", padMap.caseCount);
+    bool ok = true;
+    for (uint8_t i = 0; i < padMap.caseCount; i++) {
+        const TestCase& tc = padMap.cases[i];
+        mux.clearAll();
+        mux.setChannel(channelForPin(tc.gndPin), Bus::D);
+        mux.setChannel(channelForPin(tc.mezPin), Bus::B);
+        delay(1);
+        float v = adc.readVoltage(0);  // COM_D
+        if (v < ISOLATION_SHORT_THRESHOLD_V) {
+            LOG_W("connector isolation: mez%u sense=%.3fV SHORT?", tc.mezPin, v);
+            ok = false;
+        }
+    }
+    mux.clearAll();
+    LOG_I("connector isolation sweep: %s", ok ? "clean" : "SHORTS DETECTED");
+    return ok;
+}
+
+void Mezzanine70::setEolLed(bool on) {
+    digitalWrite(EOL_LED_PIN, on ? HIGH : LOW);
 }
 
 // Onboard diode between channels 70 (U2 X21) and 71 (U2 X20).

@@ -3,6 +3,7 @@
 
 class MuxController;
 class AdcDriver;
+struct PadMap;
 
 enum class AdapterModel : uint8_t {
     Mezzanine70   = 0x01,
@@ -24,4 +25,13 @@ public:
     // Adapter-specific hardware self-test (e.g. onboard diode, loopback).
     // Returns true if the adapter hardware checks out.
     virtual bool         selfTest(MuxController& mux, AdcDriver& adc) const = 0;
+
+    // Drive the adapter's EOL indicator (e.g. onboard LED). Default no-op.
+    virtual void         setEolLed(bool on) {}
+
+    // Sweep all IO pads for connector-level shorts to GND (solder bridges etc.).
+    // Must only be called when no DUT is present. Returns false if any pad reads
+    // suspiciously low. Default no-op returns true.
+    virtual bool         connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
+                                                 const PadMap& padMap) const { return true; }
 };

@@ -12,7 +12,7 @@ enum class Bus : uint8_t { A = 0, B = 1, C = 2, D = 3, E = 4 };
 class MuxController {
 public:
     void begin();
-    void setChannel(uint8_t logicalPad, Bus bus);
-    void clearChannel(uint8_t logicalPad, Bus bus);
+    void setChannel(uint8_t ch, Bus bus);
+    void clearChannel(uint8_t ch, Bus bus);
     void clearAll();
 };

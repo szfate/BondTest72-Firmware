@@ -46,21 +46,22 @@ void MuxController::begin() {
     clearAll();
 }
 
-void MuxController::setChannel(uint8_t logicalPad, Bus bus) {
-    if (logicalPad >= 72) return;
-    const MuxEntry& e = MUX_MAP[logicalPad];
-    LOG_D("mux set  pad=%u chip=%u ch=%u bus=%u", logicalPad, e.chip, e.channel, (uint8_t)bus);
+void MuxController::setChannel(uint8_t ch, Bus bus) {
+    if (ch >= 72) return;
+    const MuxEntry& e = MUX_MAP[ch];
+    LOG_D("mux set  ch=%u chip=%u x=%u bus=%u", ch, e.chip, e.channel, (uint8_t)bus);
     writeSwitch(e.chip, computeAddr(static_cast<uint8_t>(bus), e.channel), true);
 }
 
-void MuxController::clearChannel(uint8_t logicalPad, Bus bus) {
-    if (logicalPad >= 72) return;
-    const MuxEntry& e = MUX_MAP[logicalPad];
-    LOG_D("mux clr  pad=%u chip=%u ch=%u bus=%u", logicalPad, e.chip, e.channel, (uint8_t)bus);
+void MuxController::clearChannel(uint8_t ch, Bus bus) {
+    if (ch >= 72) return;
+    const MuxEntry& e = MUX_MAP[ch];
+    LOG_D("mux clr  ch=%u chip=%u x=%u bus=%u", ch, e.chip, e.channel, (uint8_t)bus);
     writeSwitch(e.chip, computeAddr(static_cast<uint8_t>(bus), e.channel), false);
 }
 
 void MuxController::clearAll() {
+    LOG_D("mux clear all");
     digitalWrite(RST_PIN, HIGH);
     digitalWrite(RST_PIN, LOW);
 }

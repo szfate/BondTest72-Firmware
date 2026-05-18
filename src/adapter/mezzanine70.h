@@ -14,6 +14,9 @@ public:
     uint8_t      getSupportedPadmapId()  const override { return _padmapId; }
     uint8_t      channelForPin(uint8_t mezPin) const override { return mezPin - 1; }
     bool         selfTest(MuxController& mux, AdcDriver& adc) const override;
+    bool         connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
+                                         const PadMap& padMap) const override;
+    void         setEolLed(bool on) override;
 
 private:
     uint8_t _version;

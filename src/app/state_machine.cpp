@@ -51,6 +51,12 @@ void StateMachine::begin() {
     LOG_I("begin, eeprom present=%d", _eeprom.isPresent());
     if (_eeprom.isPresent()) {
         bool ok = tryInitAdapter();
+        if (ok && _eepromData.eolReached == EepromData::EOL_REACHED) {
+            LOG_W("adapter: EOL — refusing operation");
+            _adapter->setEolLed(true);
+            ok = false;
+        }
+        if (ok) _dutDetector.poll();  // prime detector state — no event fired, no counter increment
         _state = ok ? State::ADAPTER_DETECTED : State::FAULT;
         LOG_I("adapter init %s -> %s", ok ? "ok" : "FAILED", stateName(_state));
     }
@@ -119,12 +125,16 @@ void StateMachine::handleDutEvent(DutEvent ev) {
     switch (ev) {
         case DutEvent::INSERTED:
             _hostProtocol.sendDutInserted();
+            _eepromData.insertionCount++;
+            flushEeprom();
             transition(State::READY);
             break;
         case DutEvent::REMOVED:
             _hostProtocol.sendDutRemoved();
             if (_state != State::PASS && _state != State::FAIL)
                 transition(State::ADAPTER_DETECTED);
+            if (_adapter && _padMap)
+                _adapter->connectorIsolationSweep(_mux, _adc, *_padMap);
             break;
         case DutEvent::WRONG_ORIENTATION:
             transition(State::WRONG_ORIENTATION);
@@ -194,19 +204,21 @@ bool StateMachine::tryInitAdapter() {
         if (!_eeprom.read(0, buf, 24))       { LOG_E("adapter: eeprom re-read after provision failed"); return false; }
     }
 
-    EepromData data;
-    if (!eepromDeserialize(buf, data)) { LOG_E("adapter: eeprom deserialize failed"); return false; }
+    if (!eepromDeserialize(buf, _eepromData)) { LOG_E("adapter: eeprom deserialize failed"); return false; }
 
-    LOG_I("adapter: model=%u ver=%u padmap=%u ins=%lu tests=%lu",
-          (uint8_t)data.adapterModel, data.adapterVersion, data.supportedPadmapId,
-          data.insertionCount, data.testCount);
+    LOG_I("adapter: model=%u ver=%u padmap=%u lifespan=%u ins=%lu tests=%lu eol=%s",
+          (uint8_t)_eepromData.adapterModel, _eepromData.adapterVersion, _eepromData.supportedPadmapId,
+          _eepromData.designedLifespan, _eepromData.insertionCount, _eepromData.testCount,
+          _eepromData.eolReached == EepromData::EOL_REACHED ? "YES" : "no");
 
-    _adapter = AdapterRegistry::create(data);
-    if (!_adapter) { LOG_E("adapter: unknown model %u", (uint8_t)data.adapterModel); return false; }
+    _adapter = AdapterRegistry::create(_eepromData);
+    if (!_adapter) { LOG_E("adapter: unknown model %u", (uint8_t)_eepromData.adapterModel); return false; }
 
     adapterSelfTest(_adapter);
     _dutDetector.setAdapter(_adapter);
     selectPadMap();
+    if (_padMap)
+        _adapter->connectorIsolationSweep(_mux, _adc, *_padMap);
     LOG_I("adapter: init ok, padmap=%s", _padMap ? "set" : "null");
     return true;
 }
@@ -218,6 +230,23 @@ void StateMachine::selectPadMap() {
     if (!_padMap)
         _padMap = PadMapRegistry::all();
     _dutDetector.setPadMap(_padMap);
+}
+
+void StateMachine::flushEeprom() {
+    // Only mutable fields are ever modified: insertionCount, testCount, eolReached.
+    // Read-only fields (model, version, padmapId, lifespan, dateOfManufacture) are
+    // loaded once in tryInitAdapter() and never changed, so a full write is safe.
+    if (_eepromData.insertionCount >= _eepromData.designedLifespan &&
+        _eepromData.eolReached != EepromData::EOL_REACHED) {
+        _eepromData.eolReached = EepromData::EOL_REACHED;
+        LOG_W("adapter: EOL reached (%lu insertions)", _eepromData.insertionCount);
+    }
+    if (_adapter && _eepromData.eolReached == EepromData::EOL_REACHED)
+        _adapter->setEolLed(true);
+    uint8_t buf[24];
+    eepromSerialize(_eepromData, buf);
+    if (!_eeprom.write(0, buf, 24))
+        LOG_E("adapter: eeprom write failed");
 }
 
 void StateMachine::checkAdapterAlive() {
@@ -238,6 +267,8 @@ void StateMachine::startTest() {
     updateLeds();
 
     _lastResult = _testRunner.run(*_adapter, *_padMap);
+    _eepromData.testCount++;
+    flushEeprom();
 
     static const char* const outcomeStr[] = { "PASS", "FAIL", "FAIL_DUT_REMOVED", "WRONG_ORIENTATION" };
     uint8_t oi = (uint8_t)_lastResult.outcome;
@@ -252,10 +283,10 @@ void StateMachine::startTest() {
 void StateMachine::sendResults() {
     if (!_padMap) return;
     for (uint8_t i = 0; i < _padMap->caseCount; i++) {
-        uint8_t mezPin  = _padMap->cases[i].pad;
+        uint8_t mezPin  = _padMap->cases[i].mezPin;
         uint8_t channel = _adapter->channelForPin(mezPin);
         for (uint8_t slot = 0; slot < _lastResult.slotCount; slot++)
-            _hostProtocol.sendPadResult(slot, mezPin, _lastResult.slots[slot].pads[channel]);
+            _hostProtocol.sendPadResult(slot, mezPin, _lastResult.slots[slot].byChannel[channel]);
     }
     _hostProtocol.sendSummary(_lastResult);
 }
