@@ -11,7 +11,7 @@ public:
     uint8_t      getPadCount()           const override { return 70; }
     AdapterModel getAdapterModel()       const override { return AdapterModel::Mezzanine70; }
     uint8_t      getAdapterVersion()     const override { return _version; }
-    uint8_t      getSupportedPadmapId()  const override { return _padmapId; }
+    const uint8_t* getSupportedPadmapIds() const override { return _padmapIds; }
     uint8_t      channelForPin(uint8_t mezPin) const override { return mezPin - 1; }
     bool         selfTest(MuxController& mux, AdcDriver& adc) const override;
     bool         connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
@@ -20,5 +20,5 @@ public:
 
 private:
     uint8_t _version;
-    uint8_t _padmapId;
+    uint8_t _padmapIds[4];
 };

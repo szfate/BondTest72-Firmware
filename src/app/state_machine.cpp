@@ -115,7 +115,7 @@ void StateMachine::transition(State next) {
         _hostProtocol.sendAdapterDetected(
             (uint8_t)_adapter->getAdapterModel(),
             _adapter->getAdapterVersion(),
-            _adapter->getSupportedPadmapId());
+            _adapter->getSupportedPadmapIds());
     }
 
     updateLeds();
@@ -174,25 +174,28 @@ void StateMachine::handleCommand(HostCommand cmd) {
 
 bool StateMachine::provisionEeprom() {
     EepromData d = {};
-    d.adapterModel      = AdapterModel::Mezzanine70;
-    d.adapterVersion    = 1;
-    d.supportedPadmapId = EepromData::PADMAP_UNSET;
-    d.designedLifespan  = 10000;
+    d.adapterModel            = AdapterModel::Mezzanine70;
+    d.adapterVersion          = 1;
+    d.supportedPadmapIds[0]   = EepromData::PADMAP_UNSET;
+    d.supportedPadmapIds[1]   = EepromData::PADMAP_UNSET;
+    d.supportedPadmapIds[2]   = EepromData::PADMAP_UNSET;
+    d.supportedPadmapIds[3]   = EepromData::PADMAP_UNSET;
+    d.designedLifespan        = 10000;
     d.dateOfManufacture = 0;
     d.insertionCount    = 0;
     d.testCount         = 0;
     d.eolReached        = 0x00;
 
-    uint8_t buf[24];
+    uint8_t buf[36];
     eepromSerialize(d, buf);
-    if (!_eeprom.write(0, buf, 24)) { LOG_E("adapter: eeprom provision write failed"); return false; }
+    if (!_eeprom.write(0, buf, 36)) { LOG_E("adapter: eeprom provision write failed"); return false; }
     LOG_I("adapter: eeprom provisioned (Mezzanine70 v1)");
     return true;
 }
 
 bool StateMachine::tryInitAdapter() {
-    uint8_t buf[24];
-    if (!_eeprom.read(0, buf, 24)) { LOG_E("adapter: eeprom read failed");         return false; }
+    uint8_t buf[36];
+    if (!_eeprom.read(0, buf, 36)) { LOG_E("adapter: eeprom read failed");         return false; }
 
     LOG_I("eeprom[0..7]: %02X %02X %02X %02X %02X %02X %02X %02X",
           buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
@@ -201,13 +204,15 @@ bool StateMachine::tryInitAdapter() {
     if (buf[0] == 0xFF && buf[1] == 0xFF) {
         LOG_W("adapter: eeprom blank, provisioning defaults");
         if (!provisionEeprom())              { return false; }
-        if (!_eeprom.read(0, buf, 24))       { LOG_E("adapter: eeprom re-read after provision failed"); return false; }
+        if (!_eeprom.read(0, buf, 36))       { LOG_E("adapter: eeprom re-read after provision failed"); return false; }
     }
 
     if (!eepromDeserialize(buf, _eepromData)) { LOG_E("adapter: eeprom deserialize failed"); return false; }
 
-    LOG_I("adapter: model=%u ver=%u padmap=%u lifespan=%u ins=%lu tests=%lu eol=%s",
-          (uint8_t)_eepromData.adapterModel, _eepromData.adapterVersion, _eepromData.supportedPadmapId,
+    LOG_I("adapter: model=%u ver=%u padmaps=[%u,%u,%u,%u] lifespan=%lu ins=%lu tests=%lu eol=%s",
+          (uint8_t)_eepromData.adapterModel, _eepromData.adapterVersion,
+          _eepromData.supportedPadmapIds[0], _eepromData.supportedPadmapIds[1],
+          _eepromData.supportedPadmapIds[2], _eepromData.supportedPadmapIds[3],
           _eepromData.designedLifespan, _eepromData.insertionCount, _eepromData.testCount,
           _eepromData.eolReached == EepromData::EOL_REACHED ? "YES" : "no");
 
@@ -224,9 +229,11 @@ bool StateMachine::tryInitAdapter() {
 }
 
 void StateMachine::selectPadMap() {
-    uint8_t hintId = _adapter->getSupportedPadmapId();
-    if (hintId != EepromData::PADMAP_UNSET)
-        _padMap = PadMapRegistry::find(hintId);
+    const uint8_t* ids = _adapter->getSupportedPadmapIds();
+    for (uint8_t i = 0; i < 4 && ids[i] != EepromData::PADMAP_UNSET; i++) {
+        _padMap = PadMapRegistry::find(ids[i]);
+        if (_padMap) break;
+    }
     if (!_padMap)
         _padMap = PadMapRegistry::all();
     _dutDetector.setPadMap(_padMap);
@@ -243,9 +250,9 @@ void StateMachine::flushEeprom() {
     }
     if (_adapter && _eepromData.eolReached == EepromData::EOL_REACHED)
         _adapter->setEolLed(true);
-    uint8_t buf[24];
+    uint8_t buf[36];
     eepromSerialize(_eepromData, buf);
-    if (!_eeprom.write(0, buf, 24))
+    if (!_eeprom.write(0, buf, 36))
         LOG_E("adapter: eeprom write failed");
 }
 
@@ -261,7 +268,7 @@ void StateMachine::startTest() {
     _hostProtocol.sendTestStart(
         (uint8_t)_adapter->getAdapterModel(),
         _adapter->getAdapterVersion(),
-        _adapter->getSupportedPadmapId());
+        _adapter->getSupportedPadmapIds());
 
     transition(State::TESTING);
     updateLeds();

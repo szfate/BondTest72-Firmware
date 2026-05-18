@@ -37,11 +37,14 @@ HostCommand HostProtocol::processLine(const char* line) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
-void HostProtocol::sendAdapterDetected(uint8_t model, uint8_t version, uint8_t padmapId) {
+void HostProtocol::sendAdapterDetected(uint8_t model, uint8_t version, const uint8_t* padmapIds) {
     Serial.print("EVENT ADAPTER_DETECTED ");
-    Serial.print(model);    Serial.print(' ');
-    Serial.print(version);  Serial.print(' ');
-    Serial.println(padmapId);
+    Serial.print(model);   Serial.print(' ');
+    Serial.print(version);
+    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) {
+        Serial.print(' '); Serial.print(padmapIds[i]);
+    }
+    Serial.println();
 }
 
 void HostProtocol::sendDutInserted() {
@@ -52,11 +55,14 @@ void HostProtocol::sendDutRemoved() {
     Serial.println("EVENT DUT_REMOVED");
 }
 
-void HostProtocol::sendTestStart(uint8_t model, uint8_t version, uint8_t padmapId) {
+void HostProtocol::sendTestStart(uint8_t model, uint8_t version, const uint8_t* padmapIds) {
     Serial.print("EVENT TEST_START ");
-    Serial.print(model);    Serial.print(' ');
-    Serial.print(version);  Serial.print(' ');
-    Serial.println(padmapId);
+    Serial.print(model);   Serial.print(' ');
+    Serial.print(version);
+    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) {
+        Serial.print(' '); Serial.print(padmapIds[i]);
+    }
+    Serial.println();
 }
 
 void HostProtocol::sendPadResult(uint8_t slot, uint8_t mezPin, const PadResult& r) {

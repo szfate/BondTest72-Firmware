@@ -9,8 +9,8 @@ static constexpr uint8_t EOL_LED_PIN = 18;  // CON5 = GP18
 
 Mezzanine70::Mezzanine70(const EepromData& eeprom)
     : _version(eeprom.adapterVersion)
-    , _padmapId(eeprom.supportedPadmapId)
 {
+    for (uint8_t i = 0; i < 4; i++) _padmapIds[i] = eeprom.supportedPadmapIds[i];
     pinMode(EOL_LED_PIN, OUTPUT);
     digitalWrite(EOL_LED_PIN, LOW);
 }

@@ -17,10 +17,10 @@ public:
     HostCommand poll();
     uint8_t     setPadmapId() const { return _setPadmapId; }
 
-    void sendAdapterDetected(uint8_t model, uint8_t version, uint8_t padmapId);
+    void sendAdapterDetected(uint8_t model, uint8_t version, const uint8_t* padmapIds);
     void sendDutInserted();
     void sendDutRemoved();
-    void sendTestStart(uint8_t model, uint8_t version, uint8_t padmapId);
+    void sendTestStart(uint8_t model, uint8_t version, const uint8_t* padmapIds);
     void sendPadResult(uint8_t slot, uint8_t mezPin, const PadResult& r);
     void sendSummary(const TestResult& result);
     void sendError(const char* description);

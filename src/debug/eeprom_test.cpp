@@ -27,10 +27,10 @@ void eepromTest() {
     Serial.printf("ping:         %s\n", present ? "OK" : "FAIL — no device");
     if (!present) return;
 
-    // 2. Hex-dump first 24 bytes (header)
-    uint8_t buf[24];
+    // 2. Hex-dump first 36 bytes (header)
+    uint8_t buf[36];
     if (eeprom.read(0x00, buf, sizeof(buf))) {
-        Serial.println("read 0x00–0x17:");
+        Serial.println("read 0x00–0x21:");
         for (uint8_t i = 0; i < sizeof(buf); i++) {
             Serial.printf("%02X%c", buf[i], (i & 7) == 7 ? '\n' : ' ');
         }
@@ -43,10 +43,13 @@ void eepromTest() {
     if (buf[0] == 0xFF && buf[1] == 0xFF) {
         Serial.println("header blank — provisioning defaults");
         EepromData d = {};
-        d.adapterModel      = AdapterModel::Mezzanine70;
-        d.adapterVersion    = 1;
-        d.supportedPadmapId = EepromData::PADMAP_UNSET;
-        d.designedLifespan  = 10000;
+        d.adapterModel            = AdapterModel::Mezzanine70;
+        d.adapterVersion          = 1;
+        d.supportedPadmapIds[0]   = EepromData::PADMAP_UNSET;
+        d.supportedPadmapIds[1]   = EepromData::PADMAP_UNSET;
+        d.supportedPadmapIds[2]   = EepromData::PADMAP_UNSET;
+        d.supportedPadmapIds[3]   = EepromData::PADMAP_UNSET;
+        d.designedLifespan        = 10000;
         eepromSerialize(d, buf);
         if (eeprom.write(0x00, buf, sizeof(buf)))
             Serial.println("provision:    OK");

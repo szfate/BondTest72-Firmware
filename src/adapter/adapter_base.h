@@ -19,7 +19,7 @@ public:
     virtual uint8_t      getPadCount()           const = 0;
     virtual AdapterModel getAdapterModel()       const = 0;
     virtual uint8_t      getAdapterVersion()     const = 0;
-    virtual uint8_t      getSupportedPadmapId()  const = 0;  // 0xFF = unset
+    virtual const uint8_t* getSupportedPadmapIds() const = 0;  // 4-entry array, PADMAP_UNSET terminated
     virtual uint8_t      channelForPin(uint8_t mezPin) const = 0;
 
     // Adapter-specific hardware self-test (e.g. onboard diode, loopback).
