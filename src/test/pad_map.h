@@ -13,8 +13,8 @@ static constexpr uint8_t NO_NEIGHBOUR = 0xFF;
 struct TestCase {
     uint8_t mezPin;    // mez pin under test (BUS_B return path)
     uint8_t gndPin;    // mez GND pin — injection/reference (BUS_D sense)
-    uint8_t leftPin;   // mez pin of left neighbour (BUS_A), NO_NEIGHBOUR if GND pad
-    uint8_t rightPin;  // mez pin of right neighbour (BUS_C), NO_NEIGHBOUR if GND pad
+    uint8_t prevPin;   // mez pin of previous neighbour (BUS_A, die N-1), NO_NEIGHBOUR if GND pad
+    uint8_t nextPin;   // mez pin of next neighbour (BUS_C, die N+1), NO_NEIGHBOUR if GND pad
     uint8_t diePad;    // die pad number (for logging)
 };
 

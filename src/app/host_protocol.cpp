@@ -78,8 +78,8 @@ void HostProtocol::sendPadResult(uint8_t slot, uint8_t mezPin, const PadResult& 
         case BondResult::OPEN:      Serial.print("OPEN");  break;
         case BondResult::SHORT_GND: Serial.print("SHORT"); break;
     }
-    Serial.print(' '); Serial.print(r.leftShort  ? 1 : 0);
-    Serial.print(' '); Serial.println(r.rightShort ? 1 : 0);
+    Serial.print(' '); Serial.print(r.prevShort ? 1 : 0);
+    Serial.print(' '); Serial.println(r.nextShort ? 1 : 0);
 }
 
 void HostProtocol::sendSummary(const TestResult& result) {

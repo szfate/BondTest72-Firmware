@@ -3,8 +3,8 @@
 
 struct AdcReadings {
     float sense;         // ADC0/GP26 — bond under test, injection+sense (27 kΩ pullup)
-    float leftNeighbour; // ADC1/GP27 — left neighbour short detection (1 MΩ divider)
-    float rightNeighbour;// ADC2/GP28 — right neighbour short detection (1 MΩ divider)
+    float prevNeighbour; // ADC1/GP27 — previous neighbour short detection (1 MΩ divider)
+    float nextNeighbour; // ADC2/GP28 — next neighbour short detection (1 MΩ divider)
 };
 
 class AdcDriver {

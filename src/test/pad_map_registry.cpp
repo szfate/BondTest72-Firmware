@@ -49,29 +49,29 @@ static void buildPm1() {
     static const uint8_t gnd = 10;  // mez pin 10 = die GND 19 (all GND pins equivalent)
     buildRingCases(_pm1Cases, ring, diePads, sizeof(ring), gnd);
 
-    _pm1Cases[15].rightPin = NO_NEIGHBOUR;  // mez8  → mez11  (mez10 GND in gap)
-    _pm1Cases[16].leftPin  = NO_NEIGHBOUR;  // mez11 ← mez8
-    _pm1Cases[21].rightPin = NO_NEIGHBOUR;  // mez16 → mez19  (mez18 GND in gap)
-    _pm1Cases[22].leftPin  = NO_NEIGHBOUR;  // mez19 ← mez16
-    _pm1Cases[27].rightPin = NO_NEIGHBOUR;  // mez24 → mez28  (mez26 GND in gap)
-    _pm1Cases[28].leftPin  = NO_NEIGHBOUR;  // mez28 ← mez24
-    _pm1Cases[44].rightPin = NO_NEIGHBOUR;  // mez45 → mez48  (mez46 GND in gap)
-    _pm1Cases[45].leftPin  = NO_NEIGHBOUR;  // mez48 ← mez45
-    _pm1Cases[48].rightPin = NO_NEIGHBOUR;  // mez51 → mez54  (mez53 GND in gap)
-    _pm1Cases[49].leftPin  = NO_NEIGHBOUR;  // mez54 ← mez51
-    _pm1Cases[54].rightPin = NO_NEIGHBOUR;  // mez59 → mez63  (mez61 GND in gap, ring wrap)
-    _pm1Cases[ 0].leftPin  = NO_NEIGHBOUR;  // mez63 ← mez59
+    _pm1Cases[15].nextPin = NO_NEIGHBOUR;  // mez8  → mez11  (mez10 GND in gap)
+    _pm1Cases[16].prevPin = NO_NEIGHBOUR;  // mez11 ← mez8
+    _pm1Cases[21].nextPin = NO_NEIGHBOUR;  // mez16 → mez19  (mez18 GND in gap)
+    _pm1Cases[22].prevPin = NO_NEIGHBOUR;  // mez19 ← mez16
+    _pm1Cases[27].nextPin = NO_NEIGHBOUR;  // mez24 → mez28  (mez26 GND in gap)
+    _pm1Cases[28].prevPin = NO_NEIGHBOUR;  // mez28 ← mez24
+    _pm1Cases[44].nextPin = NO_NEIGHBOUR;  // mez45 → mez48  (mez46 GND in gap)
+    _pm1Cases[45].prevPin = NO_NEIGHBOUR;  // mez48 ← mez45
+    _pm1Cases[48].nextPin = NO_NEIGHBOUR;  // mez51 → mez54  (mez53 GND in gap)
+    _pm1Cases[49].prevPin = NO_NEIGHBOUR;  // mez54 ← mez51
+    _pm1Cases[54].nextPin = NO_NEIGHBOUR;  // mez59 → mez63  (mez61 GND in gap, ring wrap)
+    _pm1Cases[ 0].prevPin = NO_NEIGHBOUR;  // mez63 ← mez59
 
     // VDD/PWR pads — 8 extra cases appended after the ring.
     // Neighbors suppressed on GND-adjacent sides; IO neighbors retained where possible.
-    _pm1Cases[55] = { .mezPin =  9, .gndPin = gnd, .leftPin =  8, .rightPin = NO_NEIGHBOUR, .diePad = 18 };  // die18 VDDIO   — left=mez8(die17),  right=mez10 GND
-    _pm1Cases[56] = { .mezPin = 17, .gndPin = gnd, .leftPin = 16, .rightPin = NO_NEIGHBOUR, .diePad = 26 };  // die26 PWR_AUX — left=mez16(die25), right=mez18 GND
-    _pm1Cases[57] = { .mezPin = 25, .gndPin = gnd, .leftPin = NO_NEIGHBOUR, .rightPin = NO_NEIGHBOUR, .diePad = 35 };  // die35 VDD_CORE — both GND neighbors
-    _pm1Cases[58] = { .mezPin = 27, .gndPin = gnd, .leftPin = NO_NEIGHBOUR, .rightPin = 28, .diePad = 37 };  // die37 VDDIO   — left=mez26 GND,    right=mez28(die38)
-    _pm1Cases[59] = { .mezPin = 47, .gndPin = gnd, .leftPin = NO_NEIGHBOUR, .rightPin = 48, .diePad = 58 };  // die58 VDDIO   — left=mez46 GND,    right=mez48(die59)
-    _pm1Cases[60] = { .mezPin = 52, .gndPin = gnd, .leftPin = NO_NEIGHBOUR, .rightPin = 54, .diePad = 64 };  // die64 PWR_AUX — left=mez53 GND,    right=mez54(die65)
-    _pm1Cases[61] = { .mezPin = 60, .gndPin = gnd, .leftPin = NO_NEIGHBOUR, .rightPin = NO_NEIGHBOUR, .diePad = 72 };  // die72 VDD_CORE — both GND neighbors
-    _pm1Cases[62] = { .mezPin = 62, .gndPin = gnd, .leftPin = NO_NEIGHBOUR, .rightPin = 63, .diePad = 74 };  // die74 VDDIO   — left=mez61 GND,    right=mez63(die1)
+    _pm1Cases[55] = { .mezPin =  9, .gndPin = gnd, .prevPin =  8, .nextPin = NO_NEIGHBOUR, .diePad = 18 };  // die18 VDDIO   — prev=mez8(die17),  next=mez10 GND
+    _pm1Cases[56] = { .mezPin = 17, .gndPin = gnd, .prevPin = 16, .nextPin = NO_NEIGHBOUR, .diePad = 26 };  // die26 PWR_AUX — prev=mez16(die25), next=mez18 GND
+    _pm1Cases[57] = { .mezPin = 25, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 35 };  // die35 VDD_CORE — both GND neighbors
+    _pm1Cases[58] = { .mezPin = 27, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 28, .diePad = 37 };  // die37 VDDIO   — prev=mez26 GND,    next=mez28(die38)
+    _pm1Cases[59] = { .mezPin = 47, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 48, .diePad = 58 };  // die58 VDDIO   — prev=mez46 GND,    next=mez48(die59)
+    _pm1Cases[60] = { .mezPin = 52, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 54, .diePad = 64 };  // die64 PWR_AUX — prev=mez53 GND,    next=mez54(die65)
+    _pm1Cases[61] = { .mezPin = 60, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 72 };  // die72 VDD_CORE — both GND neighbors
+    _pm1Cases[62] = { .mezPin = 62, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 63, .diePad = 74 };  // die74 VDDIO   — prev=mez61 GND,    next=mez63(die1)
 }
 
 // — Pad map 2: Mezzanine70 v2 ——————————————————————————————————————————————————
@@ -119,27 +119,27 @@ static void buildPm2() {
     static const uint8_t gnd = 10;  // mez pin 10 = die GND 19 (all GND pins equivalent)
     buildRingCases(_pm2Cases, ring, diePads, sizeof(ring), gnd);
 
-    _pm2Cases[15].rightPin = NO_NEIGHBOUR;  // mez8  → mez11  (mez10 GND in gap)
-    _pm2Cases[16].leftPin  = NO_NEIGHBOUR;  // mez11 ← mez8
-    _pm2Cases[21].rightPin = NO_NEIGHBOUR;  // mez16 → mez19  (mez18 GND in gap)
-    _pm2Cases[22].leftPin  = NO_NEIGHBOUR;  // mez19 ← mez16
-    _pm2Cases[27].rightPin = NO_NEIGHBOUR;  // mez24 → mez28  (mez26 GND in gap)
-    _pm2Cases[28].leftPin  = NO_NEIGHBOUR;  // mez28 ← mez24
-    _pm2Cases[45].rightPin = NO_NEIGHBOUR;  // mez45 → mez48  (mez46 GND in gap)
-    _pm2Cases[46].leftPin  = NO_NEIGHBOUR;  // mez48 ← mez45
-    _pm2Cases[49].rightPin = NO_NEIGHBOUR;  // mez51 → mez54  (mez53 GND in gap)
-    _pm2Cases[50].leftPin  = NO_NEIGHBOUR;  // mez54 ← mez51
-    _pm2Cases[55].rightPin = NO_NEIGHBOUR;  // mez59 → mez63  (mez61 GND in gap, ring wrap)
-    _pm2Cases[ 0].leftPin  = NO_NEIGHBOUR;  // mez63 ← mez59
+    _pm2Cases[15].nextPin = NO_NEIGHBOUR;  // mez8  → mez11  (mez10 GND in gap)
+    _pm2Cases[16].prevPin = NO_NEIGHBOUR;  // mez11 ← mez8
+    _pm2Cases[21].nextPin = NO_NEIGHBOUR;  // mez16 → mez19  (mez18 GND in gap)
+    _pm2Cases[22].prevPin = NO_NEIGHBOUR;  // mez19 ← mez16
+    _pm2Cases[27].nextPin = NO_NEIGHBOUR;  // mez24 → mez28  (mez26 GND in gap)
+    _pm2Cases[28].prevPin = NO_NEIGHBOUR;  // mez28 ← mez24
+    _pm2Cases[45].nextPin = NO_NEIGHBOUR;  // mez45 → mez48  (mez46 GND in gap)
+    _pm2Cases[46].prevPin = NO_NEIGHBOUR;  // mez48 ← mez45
+    _pm2Cases[49].nextPin = NO_NEIGHBOUR;  // mez51 → mez54  (mez53 GND in gap)
+    _pm2Cases[50].prevPin = NO_NEIGHBOUR;  // mez54 ← mez51
+    _pm2Cases[55].nextPin = NO_NEIGHBOUR;  // mez59 → mez63  (mez61 GND in gap, ring wrap)
+    _pm2Cases[ 0].prevPin = NO_NEIGHBOUR;  // mez63 ← mez59
 
-    _pm2Cases[56] = { .mezPin =  9, .gndPin = gnd, .leftPin =  8, .rightPin = NO_NEIGHBOUR, .diePad = 18 };  // die18 VDDIO   — left=mez8(die17),  right=mez10 GND
-    _pm2Cases[57] = { .mezPin = 17, .gndPin = gnd, .leftPin = 16, .rightPin = NO_NEIGHBOUR, .diePad = 26 };  // die26 PWR_AUX — left=mez16(die25), right=mez18 GND
-    _pm2Cases[58] = { .mezPin = 25, .gndPin = gnd, .leftPin = NO_NEIGHBOUR, .rightPin = NO_NEIGHBOUR, .diePad = 35 };  // die35 VDD_CORE — both GND neighbors
-    _pm2Cases[59] = { .mezPin = 27, .gndPin = gnd, .leftPin = NO_NEIGHBOUR, .rightPin = 28, .diePad = 37 };  // die37 VDDIO   — left=mez26 GND,    right=mez28(die38)
-    _pm2Cases[60] = { .mezPin = 47, .gndPin = gnd, .leftPin = NO_NEIGHBOUR, .rightPin = 48, .diePad = 58 };  // die58 VDDIO   — left=mez46 GND,    right=mez48(die59)
-    _pm2Cases[61] = { .mezPin = 52, .gndPin = gnd, .leftPin = NO_NEIGHBOUR, .rightPin = 54, .diePad = 64 };  // die64 PWR_AUX — left=mez53 GND,    right=mez54(die65)
-    _pm2Cases[62] = { .mezPin = 60, .gndPin = gnd, .leftPin = NO_NEIGHBOUR, .rightPin = NO_NEIGHBOUR, .diePad = 72 };  // die72 VDD_CORE — both GND neighbors
-    _pm2Cases[63] = { .mezPin = 62, .gndPin = gnd, .leftPin = NO_NEIGHBOUR, .rightPin = 63, .diePad = 74 };  // die74 VDDIO   — left=mez61 GND,    right=mez63(die1)
+    _pm2Cases[56] = { .mezPin =  9, .gndPin = gnd, .prevPin =  8, .nextPin = NO_NEIGHBOUR, .diePad = 18 };  // die18 VDDIO   — prev=mez8(die17),  next=mez10 GND
+    _pm2Cases[57] = { .mezPin = 17, .gndPin = gnd, .prevPin = 16, .nextPin = NO_NEIGHBOUR, .diePad = 26 };  // die26 PWR_AUX — prev=mez16(die25), next=mez18 GND
+    _pm2Cases[58] = { .mezPin = 25, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 35 };  // die35 VDD_CORE — both GND neighbors
+    _pm2Cases[59] = { .mezPin = 27, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 28, .diePad = 37 };  // die37 VDDIO   — prev=mez26 GND,    next=mez28(die38)
+    _pm2Cases[60] = { .mezPin = 47, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 48, .diePad = 58 };  // die58 VDDIO   — prev=mez46 GND,    next=mez48(die59)
+    _pm2Cases[61] = { .mezPin = 52, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 54, .diePad = 64 };  // die64 PWR_AUX — prev=mez53 GND,    next=mez54(die65)
+    _pm2Cases[62] = { .mezPin = 60, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 72 };  // die72 VDD_CORE — both GND neighbors
+    _pm2Cases[63] = { .mezPin = 62, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 63, .diePad = 74 };  // die74 VDDIO   — prev=mez61 GND,    next=mez63(die1)
 }
 
 static const PadMap _maps[] = {

@@ -6,6 +6,6 @@ extern AdcDriver adc;
 
 void adcTest() {
     AdcReadings r = adc.readAll();
-    Serial.printf("sense: %.3f V  left: %.3f V  right: %.3f V\n",
-                  r.sense, r.leftNeighbour, r.rightNeighbour);
+    Serial.printf("sense: %.3f V  prev: %.3f V  next: %.3f V\n",
+                  r.sense, r.prevNeighbour, r.nextNeighbour);
 }

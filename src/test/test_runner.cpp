@@ -16,13 +16,13 @@ PadResult TestRunner::classify(const AdcReadings& r, const TestCase& tc, const P
     else if (r.sense > padMap.senseGoodMax) pr.bond = BondResult::OPEN;
     else                                    pr.bond = BondResult::GOOD;
 
-    pr.leftShort  = (tc.leftPin  != NO_NEIGHBOUR) &&
-                    (r.leftNeighbour  < padMap.neighbourGoodMin ||
-                     r.leftNeighbour  > padMap.neighbourGoodMax);
+    pr.prevShort = (tc.prevPin != NO_NEIGHBOUR) &&
+                   (r.prevNeighbour < padMap.neighbourGoodMin ||
+                    r.prevNeighbour > padMap.neighbourGoodMax);
 
-    pr.rightShort = (tc.rightPin != NO_NEIGHBOUR) &&
-                    (r.rightNeighbour < padMap.neighbourGoodMin ||
-                     r.rightNeighbour > padMap.neighbourGoodMax);
+    pr.nextShort = (tc.nextPin != NO_NEIGHBOUR) &&
+                   (r.nextNeighbour < padMap.neighbourGoodMin ||
+                    r.nextNeighbour > padMap.neighbourGoodMax);
 
     return pr;
 }
@@ -45,25 +45,25 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
             _mux.clearAll();
             _mux.setChannel(adapter.channelForPin(tc.gndPin),   Bus::D);
             _mux.setChannel(adapter.channelForPin(tc.mezPin),   Bus::B);
-            if (tc.leftPin  != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.leftPin),  Bus::A);
-            if (tc.rightPin != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.rightPin), Bus::C);
+            if (tc.prevPin != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.prevPin), Bus::A);
+            if (tc.nextPin != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.nextPin), Bus::C);
             delay(2);  // allow signals to settle
 
             AdcReadings r  = _adc.readAll();
             PadResult   pr = classify(r, tc, padMap);
 
-            LOG_I("slot%u amez%u die%u: sense=%.3f left=%.3f right=%.3f",
-                  slot, tc.mezPin, tc.diePad, r.sense, r.leftNeighbour, r.rightNeighbour);
+            LOG_I("slot%u amez%u die%u: sense=%.3f prev=%.3f next=%.3f",
+                  slot, tc.mezPin, tc.diePad, r.sense, r.prevNeighbour, r.nextNeighbour);
 
-            bool ok = pr.bond == BondResult::GOOD && !pr.leftShort && !pr.rightShort;
+            bool ok = pr.bond == BondResult::GOOD && !pr.prevShort && !pr.nextShort;
             if (!ok) {
-                LOG_I("slot%u amez%u die%u FAIL: bond=%s%s%s sense=%.3f left=%.3f right=%.3f",
+                LOG_I("slot%u amez%u die%u FAIL: bond=%s%s%s sense=%.3f prev=%.3f next=%.3f",
                       slot, tc.mezPin, tc.diePad,
                       pr.bond == BondResult::SHORT_GND ? "SHORT_GND" :
                       pr.bond == BondResult::OPEN      ? "OPEN"      : "GOOD",
-                      pr.leftShort  ? " +LEFT_SHORT"  : "",
-                      pr.rightShort ? " +RIGHT_SHORT" : "",
-                      r.sense, r.leftNeighbour, r.rightNeighbour);
+                      pr.prevShort ? " +PREV_SHORT" : "",
+                      pr.nextShort ? " +NEXT_SHORT" : "",
+                      r.sense, r.prevNeighbour, r.nextNeighbour);
             }
 
             sr.byChannel[adapter.channelForPin(tc.mezPin)] = pr;

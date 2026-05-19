@@ -62,7 +62,79 @@ Items are ordered by dependency. Each phase unblocks the next.
 
 ---
 
-## Phase 4 — Future adapter (not needed for MVP)
+## Phase 4 — Test framework refactor (in progress)
+
+Motivation: global per-PadMap thresholds are too coarse; capacitive power pads need
+a different measurement strategy; a pre-measurement discharge step requires a no-result
+"nop" case type. The goal is per-TestCase flexibility without future rewrites.
+
+### Data model changes
+
+**New `TestThresholds` struct** (shareable, define once, reference from many cases):
+```cpp
+struct TestThresholds {
+    float senseGoodMin;
+    float senseGoodMax;
+    float neighbourGoodMin;
+    float neighbourGoodMax;
+};
+```
+
+**New `TestStrategy` enum**:
+```cpp
+enum class TestStrategy : uint8_t {
+    STANDARD,    // normal: sense + neighbours
+    SKIP_SENSE,  // capacitive pad: neighbours only, bond sense not checked
+    DISCHARGE,   // nop: connect buses for settleMs, no result recorded
+};
+```
+
+**`TestCase` additions** — `strategy`, `settleMs`, `thresholds` pointer:
+```cpp
+struct TestCase {
+    uint8_t              mezPin;
+    uint8_t              gndPin;
+    uint8_t              prevPin;
+    uint8_t              nextPin;
+    uint8_t              diePad;
+    TestStrategy         strategy;   // default STANDARD
+    uint16_t             settleMs;   // per-case settle, replaces hardcoded delay(2)
+    const TestThresholds* thresholds; // nullptr only valid for DISCHARGE
+};
+```
+
+**`PadMap`** — remove `senseGoodMin/Max` and `neighbourGoodMin/Max`; presence
+detection fields stay (they are pad-map-level, not per-bond).
+
+### Runner changes (`test_runner.cpp`)
+
+- `classify()` takes `const TestThresholds&` instead of `const PadMap&`
+- Loop per case:
+  - `DISCHARGE` → connect buses, `delay(settleMs)`, skip classify, skip result counters
+  - `SKIP_SENSE` → connect, wait, classify neighbours only (bond = GOOD unconditionally)
+  - `STANDARD`  → existing behaviour, using `tc.thresholds`
+
+### Registry changes (`pad_map_registry.cpp`)
+
+- Define a small set of shared `TestThresholds` instances:
+  - `kThreshIO`  — standard IO bond range
+  - `kThreshPwr` — power pad range (wider or SKIP_SENSE)
+- Update all `TestCase` initialisers to carry `strategy`, `settleMs`, `thresholds`
+- Capacitive power pads (die64 PWR_AUX, die26 PWR_AUX, etc.) get `SKIP_SENSE` + appropriate `settleMs`
+- Pre-discharge steps inserted before capacitive cases as `DISCHARGE` entries (both prevPin/nextPin set to gndPin, no diePad logged)
+- `buildRingCases()` gains `strategy`, `settleMs`, `thresholds` params (or sensible defaults)
+
+### Files to change
+
+- [ ] `src/test/pad_map.h` — add `TestThresholds`, `TestStrategy`, extend `TestCase`, remove global thresholds from `PadMap`
+- [ ] `src/test/pad_map.cpp` — update `buildRingCases` signature
+- [ ] `src/test/test_runner.cpp` — strategy dispatch in loop, `classify()` signature
+- [ ] `src/test/pad_map_registry.cpp` — define threshold instances, update all cases
+- [ ] `src/app/host_protocol.cpp` / result reporting — no struct change needed
+
+---
+
+## Phase 5 — Future adapter (not needed for MVP)
 
 - [ ] **Mezzanine70x5 GPIO mapping** — which of the 7 adapter-control GPIOs drives
   which CBT16211 isolation switch for each of the 5 DUT slots

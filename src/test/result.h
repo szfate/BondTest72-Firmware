@@ -9,8 +9,8 @@ enum class BondResult : uint8_t {
 
 struct PadResult {
     BondResult bond;
-    bool       leftShort;
-    bool       rightShort;
+    bool       prevShort;
+    bool       nextShort;
 };
 
 struct SlotResult {

@@ -5,8 +5,8 @@ void buildRingCases(TestCase* out, const uint8_t* ring, const uint8_t* diePads, 
         out[i] = {
             ring[i],
             gnd,
-            ring[(i + count - 1) % count],  // left  — wraps around
-            ring[(i + 1)         % count],  // right — wraps around
+            ring[(i + count - 1) % count],  // prev — wraps around
+            ring[(i + 1)         % count],  // next — wraps around
             diePads[i],
         };
     }
