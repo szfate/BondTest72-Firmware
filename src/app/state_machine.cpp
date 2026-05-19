@@ -20,9 +20,10 @@ static const char* stateName(StateMachine::State s) {
 }
 
 // LED colours
-static constexpr uint8_t YELLOW_R = 200, YELLOW_G = 150, YELLOW_B = 0;
+static constexpr uint8_t YELLOW_R = 180, YELLOW_G =  50, YELLOW_B = 0;
 static constexpr uint8_t GREEN_R  =   0, GREEN_G  = 255, GREEN_B  = 0;
 static constexpr uint8_t RED_R    = 255, RED_G    =   0, RED_B    = 0;
+static constexpr uint8_t DIM_RED_R =  50, DIM_RED_G =  0, DIM_RED_B = 0;
 
 // Blink periods
 static constexpr uint32_t BLINK_SLOW_MS = 800;
@@ -272,13 +273,18 @@ void StateMachine::flushEeprom() {
         LOG_E("adapter: eeprom write failed");
 }
 
-void StateMachine::checkAdapterAlive() {
-    if (!_eeprom.isPresent())
-        rp2040.reboot();
+bool StateMachine::checkAdapterAlive() {
+    if (_eeprom.isPresent()) return true;
+    LOG_W("adapter removed");
+    _adapter = nullptr;
+    _padMap  = nullptr;
+    _dutDetector.setAdapter(nullptr);
+    transition(State::NO_ADAPTER);
+    return false;
 }
 
 void StateMachine::startTest() {
-    checkAdapterAlive();
+    if (!checkAdapterAlive()) return;
     LOG_I("test start: slots=%u pads=%u", _adapter->getDutCount(), _padMap->caseCount);
 
     _hostProtocol.sendTestStart(
@@ -324,6 +330,7 @@ void StateMachine::updateLeds() {
     _leds.clear();
     switch (_state) {
         case State::NO_ADAPTER:
+            _leds.setAll(DIM_RED_R, DIM_RED_G, DIM_RED_B);
             break;
         case State::ADAPTER_DETECTED:
             if (blinkOn(BLINK_SLOW_MS)) _leds.setPixel(0, YELLOW_R, YELLOW_G, YELLOW_B);

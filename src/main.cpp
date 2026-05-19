@@ -57,15 +57,15 @@ static void debugBiasedSweep(uint8_t padMapId) {
 void setup() {
     Serial.begin(115200);
 #ifndef NDEBUG
-    delay(2000);
+    delay(000);
 #endif
     pinMode(LED_BUILTIN, OUTPUT);
+    leds.begin();
+    leds.bootShow();
     adc.begin();
     mux.begin();
     eeprom.begin();
     buttons.begin();
-    leds.begin();
-    leds.bootShow();
     hostProtocol.begin();
     stateMachine.begin();
 }

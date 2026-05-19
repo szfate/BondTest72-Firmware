@@ -47,6 +47,7 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
             _mux.setChannel(adapter.channelForPin(tc.mezPin),   Bus::B);
             if (tc.leftPin  != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.leftPin),  Bus::A);
             if (tc.rightPin != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.rightPin), Bus::C);
+            delay(2);  // allow signals to settle
 
             AdcReadings r  = _adc.readAll();
             PadResult   pr = classify(r, tc, padMap);

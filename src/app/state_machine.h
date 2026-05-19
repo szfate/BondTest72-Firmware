@@ -49,7 +49,7 @@ private:
     bool tryInitAdapter();
     bool provisionEeprom(uint8_t padmapId = EepromData::PADMAP_UNSET);
     void selectPadMap();
-    void checkAdapterAlive();
+    bool checkAdapterAlive();  // returns false and transitions to NO_ADAPTER if adapter gone
     void startTest();
     void sendResults();
     void flushEeprom();
