@@ -25,9 +25,10 @@ static constexpr uint8_t SLAVE_ADDR = 0x00;
 static constexpr uint8_t DEV_EEPROM = 0xA0 | (SLAVE_ADDR << 1);  // opcode Ah
 static constexpr uint8_t DEV_SECREG = 0xB0 | (SLAVE_ADDR << 1);  // opcode Bh
 
-// Open-drain via OE toggling: output latch is permanently 0, only OE changes.
-static inline void pinLow()     { sio_hw->gpio_oe_set = SWI_MASK; }
-static inline void pinRelease() { sio_hw->gpio_oe_clr = SWI_MASK; }
+// Open-drain: output latch is permanently 0; toggling direction drives/releases the line.
+// Direct SIO OE register manipulation was unreliable on RP2350 A4 silicon.
+static inline void pinLow()     { gpio_set_dir(SWI_PIN, GPIO_OUT); }
+static inline void pinRelease() { gpio_set_dir(SWI_PIN, GPIO_IN); }
 static inline bool pinRead()    { return (sio_hw->gpio_in & SWI_MASK) != 0; }
 
 // ---------------------------------------------------------------------------
@@ -96,22 +97,25 @@ void AT21CS01Driver::stop() {
 }
 
 void AT21CS01Driver::sendBit(bool b) {
-    uint32_t lowCyc = (b ? T_LOW1_US : T_LOW0_US) * _cpus;
-    uint32_t t0 = cyc();
+    uint32_t frameCyc = T_BIT_US * _cpus;
+    uint32_t lowCyc   = (b ? T_LOW1_US : T_LOW0_US) * _cpus;
+    uint32_t tFrame   = cyc();
     pinLow();
-    delayCyc(lowCyc);
+    uint32_t tLow = cyc();  // start measuring low time after pin is driven
+    while ((cyc() - tLow) < lowCyc);
     pinRelease();
-    while ((cyc() - t0) < T_BIT_US * _cpus);  // wait out full bit frame
+    while ((cyc() - tFrame) < frameCyc);  // wait out full bit frame from start
 }
 
 bool AT21CS01Driver::recvBit() {
-    uint32_t t0 = cyc();
+    uint32_t tFrame = cyc();
     pinLow();
-    delayCyc(_cpus);           // 1 µs tRD strobe
+    uint32_t tLow = cyc();
+    while ((cyc() - tLow) < _cpus);  // 1 µs tRD strobe from when pin went low
     pinRelease();
-    delayCyc(_cpus / 5);       // ~200 ns tPUP — line settles before sample
+    delayCyc(_cpus / 5);              // ~200 ns tPUP — line settles before sample
     bool val = pinRead();
-    while ((cyc() - t0) < T_BIT_US * _cpus);  // wait out full bit frame
+    while ((cyc() - tFrame) < T_BIT_US * _cpus);
     return val;
 }
 

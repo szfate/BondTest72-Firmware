@@ -126,11 +126,11 @@ detection fields stay (they are pad-map-level, not per-bond).
 
 ### Files to change
 
-- [ ] `src/test/pad_map.h` — add `TestThresholds`, `TestStrategy`, extend `TestCase`, remove global thresholds from `PadMap`
-- [ ] `src/test/pad_map.cpp` — update `buildRingCases` signature
-- [ ] `src/test/test_runner.cpp` — strategy dispatch in loop, `classify()` signature
-- [ ] `src/test/pad_map_registry.cpp` — define threshold instances, update all cases
-- [ ] `src/app/host_protocol.cpp` / result reporting — no struct change needed
+- [x] `src/test/pad_map.h` — add `TestThresholds`, `TestStrategy`, extend `TestCase`, remove global thresholds from `PadMap`
+- [x] `src/test/pad_map.cpp` — update `buildRingCases` signature
+- [x] `src/test/test_runner.cpp` — strategy dispatch in loop, `classify()` signature
+- [x] `src/test/pad_map_registry.cpp` — define threshold instances, update all cases
+- [x] `src/app/host_protocol.cpp` / result reporting — no struct change needed
 
 ---
 

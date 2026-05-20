@@ -53,6 +53,8 @@ private:
     void startTest();
     void sendResults();
     void flushEeprom();
+    void debugPwrSweep(uint8_t padMapId);
+    void debugBiasedSweep(uint8_t padMapId);
 
     MuxController&    _mux;
     AdcDriver&        _adc;

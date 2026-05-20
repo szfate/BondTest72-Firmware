@@ -10,6 +10,8 @@ enum class HostCommand : uint8_t {
     SET_PADMAP,
     DISCOVER,
     PROVISION,
+    DEBUG_PWR_SWEEP,
+    DEBUG_BIASED_SWEEP,
 };
 
 class HostProtocol {
@@ -18,7 +20,8 @@ public:
     HostCommand poll();
     uint8_t     setPadmapId() const { return _setPadmapId; }
 
-    uint8_t     provisionPadmapId() const { return _provisionPadmapId; }
+    uint8_t     provisionPadmapId()  const { return _provisionPadmapId; }
+    uint8_t     debugPadMapId()      const { return _debugPadMapId; }
 
     void sendAdapterDetected(uint8_t model, uint8_t version, const uint8_t* padmapIds);
     void sendDutInserted();
@@ -35,4 +38,5 @@ private:
     uint8_t _lineLen           = 0;
     uint8_t _setPadmapId       = 0;
     uint8_t _provisionPadmapId = 0xFF;
+    uint8_t _debugPadMapId     = 0;
 };

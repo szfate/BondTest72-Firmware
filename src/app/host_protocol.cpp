@@ -27,7 +27,15 @@ HostCommand HostProtocol::poll() {
 HostCommand HostProtocol::processLine(const char* line) {
     if (strcmp(line, "RUN") == 0)         return HostCommand::RUN;
     if (strcmp(line, "GET_RESULTS") == 0) return HostCommand::GET_RESULTS;
-    if (strcmp(line, "DISCOVER") == 0)    return HostCommand::DISCOVER;
+    if (strcmp(line, "DISCOVER") == 0)          return HostCommand::DISCOVER;
+    if (strncmp(line, "DEBUG_PWR_SWEEP ", 16) == 0) {
+        _debugPadMapId = (uint8_t)atoi(line + 16);
+        return HostCommand::DEBUG_PWR_SWEEP;
+    }
+    if (strncmp(line, "DEBUG_BIASED_SWEEP ", 19) == 0) {
+        _debugPadMapId = (uint8_t)atoi(line + 19);
+        return HostCommand::DEBUG_BIASED_SWEEP;
+    }
     if (strncmp(line, "PROVISION", 9) == 0) {
         _provisionPadmapId = (line[9] == ' ') ? (uint8_t)atoi(line + 10) : 0xFF;
         return HostCommand::PROVISION;

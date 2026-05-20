@@ -1,12 +1,22 @@
 #include "pad_map_registry.h"
 
+// Shared threshold instances — reference by pointer from TestCase.
+// Define one per logical pad category; multiple pads can share the same instance.
+static constexpr TestThresholds kThreshIoPm1  = { 0.2f, 0.8f, 0.2f, 2.5f };  // pm1 IO bonds
+static constexpr TestThresholds kThreshPwrPm1 = { 0.2f, 0.8f, 0.2f, 2.5f };  // pm1 VDDIO/VDD_CORE (sense checked)
+static constexpr TestThresholds kThreshIoPm2  = { 0.2f, 0.8f, 0.4f, 2.0f };  // pm2 IO bonds
+static constexpr TestThresholds kThreshPwrPm2 = { 0.2f, 0.8f, 0.4f, 2.0f };  // pm2 VDDIO/VDD_CORE (sense checked)
+// PWR_AUX has a cap to GND — sense unreliable; SKIP_SENSE strategy, neighbours still checked.
+static constexpr TestThresholds kThreshPwrAuxPm1 = { 0.0f, 0.0f, 0.2f, 2.5f };  // sense fields unused
+static constexpr TestThresholds kThreshPwrAuxPm2 = { 0.0f, 0.0f, 0.4f, 2.0f };  // sense fields unused
+
 // — Pad map 1: Mezzanine70 ——————————————————————————————————————————————————
-// 56 IO pads + 8 VDD/PWR pads = 64 cases total.
+// 55 IO pads + 8 VDD/PWR pads = 63 cases total.
 // Source: docs/MEZ_CONNECTOR_MAP.md — all mez numbers are ADAPTER-side.
 // GND mez pins (all shorted on adapter): 10, 18, 26, 46, 53, 61 — any one works.
 // Gaps in the ring (where a GND/PWR pad sits between two IO pads) are noted inline.
 
-static TestCase _pm1Cases[63];  // 55 IO + 8 VDD/PWR (mez34/die44 omitted — unconnected PCB trace on v1 boards)
+static TestCase _pm1Cases[65];  // 55 IO + 8 VDD/PWR + 2 DISCHARGE (mez34/die44 omitted — unconnected PCB trace on v1 boards)
 
 static void buildPm1() {
     static const uint8_t ring[] = {
@@ -47,7 +57,7 @@ static void buildPm1() {
     };
     static_assert(sizeof(ring) == sizeof(diePads), "ring/diePads length mismatch");
     static const uint8_t gnd = 10;  // mez pin 10 = die GND 19 (all GND pins equivalent)
-    buildRingCases(_pm1Cases, ring, diePads, sizeof(ring), gnd);
+    buildRingCases(_pm1Cases, ring, diePads, sizeof(ring), gnd, &kThreshIoPm1);
 
     _pm1Cases[15].nextPin = NO_NEIGHBOUR;  // mez8  → mez11  (mez10 GND in gap)
     _pm1Cases[16].prevPin = NO_NEIGHBOUR;  // mez11 ← mez8
@@ -64,19 +74,21 @@ static void buildPm1() {
 
     // VDD/PWR pads — 8 extra cases appended after the ring.
     // Neighbors suppressed on GND-adjacent sides; IO neighbors retained where possible.
-    _pm1Cases[55] = { .mezPin =  9, .gndPin = gnd, .prevPin =  8, .nextPin = NO_NEIGHBOUR, .diePad = 18 };  // die18 VDDIO   — prev=mez8(die17),  next=mez10 GND
-    _pm1Cases[56] = { .mezPin = 17, .gndPin = gnd, .prevPin = 16, .nextPin = NO_NEIGHBOUR, .diePad = 26 };  // die26 PWR_AUX — prev=mez16(die25), next=mez18 GND
-    _pm1Cases[57] = { .mezPin = 25, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 35 };  // die35 VDD_CORE — both GND neighbors
-    _pm1Cases[58] = { .mezPin = 27, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 28, .diePad = 37 };  // die37 VDDIO   — prev=mez26 GND,    next=mez28(die38)
-    _pm1Cases[59] = { .mezPin = 47, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 48, .diePad = 58 };  // die58 VDDIO   — prev=mez46 GND,    next=mez48(die59)
-    _pm1Cases[60] = { .mezPin = 52, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 54, .diePad = 64 };  // die64 PWR_AUX — prev=mez53 GND,    next=mez54(die65)
-    _pm1Cases[61] = { .mezPin = 60, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 72 };  // die72 VDD_CORE — both GND neighbors
-    _pm1Cases[62] = { .mezPin = 62, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 63, .diePad = 74 };  // die74 VDDIO   — prev=mez61 GND,    next=mez63(die1)
+    _pm1Cases[55] = { .mezPin =  9, .gndPin = gnd, .prevPin =  8, .nextPin = NO_NEIGHBOUR, .diePad = 18, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2,   .thresholds = &kThreshPwrPm1    };  // die18 VDDIO   — prev=mez8(die17),  next=mez10 GND
+    _pm1Cases[56] = { .mezPin = 17, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad =  0, .strategy = TestStrategy::DISCHARGE, .padType = PadType::PWR_AUX, .settleMs = 100, .thresholds = nullptr         };  // discharge die26 PWR_AUX cap before measurement
+    _pm1Cases[57] = { .mezPin = 17, .gndPin = gnd, .prevPin = 16, .nextPin = NO_NEIGHBOUR, .diePad = 26, .strategy = TestStrategy::SKIP_SENSE, .padType = PadType::PWR_AUX, .settleMs = 0,   .thresholds = &kThreshPwrAuxPm1 };  // die26 PWR_AUX — capacitive, settle=0 after discharge
+    _pm1Cases[58] = { .mezPin = 25, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 35, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE,.settleMs = 2,   .thresholds = &kThreshPwrPm1    };  // die35 VDD_CORE — both GND neighbors
+    _pm1Cases[59] = { .mezPin = 27, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 28, .diePad = 37, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2,   .thresholds = &kThreshPwrPm1    };  // die37 VDDIO   — prev=mez26 GND,    next=mez28(die38)
+    _pm1Cases[60] = { .mezPin = 47, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 48, .diePad = 58, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2,   .thresholds = &kThreshPwrPm1    };  // die58 VDDIO   — prev=mez46 GND,    next=mez48(die59)
+    _pm1Cases[61] = { .mezPin = 52, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad =  0, .strategy = TestStrategy::DISCHARGE, .padType = PadType::PWR_AUX, .settleMs = 100, .thresholds = nullptr         };  // discharge die64 PWR_AUX cap before measurement
+    _pm1Cases[62] = { .mezPin = 52, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 54, .diePad = 64, .strategy = TestStrategy::STANDARD,   .padType = PadType::PWR_AUX, .settleMs = 0,   .thresholds = &kThreshPwrPm1    };  // die64 PWR_AUX — settle=0 after discharge
+    _pm1Cases[63] = { .mezPin = 60, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 72, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE,.settleMs = 2,   .thresholds = &kThreshPwrPm1    };  // die72 VDD_CORE — both GND neighbors
+    _pm1Cases[64] = { .mezPin = 62, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 63, .diePad = 74, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2,   .thresholds = &kThreshPwrPm1    };  // die74 VDDIO   — prev=mez61 GND,    next=mez63(die1)
 }
 
 // — Pad map 2: Mezzanine70 v2 ——————————————————————————————————————————————————
 
-static TestCase _pm2Cases[64];
+static TestCase _pm2Cases[66];
 
 static void buildPm2() {
     static const uint8_t ring[] = {
@@ -117,7 +129,7 @@ static void buildPm2() {
     };
     static_assert(sizeof(ring) == sizeof(diePads), "ring/diePads length mismatch");
     static const uint8_t gnd = 10;  // mez pin 10 = die GND 19 (all GND pins equivalent)
-    buildRingCases(_pm2Cases, ring, diePads, sizeof(ring), gnd);
+    buildRingCases(_pm2Cases, ring, diePads, sizeof(ring), gnd, &kThreshIoPm2);
 
     _pm2Cases[15].nextPin = NO_NEIGHBOUR;  // mez8  → mez11  (mez10 GND in gap)
     _pm2Cases[16].prevPin = NO_NEIGHBOUR;  // mez11 ← mez8
@@ -132,14 +144,16 @@ static void buildPm2() {
     _pm2Cases[55].nextPin = NO_NEIGHBOUR;  // mez59 → mez63  (mez61 GND in gap, ring wrap)
     _pm2Cases[ 0].prevPin = NO_NEIGHBOUR;  // mez63 ← mez59
 
-    _pm2Cases[56] = { .mezPin =  9, .gndPin = gnd, .prevPin =  8, .nextPin = NO_NEIGHBOUR, .diePad = 18 };  // die18 VDDIO   — prev=mez8(die17),  next=mez10 GND
-    _pm2Cases[57] = { .mezPin = 17, .gndPin = gnd, .prevPin = 16, .nextPin = NO_NEIGHBOUR, .diePad = 26 };  // die26 PWR_AUX — prev=mez16(die25), next=mez18 GND
-    _pm2Cases[58] = { .mezPin = 25, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 35 };  // die35 VDD_CORE — both GND neighbors
-    _pm2Cases[59] = { .mezPin = 27, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 28, .diePad = 37 };  // die37 VDDIO   — prev=mez26 GND,    next=mez28(die38)
-    _pm2Cases[60] = { .mezPin = 47, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 48, .diePad = 58 };  // die58 VDDIO   — prev=mez46 GND,    next=mez48(die59)
-    _pm2Cases[61] = { .mezPin = 52, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 54, .diePad = 64 };  // die64 PWR_AUX — prev=mez53 GND,    next=mez54(die65)
-    _pm2Cases[62] = { .mezPin = 60, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 72 };  // die72 VDD_CORE — both GND neighbors
-    _pm2Cases[63] = { .mezPin = 62, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 63, .diePad = 74 };  // die74 VDDIO   — prev=mez61 GND,    next=mez63(die1)
+    _pm2Cases[56] = { .mezPin =  9, .gndPin = gnd, .prevPin =  8, .nextPin = NO_NEIGHBOUR, .diePad = 18, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2,   .thresholds = &kThreshPwrPm2    };  // die18 VDDIO   — prev=mez8(die17),  next=mez10 GND
+    _pm2Cases[57] = { .mezPin = 17, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad =  0, .strategy = TestStrategy::DISCHARGE, .padType = PadType::PWR_AUX, .settleMs = 100, .thresholds = nullptr         };  // discharge die26 PWR_AUX cap before measurement
+    _pm2Cases[58] = { .mezPin = 17, .gndPin = gnd, .prevPin = 16, .nextPin = NO_NEIGHBOUR, .diePad = 26, .strategy = TestStrategy::SKIP_SENSE, .padType = PadType::PWR_AUX, .settleMs = 0,   .thresholds = &kThreshPwrAuxPm2 };  // die26 PWR_AUX — capacitive, settle=0 after discharge
+    _pm2Cases[59] = { .mezPin = 25, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 35, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE,.settleMs = 2,   .thresholds = &kThreshPwrPm2    };  // die35 VDD_CORE — both GND neighbors
+    _pm2Cases[60] = { .mezPin = 27, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 28, .diePad = 37, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2,   .thresholds = &kThreshPwrPm2    };  // die37 VDDIO   — prev=mez26 GND,    next=mez28(die38)
+    _pm2Cases[61] = { .mezPin = 47, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 48, .diePad = 58, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2,   .thresholds = &kThreshPwrPm2    };  // die58 VDDIO   — prev=mez46 GND,    next=mez48(die59)
+    _pm2Cases[62] = { .mezPin = 52, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad =  0, .strategy = TestStrategy::DISCHARGE, .padType = PadType::PWR_AUX, .settleMs = 100, .thresholds = nullptr         };  // discharge die64 PWR_AUX cap before measurement
+    _pm2Cases[63] = { .mezPin = 52, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 54, .diePad = 64, .strategy = TestStrategy::STANDARD,   .padType = PadType::PWR_AUX, .settleMs = 0,   .thresholds = &kThreshPwrPm2    };  // die64 PWR_AUX — settle=0 after discharge
+    _pm2Cases[64] = { .mezPin = 60, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 72, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE,.settleMs = 2,   .thresholds = &kThreshPwrPm2    };  // die72 VDD_CORE — both GND neighbors
+    _pm2Cases[65] = { .mezPin = 62, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 63, .diePad = 74, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2,   .thresholds = &kThreshPwrPm2    };  // die74 VDDIO   — prev=mez61 GND,    next=mez63(die1)
 }
 
 static const PadMap _maps[] = {
@@ -147,33 +161,24 @@ static const PadMap _maps[] = {
         .id                 = 1,
         .name               = "Mezzanine70 v1",
         .cases              = _pm1Cases,
-        .caseCount          = 63,
+        .caseCount          = 65,
         .presencePadA       = 10,   // mez GND pin (die GND 19)
         .presencePadB       = 53,   // mez GND pin (die GND 63) — opposite side of die
         .presenceThresholdV = 0.3f,
-        .senseGoodMin       = 0.2f,
-        .senseGoodMax       = 0.8f,
-        .neighbourGoodMin   = 0.2f,
-        .neighbourGoodMax   = 2.5f,
     },
     {
         .id                 = 2,
         .name               = "Mezzanine70 v2",
         .cases              = _pm2Cases,
-        .caseCount          = 64,
+        .caseCount          = 66,
         .presencePadA       = 10,
         .presencePadB       = 53,
         .presenceThresholdV = 0.3f,
-        .senseGoodMin       = 0.2f,
-        .senseGoodMax       = 0.8f,
-        .neighbourGoodMin   = 0.4f,
-        .neighbourGoodMax   = 2.0f,
     },
 };
 
 static constexpr uint8_t MAP_COUNT = sizeof(_maps) / sizeof(_maps[0]);
 
-// Called once from setup() before any pad map is used.
 static bool _built = false;
 static void ensureBuilt() {
     if (_built) return;

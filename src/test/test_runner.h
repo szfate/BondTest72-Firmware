@@ -13,7 +13,7 @@ public:
     TestResult run(AdapterBase& adapter, const PadMap& padMap);
 
 private:
-    static PadResult classify(const AdcReadings& r, const TestCase& tc, const PadMap& padMap);
+    static PadResult classify(const AdcReadings& r, const TestCase& tc);
 
     MuxController& _mux;
     AdcDriver&     _adc;

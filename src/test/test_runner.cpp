@@ -9,20 +9,25 @@ TestRunner::TestRunner(MuxController& mux, AdcDriver& adc, DutDetector& dutDetec
 {
 }
 
-PadResult TestRunner::classify(const AdcReadings& r, const TestCase& tc, const PadMap& padMap) {
+PadResult TestRunner::classify(const AdcReadings& r, const TestCase& tc) {
+    const TestThresholds& th = *tc.thresholds;
     PadResult pr;
 
-    if      (r.sense < padMap.senseGoodMin) pr.bond = BondResult::SHORT_GND;
-    else if (r.sense > padMap.senseGoodMax) pr.bond = BondResult::OPEN;
-    else                                    pr.bond = BondResult::GOOD;
+    if (tc.strategy == TestStrategy::SKIP_SENSE) {
+        pr.bond = BondResult::GOOD;
+    } else {
+        if      (r.sense < th.senseGoodMin) pr.bond = BondResult::SHORT_GND;
+        else if (r.sense > th.senseGoodMax) pr.bond = BondResult::OPEN;
+        else                                pr.bond = BondResult::GOOD;
+    }
 
     pr.prevShort = (tc.prevPin != NO_NEIGHBOUR) &&
-                   (r.prevNeighbour < padMap.neighbourGoodMin ||
-                    r.prevNeighbour > padMap.neighbourGoodMax);
+                   (r.prevNeighbour < th.neighbourGoodMin ||
+                    r.prevNeighbour > th.neighbourGoodMax);
 
     pr.nextShort = (tc.nextPin != NO_NEIGHBOUR) &&
-                   (r.nextNeighbour < padMap.neighbourGoodMin ||
-                    r.nextNeighbour > padMap.neighbourGoodMax);
+                   (r.nextNeighbour < th.neighbourGoodMin ||
+                    r.nextNeighbour > th.neighbourGoodMax);
 
     return pr;
 }
@@ -43,14 +48,21 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
             const TestCase& tc = padMap.cases[i];
 
             _mux.clearAll();
-            _mux.setChannel(adapter.channelForPin(tc.gndPin),   Bus::D);
-            _mux.setChannel(adapter.channelForPin(tc.mezPin),   Bus::B);
+            if (tc.strategy == TestStrategy::DISCHARGE) {
+                // Short both cap terminals to tester GND — do not engage the Bus::D current source.
+                _mux.setChannel(adapter.channelForPin(tc.gndPin), Bus::B);
+                _mux.setChannel(adapter.channelForPin(tc.mezPin), Bus::B);
+                delay(tc.settleMs);
+                continue;
+            }
+            _mux.setChannel(adapter.channelForPin(tc.gndPin), Bus::D);
+            _mux.setChannel(adapter.channelForPin(tc.mezPin), Bus::B);
             if (tc.prevPin != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.prevPin), Bus::A);
             if (tc.nextPin != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.nextPin), Bus::C);
-            delay(2);  // allow signals to settle
+            delay(tc.settleMs);
 
             AdcReadings r  = _adc.readAll();
-            PadResult   pr = classify(r, tc, padMap);
+            PadResult   pr = classify(r, tc);
 
             LOG_I("slot%u amez%u die%u: sense=%.3f prev=%.3f next=%.3f",
                   slot, tc.mezPin, tc.diePad, r.sense, r.prevNeighbour, r.nextNeighbour);
