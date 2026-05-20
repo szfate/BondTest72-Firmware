@@ -4,9 +4,9 @@ static constexpr TestThresholds kThreshIoPm1     = { 0.2f, 0.8f, 0.2f, 1.5f };
 static constexpr TestThresholds kThreshPwrPm1    = { 0.2f, 0.8f, 0.2f, 1.5f };
 static constexpr TestThresholds kThreshIoPm2     = { 0.2f, 0.8f, 0.2f, 1.5f };
 static constexpr TestThresholds kThreshPwrPm2    = { 0.2f, 0.8f, 0.2f, 1.5f };
-// PWR_AUX has a cap to GND — sense unreliable; SKIP_SENSE strategy, neighbours still checked.
-static constexpr TestThresholds kThreshPwrAuxPm1 = { 0.0f, 0.0f, 0.2f, 1.5f };
-static constexpr TestThresholds kThreshPwrAuxPm2 = { 0.0f, 0.0f, 0.2f, 1.5f };
+// PWR_AUX has a cap to GND — sense and neighbour voltages are cap-state-dependent; accept 0.2–3.0 V throughout.
+static constexpr TestThresholds kThreshPwrAuxPm1 = { 0.2f, 3.0f, 0.2f, 3.0f };
+static constexpr TestThresholds kThreshPwrAuxPm2 = { 0.2f, 3.0f, 0.2f, 3.0f };
 
 #define NON NO_NEIGHBOUR
 static constexpr uint8_t GND = 10;  // mez10 = die GND 19; all GND pins equivalent
@@ -97,7 +97,7 @@ static const TestCase _pm1Cases[] = {
     { .mezPin = 25, .gndPin = GND, .prevPin = NON, .nextPin = NON, .diePad = 35, .strategy = TestStrategy::STANDARD, .padType = PadType::VDD_CORE, .groupId = 0, .settleMs = 2, .thresholds = &kThreshPwrPm1    },  // die 35 VDD_CORE
     { .mezPin = 27, .gndPin = GND, .prevPin = NON, .nextPin =  28, .diePad = 37, .strategy = TestStrategy::STANDARD, .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm1    },  // die 37 VDDIO
     { .mezPin = 47, .gndPin = GND, .prevPin = NON, .nextPin =  48, .diePad = 58, .strategy = TestStrategy::STANDARD, .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm1    },  // die 58 VDDIO
-    { .mezPin = 52, .gndPin = GND, .prevPin = NON, .nextPin =  54, .diePad = 64, .strategy = TestStrategy::STANDARD, .padType = PadType::PWR_AUX,  .groupId = 1, .settleMs = 0, .thresholds = &kThreshPwrPm1    },  // die 64 PWR_AUX
+    { .mezPin = 52, .gndPin = GND, .prevPin = NON, .nextPin =  54, .diePad = 64, .strategy = TestStrategy::STANDARD, .padType = PadType::PWR_AUX,  .groupId = 1, .settleMs = 0, .thresholds = &kThreshPwrAuxPm1 },  // die 64 PWR_AUX
     { .mezPin = 60, .gndPin = GND, .prevPin = NON, .nextPin = NON, .diePad = 72, .strategy = TestStrategy::STANDARD, .padType = PadType::VDD_CORE, .groupId = 0, .settleMs = 2, .thresholds = &kThreshPwrPm1    },  // die 72 VDD_CORE
     { .mezPin = 62, .gndPin = GND, .prevPin = NON, .nextPin =  63, .diePad = 74, .strategy = TestStrategy::STANDARD, .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm1    },  // die 74 VDDIO
 };
@@ -177,7 +177,7 @@ static const TestCase _pm2Cases[] = {
     { .mezPin = 25, .gndPin = GND, .prevPin = NON, .nextPin = NON, .diePad = 35, .strategy = TestStrategy::STANDARD, .padType = PadType::VDD_CORE, .groupId = 0, .settleMs = 2, .thresholds = &kThreshPwrPm2    },  // die 35 VDD_CORE
     { .mezPin = 27, .gndPin = GND, .prevPin = NON, .nextPin =  28, .diePad = 37, .strategy = TestStrategy::STANDARD, .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm2    },  // die 37 VDDIO
     { .mezPin = 47, .gndPin = GND, .prevPin = NON, .nextPin =  48, .diePad = 58, .strategy = TestStrategy::STANDARD, .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm2    },  // die 58 VDDIO
-    { .mezPin = 52, .gndPin = GND, .prevPin = NON, .nextPin =  54, .diePad = 64, .strategy = TestStrategy::STANDARD, .padType = PadType::PWR_AUX,  .groupId = 1, .settleMs = 0, .thresholds = &kThreshPwrPm2    },  // die 64 PWR_AUX
+    { .mezPin = 52, .gndPin = GND, .prevPin = NON, .nextPin =  54, .diePad = 64, .strategy = TestStrategy::STANDARD, .padType = PadType::PWR_AUX,  .groupId = 1, .settleMs = 0, .thresholds = &kThreshPwrAuxPm2 },  // die 64 PWR_AUX
     { .mezPin = 60, .gndPin = GND, .prevPin = NON, .nextPin = NON, .diePad = 72, .strategy = TestStrategy::STANDARD, .padType = PadType::VDD_CORE, .groupId = 0, .settleMs = 2, .thresholds = &kThreshPwrPm2    },  // die 72 VDD_CORE
     { .mezPin = 62, .gndPin = GND, .prevPin = NON, .nextPin =  63, .diePad = 74, .strategy = TestStrategy::STANDARD, .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm2    },  // die 74 VDDIO
 };

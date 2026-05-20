@@ -20,7 +20,7 @@ static const char* stateName(StateMachine::State s) {
 }
 
 // LED colours
-static constexpr uint8_t YELLOW_R = 180, YELLOW_G =  50, YELLOW_B = 0;
+static constexpr uint8_t YELLOW_R = 170, YELLOW_G =  30, YELLOW_B = 0;
 static constexpr uint8_t GREEN_R  =   0, GREEN_G  = 255, GREEN_B  = 0;
 static constexpr uint8_t RED_R    = 255, RED_G    =   0, RED_B    = 0;
 static constexpr uint8_t DIM_RED_R =  50, DIM_RED_G =  0, DIM_RED_B = 0;
