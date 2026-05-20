@@ -42,6 +42,10 @@ void Mezzanine70::setEolLed(bool on) {
     digitalWrite(EOL_LED_PIN, on ? HIGH : LOW);
 }
 
+void Mezzanine70::tickEolLed() {
+    setEolLed((millis() / 500) % 2 == 0);  // 1 Hz blink
+}
+
 // Onboard diode between channels 70 (U2 X21) and 71 (U2 X20).
 // Anode=70, cathode=71. Drive anode→D (27K pull-up), cathode→B (GND).
 // Read COM_D (ch0) at the anode: forward → ~Vf, reverse → ~3.3V.

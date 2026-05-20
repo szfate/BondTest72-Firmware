@@ -32,6 +32,7 @@ public:
 
     enum class State : uint8_t {
         NO_ADAPTER,
+        EOL_ADAPTER,
         ADAPTER_DETECTED,
         READY,
         WRONG_ORIENTATION,

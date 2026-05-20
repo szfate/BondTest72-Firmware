@@ -17,6 +17,7 @@ public:
     bool         connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
                                          const PadMap& padMap) const override;
     void         setEolLed(bool on) override;
+    void         tickEolLed()       override;
 
 private:
     uint8_t _version;

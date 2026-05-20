@@ -28,6 +28,8 @@ public:
 
     // Drive the adapter's EOL indicator (e.g. onboard LED). Default no-op.
     virtual void         setEolLed(bool on) {}
+    // Called every loop() while in EOL_ADAPTER state; implementation handles blink timing.
+    virtual void         tickEolLed()       {}
 
     // Sweep all IO pads for connector-level shorts to GND (solder bridges etc.).
     // Must only be called when no DUT is present. Returns false if any pad reads

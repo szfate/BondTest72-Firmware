@@ -10,6 +10,7 @@ static const char* stateName(StateMachine::State s) {
         case StateMachine::State::NO_ADAPTER:        return "NO_ADAPTER";
         case StateMachine::State::ADAPTER_DETECTED:  return "ADAPTER_DETECTED";
         case StateMachine::State::READY:             return "READY";
+        case StateMachine::State::EOL_ADAPTER:        return "EOL_ADAPTER";
         case StateMachine::State::WRONG_ORIENTATION: return "WRONG_ORIENTATION";
         case StateMachine::State::TESTING:           return "TESTING";
         case StateMachine::State::PASS:              return "PASS";
@@ -53,12 +54,12 @@ void StateMachine::begin() {
     if (_eeprom.isPresent()) {
         bool ok = tryInitAdapter();
         if (ok && _eepromData.eolReached == EepromData::EOL_REACHED) {
-            LOG_W("adapter: EOL — refusing operation");
-            _adapter->setEolLed(true);
-            ok = false;
+            LOG_W("adapter: EOL — rejecting");
+            _state = State::EOL_ADAPTER;
+        } else {
+            if (ok) _dutDetector.poll();  // prime detector state — no event fired, no counter increment
+            _state = ok ? State::ADAPTER_DETECTED : State::FAULT;
         }
-        if (ok) _dutDetector.poll();  // prime detector state — no event fired, no counter increment
-        _state = ok ? State::ADAPTER_DETECTED : State::FAULT;
         LOG_I("adapter init %s -> %s", ok ? "ok" : "FAILED", stateName(_state));
     }
     updateLeds();
@@ -74,16 +75,20 @@ void StateMachine::update() {
         handleCommand(cmd);
 
     // Adapter liveness (runtime — removal triggers reset)
-    if (_state != State::NO_ADAPTER && _state != State::FAULT) {
+    if (_state != State::NO_ADAPTER) {
         if (now - _lastAdapterPoll >= ADAPTER_POLL_INTERVAL_MS) {
             checkAdapterAlive();
             _lastAdapterPoll = now;
         }
     }
 
-    // DUT polling — all states except TESTING, NO_ADAPTER, FAULT
+    if (_state == State::EOL_ADAPTER && _adapter)
+        _adapter->tickEolLed();
+
+    // DUT polling — all states except TESTING, NO_ADAPTER, EOL_ADAPTER, FAULT
     if (_state != State::TESTING &&
         _state != State::NO_ADAPTER &&
+        _state != State::EOL_ADAPTER &&
         _state != State::FAULT) {
         if (now >= _dutSettleUntil && now - _lastDutPoll >= DUT_POLL_INTERVAL_MS) {
             handleDutEvent(_dutDetector.poll());
@@ -100,8 +105,18 @@ void StateMachine::update() {
     // Poll for adapter in NO_ADAPTER state
     if (_state == State::NO_ADAPTER) {
         if (now - _lastAdapterPoll >= ADAPTER_POLL_INTERVAL_FAST_MS) {
-            if (_eeprom.isPresent())
-                transition(tryInitAdapter() ? State::ADAPTER_DETECTED : State::FAULT);
+            if (_eeprom.isPresent()) {
+                if (tryInitAdapter()) {
+                    if (_eepromData.eolReached == EepromData::EOL_REACHED) {
+                        LOG_W("adapter: EOL — rejecting");
+                        transition(State::EOL_ADAPTER);
+                    } else {
+                        transition(State::ADAPTER_DETECTED);
+                    }
+                } else {
+                    transition(State::FAULT);
+                }
+            }
             _lastAdapterPoll = now;
         }
     }
@@ -219,7 +234,7 @@ bool StateMachine::provisionEeprom(uint8_t padmapId) {
     d.supportedPadmapIds[1]   = EepromData::PADMAP_UNSET;
     d.supportedPadmapIds[2]   = EepromData::PADMAP_UNSET;
     d.supportedPadmapIds[3]   = EepromData::PADMAP_UNSET;
-    d.designedLifespan        = 10000;
+    d.designedLifespan        = 10;
     d.dateOfManufacture = 0;
     d.insertionCount    = 0;
     d.testCount         = 0;
@@ -287,8 +302,10 @@ void StateMachine::flushEeprom() {
         _eepromData.eolReached = EepromData::EOL_REACHED;
         LOG_W("adapter: EOL reached (%lu insertions)", _eepromData.insertionCount);
     }
-    if (_adapter && _eepromData.eolReached == EepromData::EOL_REACHED)
+    if (_adapter && _eepromData.eolReached == EepromData::EOL_REACHED) {
         _adapter->setEolLed(true);
+        transition(State::FAULT);
+    }
     uint8_t buf[36];
     eepromSerialize(_eepromData, buf);
     if (!_eeprom.write(0, buf, 36))
@@ -298,6 +315,7 @@ void StateMachine::flushEeprom() {
 bool StateMachine::checkAdapterAlive() {
     if (_eeprom.isPresent()) return true;
     LOG_W("adapter removed");
+    if (_adapter) _adapter->setEolLed(false);
     _adapter = nullptr;
     _padMap  = nullptr;
     _dutDetector.setAdapter(nullptr);
@@ -458,6 +476,7 @@ void StateMachine::updateLeds() {
     _leds.clear();
     switch (_state) {
         case State::NO_ADAPTER:
+        case State::EOL_ADAPTER:
             _leds.setAll(DIM_RED_R, DIM_RED_G, DIM_RED_B);
             break;
         case State::ADAPTER_DETECTED:
@@ -470,7 +489,7 @@ void StateMachine::updateLeds() {
             _leds.setPixel(0, YELLOW_R, YELLOW_G, YELLOW_B);
             break;
         case State::WRONG_ORIENTATION:
-            if (blinkOn(BLINK_SLOW_MS)) _leds.setPixel(2, RED_R, RED_G, RED_B);
+            if (blinkOn(BLINK_SLOW_MS)) _leds.setPixel(0, RED_R, RED_G, RED_B);
             break;
         case State::PASS:
             _leds.setPixel(1, GREEN_R, GREEN_G, GREEN_B);
