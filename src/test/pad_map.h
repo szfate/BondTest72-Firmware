@@ -42,8 +42,16 @@ struct TestCase {
     uint8_t               diePad;      // die pad number (for logging; 0 for DISCHARGE steps)
     TestStrategy          strategy;
     PadType               padType;
+    uint8_t               groupId;     // 0 = must pass individually; >0 = belongs to a PadGroup
     uint16_t              settleMs;
     const TestThresholds* thresholds;  // nullptr valid only for DISCHARGE
+};
+
+// A group of pads that collectively need minPass members to pass.
+struct PadGroup {
+    uint8_t     id;
+    uint8_t     minPass;
+    const char* name;
 };
 
 struct PadMap {
@@ -54,6 +62,8 @@ struct PadMap {
     uint8_t          presencePadA;        // mezzanine GND pin → Bus::D (27K pull-up, sense)
     uint8_t          presencePadB;        // mezzanine GND pin → Bus::B (GND return)
     float            presenceThresholdV;  // COM_D below this → DUT present
+    const PadGroup*  padGroups;
+    uint8_t          padGroupCount;
 };
 
 // Helper for simple ring-layout dies: populates out[count] from an ordered

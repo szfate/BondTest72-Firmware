@@ -166,12 +166,18 @@ bool AT21CS01Driver::readTransaction(uint8_t devBase, uint8_t addr,
 
 void AT21CS01Driver::begin() {
     timingInit();
-    gpio_init(SWI_PIN);                  // set function = SIO, direction = IN
+    gpio_init(SWI_PIN);
     gpio_put(SWI_PIN, 0);               // output latch = 0; never changes
-    // Direction stays IN (high-Z). pinLow() enables OE; pinRelease() disables it.
+    gpio_pull_down(SWI_PIN);            // A2 keeper fix: pull-down ensures 0 V when no board; external pull-up wins when board present
 }
 
 bool AT21CS01Driver::isPresent() {
+    // E9 errata: keeper latches last input state. Drive low to reset it to 0,
+    // then release with pull-down so only a real external pull-up reads high.
+    pinLow();
+    gpio_pull_down(SWI_PIN);
+    pinRelease();
+    delayUs(1);
     return pinRead();
 }
 

@@ -92,10 +92,34 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
     _mux.clearAll();
 
     if (result.outcome == TestOutcome::PASS) {
-        for (uint8_t slot = 0; slot < result.slotCount; slot++) {
-            if (result.slots[slot].goodCount != result.slots[slot].testedCount) {
-                result.outcome = TestOutcome::FAIL;
-                break;
+        for (uint8_t slot = 0; slot < result.slotCount && result.outcome == TestOutcome::PASS; slot++) {
+            const SlotResult& sr = result.slots[slot];
+
+            // Ungrouped pads: every one must pass.
+            for (uint8_t i = 0; i < padMap.caseCount && result.outcome == TestOutcome::PASS; i++) {
+                const TestCase& tc = padMap.cases[i];
+                if (tc.strategy == TestStrategy::DISCHARGE || tc.groupId != 0) continue;
+                const PadResult& pr = sr.byChannel[adapter.channelForPin(tc.mezPin)];
+                if (pr.bond != BondResult::GOOD || pr.prevShort || pr.nextShort)
+                    result.outcome = TestOutcome::FAIL;
+            }
+
+            // Grouped pads: each group needs at least minPass members passing.
+            for (uint8_t g = 0; g < padMap.padGroupCount && result.outcome == TestOutcome::PASS; g++) {
+                const PadGroup& grp = padMap.padGroups[g];
+                uint8_t passCount = 0, totalCount = 0;
+                for (uint8_t i = 0; i < padMap.caseCount; i++) {
+                    const TestCase& tc = padMap.cases[i];
+                    if (tc.groupId != grp.id) continue;
+                    totalCount++;
+                    const PadResult& pr = sr.byChannel[adapter.channelForPin(tc.mezPin)];
+                    if (pr.bond == BondResult::GOOD && !pr.prevShort && !pr.nextShort) passCount++;
+                }
+                LOG_I("slot%u group %s: %u/%u pass (need %u) -> %s",
+                      slot, grp.name, passCount, totalCount, grp.minPass,
+                      passCount >= grp.minPass ? "PASS" : "FAIL");
+                if (passCount < grp.minPass)
+                    result.outcome = TestOutcome::FAIL;
             }
         }
     }

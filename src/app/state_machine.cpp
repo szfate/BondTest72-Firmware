@@ -99,7 +99,7 @@ void StateMachine::update() {
 
     // Poll for adapter in NO_ADAPTER state
     if (_state == State::NO_ADAPTER) {
-        if (now - _lastAdapterPoll >= ADAPTER_POLL_INTERVAL_MS) {
+        if (now - _lastAdapterPoll >= ADAPTER_POLL_INTERVAL_FAST_MS) {
             if (_eeprom.isPresent())
                 transition(tryInitAdapter() ? State::ADAPTER_DETECTED : State::FAULT);
             _lastAdapterPoll = now;
@@ -181,6 +181,22 @@ void StateMachine::handleCommand(HostCommand cmd) {
             break;
         case HostCommand::DISCOVER:
             _hostProtocol.sendError("DISCOVER not implemented");
+            break;
+        case HostCommand::GET_ADAPTER:
+            if (!_adapter) {
+                _hostProtocol.sendError("no adapter");
+            } else {
+                _hostProtocol.sendAdapterInfo(
+                    (uint8_t)_eepromData.adapterModel,
+                    _eepromData.adapterVersion,
+                    _eepromData.supportedPadmapIds,
+                    _eepromData.designedLifespan,
+                    _eepromData.dateOfManufacture,
+                    _eepromData.insertionCount,
+                    _eepromData.testCount,
+                    _eepromData.eolReached == EepromData::EOL_REACHED,
+                    _padMap ? _padMap->name : nullptr);
+            }
             break;
         case HostCommand::DEBUG_PWR_SWEEP:
             debugPwrSweep(_hostProtocol.debugPadMapId());

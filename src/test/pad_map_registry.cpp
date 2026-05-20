@@ -2,13 +2,14 @@
 
 // Shared threshold instances — reference by pointer from TestCase.
 // Define one per logical pad category; multiple pads can share the same instance.
-static constexpr TestThresholds kThreshIoPm1  = { 0.2f, 0.8f, 0.2f, 2.5f };  // pm1 IO bonds
-static constexpr TestThresholds kThreshPwrPm1 = { 0.2f, 0.8f, 0.2f, 2.5f };  // pm1 VDDIO/VDD_CORE (sense checked)
-static constexpr TestThresholds kThreshIoPm2  = { 0.2f, 0.8f, 0.4f, 2.0f };  // pm2 IO bonds
-static constexpr TestThresholds kThreshPwrPm2 = { 0.2f, 0.8f, 0.4f, 2.0f };  // pm2 VDDIO/VDD_CORE (sense checked)
+// Neighbour divider: 1M pull-up / 220k pull-down → ~0.6V nominal; short to GND < 0.2V; short to rail > 1.5V.
+static constexpr TestThresholds kThreshIoPm1  = { 0.2f, 0.8f, 0.2f, 1.5f };  // pm1 IO bonds
+static constexpr TestThresholds kThreshPwrPm1 = { 0.2f, 0.8f, 0.2f, 1.5f };  // pm1 VDDIO/VDD_CORE (sense checked)
+static constexpr TestThresholds kThreshIoPm2  = { 0.2f, 0.8f, 0.2f, 1.5f };  // pm2 IO bonds
+static constexpr TestThresholds kThreshPwrPm2 = { 0.2f, 0.8f, 0.2f, 1.5f };  // pm2 VDDIO/VDD_CORE (sense checked)
 // PWR_AUX has a cap to GND — sense unreliable; SKIP_SENSE strategy, neighbours still checked.
-static constexpr TestThresholds kThreshPwrAuxPm1 = { 0.0f, 0.0f, 0.2f, 2.5f };  // sense fields unused
-static constexpr TestThresholds kThreshPwrAuxPm2 = { 0.0f, 0.0f, 0.4f, 2.0f };  // sense fields unused
+static constexpr TestThresholds kThreshPwrAuxPm1 = { 0.0f, 0.0f, 0.2f, 1.5f };  // sense fields unused
+static constexpr TestThresholds kThreshPwrAuxPm2 = { 0.0f, 0.0f, 0.2f, 1.5f };  // sense fields unused
 
 // — Pad map 1: Mezzanine70 ——————————————————————————————————————————————————
 // 55 IO pads + 8 VDD/PWR pads = 63 cases total.
@@ -74,14 +75,15 @@ static void buildPm1() {
 
     // VDD/PWR pads — 8 extra cases appended after the ring.
     // Neighbors suppressed on GND-adjacent sides; IO neighbors retained where possible.
-    _pm1Cases[55] = { .mezPin =  9, .gndPin = gnd, .prevPin =  8, .nextPin = NO_NEIGHBOUR, .diePad = 18, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2, .thresholds = &kThreshPwrPm1    };  // die18 VDDIO   — prev=mez8(die17),  next=mez10 GND
-    _pm1Cases[56] = { .mezPin = 17, .gndPin = gnd, .prevPin = 16, .nextPin = NO_NEIGHBOUR, .diePad = 26, .strategy = TestStrategy::SKIP_SENSE, .padType = PadType::PWR_AUX, .settleMs = 0, .thresholds = &kThreshPwrAuxPm1 };  // die26 PWR_AUX — capacitive
-    _pm1Cases[57] = { .mezPin = 25, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 35, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE,.settleMs = 2, .thresholds = &kThreshPwrPm1    };  // die35 VDD_CORE — both GND neighbors
-    _pm1Cases[58] = { .mezPin = 27, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 28, .diePad = 37, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2, .thresholds = &kThreshPwrPm1    };  // die37 VDDIO   — prev=mez26 GND,    next=mez28(die38)
-    _pm1Cases[59] = { .mezPin = 47, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 48, .diePad = 58, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2, .thresholds = &kThreshPwrPm1    };  // die58 VDDIO   — prev=mez46 GND,    next=mez48(die59)
-    _pm1Cases[60] = { .mezPin = 52, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 54, .diePad = 64, .strategy = TestStrategy::STANDARD,   .padType = PadType::PWR_AUX, .settleMs = 0, .thresholds = &kThreshPwrPm1    };  // die64 PWR_AUX
-    _pm1Cases[61] = { .mezPin = 60, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 72, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE,.settleMs = 2, .thresholds = &kThreshPwrPm1    };  // die72 VDD_CORE — both GND neighbors
-    _pm1Cases[62] = { .mezPin = 62, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 63, .diePad = 74, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2, .thresholds = &kThreshPwrPm1    };  // die74 VDDIO   — prev=mez61 GND,    next=mez63(die1)
+    // groupId 1 = PWR_AUX (pass if ≥1 of 2 pass), groupId 2 = VDDIO (pass if ≥1 of 4 pass)
+    _pm1Cases[55] = { .mezPin =  9, .gndPin = gnd, .prevPin =  8, .nextPin = NO_NEIGHBOUR, .diePad = 18, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm1    };  // die18 VDDIO
+    _pm1Cases[56] = { .mezPin = 17, .gndPin = gnd, .prevPin = 16, .nextPin = NO_NEIGHBOUR, .diePad = 26, .strategy = TestStrategy::STANDARD, .padType = PadType::PWR_AUX, .groupId = 1, .settleMs = 0, .thresholds = &kThreshPwrAuxPm1 };  // die26 PWR_AUX — capacitive
+    _pm1Cases[57] = { .mezPin = 25, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 35, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE,.groupId = 0, .settleMs = 2, .thresholds = &kThreshPwrPm1    };  // die35 VDD_CORE
+    _pm1Cases[58] = { .mezPin = 27, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 28, .diePad = 37, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm1    };  // die37 VDDIO
+    _pm1Cases[59] = { .mezPin = 47, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 48, .diePad = 58, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm1    };  // die58 VDDIO
+    _pm1Cases[60] = { .mezPin = 52, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 54, .diePad = 64, .strategy = TestStrategy::STANDARD,   .padType = PadType::PWR_AUX, .groupId = 1, .settleMs = 0, .thresholds = &kThreshPwrPm1    };  // die64 PWR_AUX
+    _pm1Cases[61] = { .mezPin = 60, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 72, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE,.groupId = 0, .settleMs = 2, .thresholds = &kThreshPwrPm1    };  // die72 VDD_CORE
+    _pm1Cases[62] = { .mezPin = 62, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 63, .diePad = 74, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm1    };  // die74 VDDIO
 }
 
 // — Pad map 2: Mezzanine70 v2 ——————————————————————————————————————————————————
@@ -142,15 +144,22 @@ static void buildPm2() {
     _pm2Cases[55].nextPin = NO_NEIGHBOUR;  // mez59 → mez63  (mez61 GND in gap, ring wrap)
     _pm2Cases[ 0].prevPin = NO_NEIGHBOUR;  // mez63 ← mez59
 
-    _pm2Cases[56] = { .mezPin =  9, .gndPin = gnd, .prevPin =  8, .nextPin = NO_NEIGHBOUR, .diePad = 18, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2, .thresholds = &kThreshPwrPm2    };  // die18 VDDIO   — prev=mez8(die17),  next=mez10 GND
-    _pm2Cases[57] = { .mezPin = 17, .gndPin = gnd, .prevPin = 16, .nextPin = NO_NEIGHBOUR, .diePad = 26, .strategy = TestStrategy::SKIP_SENSE, .padType = PadType::PWR_AUX, .settleMs = 0, .thresholds = &kThreshPwrAuxPm2 };  // die26 PWR_AUX — capacitive
-    _pm2Cases[58] = { .mezPin = 25, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 35, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE,.settleMs = 2, .thresholds = &kThreshPwrPm2    };  // die35 VDD_CORE — both GND neighbors
-    _pm2Cases[59] = { .mezPin = 27, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 28, .diePad = 37, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2, .thresholds = &kThreshPwrPm2    };  // die37 VDDIO   — prev=mez26 GND,    next=mez28(die38)
-    _pm2Cases[60] = { .mezPin = 47, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 48, .diePad = 58, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2, .thresholds = &kThreshPwrPm2    };  // die58 VDDIO   — prev=mez46 GND,    next=mez48(die59)
-    _pm2Cases[61] = { .mezPin = 52, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 54, .diePad = 64, .strategy = TestStrategy::STANDARD,   .padType = PadType::PWR_AUX, .settleMs = 0, .thresholds = &kThreshPwrPm2    };  // die64 PWR_AUX
-    _pm2Cases[62] = { .mezPin = 60, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 72, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE,.settleMs = 2, .thresholds = &kThreshPwrPm2    };  // die72 VDD_CORE — both GND neighbors
-    _pm2Cases[63] = { .mezPin = 62, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 63, .diePad = 74, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .settleMs = 2, .thresholds = &kThreshPwrPm2    };  // die74 VDDIO   — prev=mez61 GND,    next=mez63(die1)
+    _pm2Cases[56] = { .mezPin =  9, .gndPin = gnd, .prevPin =  8, .nextPin = NO_NEIGHBOUR, .diePad = 18, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm2    };  // die18 VDDIO
+    _pm2Cases[57] = { .mezPin = 17, .gndPin = gnd, .prevPin = 16, .nextPin = NO_NEIGHBOUR, .diePad = 26, .strategy = TestStrategy::STANDARD, .padType = PadType::PWR_AUX, .groupId = 1, .settleMs = 0, .thresholds = &kThreshPwrAuxPm2 };  // die26 PWR_AUX — capacitive
+    _pm2Cases[58] = { .mezPin = 25, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 35, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE,.groupId = 0, .settleMs = 2, .thresholds = &kThreshPwrPm2    };  // die35 VDD_CORE
+    _pm2Cases[59] = { .mezPin = 27, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 28, .diePad = 37, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm2    };  // die37 VDDIO
+    _pm2Cases[60] = { .mezPin = 47, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 48, .diePad = 58, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm2    };  // die58 VDDIO
+    _pm2Cases[61] = { .mezPin = 52, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 54, .diePad = 64, .strategy = TestStrategy::STANDARD,   .padType = PadType::PWR_AUX, .groupId = 1, .settleMs = 0, .thresholds = &kThreshPwrPm2    };  // die64 PWR_AUX
+    _pm2Cases[62] = { .mezPin = 60, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = NO_NEIGHBOUR, .diePad = 72, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE,.groupId = 0, .settleMs = 2, .thresholds = &kThreshPwrPm2    };  // die72 VDD_CORE
+    _pm2Cases[63] = { .mezPin = 62, .gndPin = gnd, .prevPin = NO_NEIGHBOUR, .nextPin = 63, .diePad = 74, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm2    };  // die74 VDDIO
 }
+
+// Groups shared across pad maps (same die, same grouping rules)
+static const PadGroup _groups[] = {
+    { .id = 1, .minPass = 1, .name = "PWR_AUX" },  // 2 pins: die26, die64 — pass if ≥1 bond
+    { .id = 2, .minPass = 1, .name = "VDDIO"   },  // 4 pins: die18, die37, die58, die74 — pass if ≥1 bond
+};
+static constexpr uint8_t GROUP_COUNT = sizeof(_groups) / sizeof(_groups[0]);
 
 static const PadMap _maps[] = {
     {
@@ -161,6 +170,8 @@ static const PadMap _maps[] = {
         .presencePadA       = 10,   // mez GND pin (die GND 19)
         .presencePadB       = 53,   // mez GND pin (die GND 63) — opposite side of die
         .presenceThresholdV = 0.3f,
+        .padGroups          = _groups,
+        .padGroupCount      = GROUP_COUNT,
     },
     {
         .id                 = 2,
@@ -170,6 +181,8 @@ static const PadMap _maps[] = {
         .presencePadA       = 10,
         .presencePadB       = 53,
         .presenceThresholdV = 0.3f,
+        .padGroups          = _groups,
+        .padGroupCount      = GROUP_COUNT,
     },
 };
 

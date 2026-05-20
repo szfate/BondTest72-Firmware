@@ -11,6 +11,7 @@ void buildRingCases(TestCase* out, const uint8_t* ring, const uint8_t* diePads, 
             .diePad     = diePads[i],
             .strategy   = strategy,
             .padType    = PadType::IO,
+            .groupId    = 0,
             .settleMs   = settleMs,
             .thresholds = thresholds,
         };

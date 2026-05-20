@@ -5,9 +5,8 @@ class AT21CS01Driver {
 public:
     void begin();
 
-    // Fast presence check: returns true if SI/O is high.
-    // The pull-up is on the adapter board, so a high line means adapter is seated.
-    // No internal pull-up is set on the pin — a floating line (no adapter) reads low.
+    // Presence check: drives low (resets E9 keeper), releases with pull-down, then
+    // reads — high means board's external pull-up is present; low means no board.
     bool isPresent();
 
     // Full Reset + Discovery Response: returns true if device acknowledges.

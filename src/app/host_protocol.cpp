@@ -27,6 +27,7 @@ HostCommand HostProtocol::poll() {
 HostCommand HostProtocol::processLine(const char* line) {
     if (strcmp(line, "RUN") == 0)         return HostCommand::RUN;
     if (strcmp(line, "GET_RESULTS") == 0) return HostCommand::GET_RESULTS;
+    if (strcmp(line, "GET_ADAPTER") == 0)       return HostCommand::GET_ADAPTER;
     if (strcmp(line, "DISCOVER") == 0)          return HostCommand::DISCOVER;
     if (strncmp(line, "DEBUG_PWR_SWEEP ", 16) == 0) {
         _debugPadMapId = (uint8_t)atoi(line + 16);
@@ -48,6 +49,25 @@ HostCommand HostProtocol::processLine(const char* line) {
 }
 
 // ——————————————————————————————————————————————————————————————————————————
+
+void HostProtocol::sendAdapterInfo(uint8_t model, uint8_t version, const uint8_t* padmapIds,
+                                    uint32_t lifespan, uint32_t dateOfManufacture,
+                                    uint32_t insertions, uint32_t tests, bool eol,
+                                    const char* padMapName) {
+    Serial.print("ADAPTER");
+    Serial.print(" model="); Serial.print(model);
+    Serial.print(" ver="); Serial.print(version);
+    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) {
+        Serial.print(" padmap"); Serial.print(i); Serial.print('='); Serial.print(padmapIds[i]);
+    }
+    Serial.print(" lifespan="); Serial.print(lifespan);
+    Serial.print(" mfg_date="); Serial.print(dateOfManufacture);
+    Serial.print(" ins=");      Serial.print(insertions);
+    Serial.print(" tests=");    Serial.print(tests);
+    Serial.print(" eol=");      Serial.print(eol ? 1 : 0);
+    Serial.print(" padmap=");   Serial.print(padMapName ? padMapName : "none");
+    Serial.println();
+}
 
 void HostProtocol::sendAdapterDetected(uint8_t model, uint8_t version, const uint8_t* padmapIds) {
     Serial.print("EVENT ADAPTER_DETECTED ");

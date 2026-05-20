@@ -12,7 +12,8 @@
 #include "../test/result.h"
 #include "host_protocol.h"
 
-constexpr uint32_t ADAPTER_POLL_INTERVAL_MS  = 2000;
+constexpr uint32_t ADAPTER_POLL_INTERVAL_MS       = 1500;
+constexpr uint32_t ADAPTER_POLL_INTERVAL_FAST_MS  = 100;
 constexpr uint32_t DUT_INSERT_SETTLE_MS      = 1000;  // debounce: ignore poll after insertion until connector is seated
 
 class StateMachine {
