@@ -49,7 +49,7 @@ private:
     void updateLeds();
     bool blinkOn(uint32_t periodMs);
     bool tryInitAdapter();
-    bool provisionEeprom(uint8_t padmapId = EepromData::PADMAP_UNSET);
+    bool provisionEeprom(uint8_t padmapId = EepromData::PADMAP_UNSET, uint32_t timestamp = 0);
     void selectPadMap();
     bool checkAdapterAlive();  // returns false and transitions to NO_ADAPTER if adapter gone
     void startTest();
@@ -57,6 +57,7 @@ private:
     void flushEeprom();
     void debugPwrSweep(uint8_t padMapId);
     void debugBiasedSweep(uint8_t padMapId);
+    void discoveryScan();
 
     MuxController&    _mux;
     AdcDriver&        _adc;

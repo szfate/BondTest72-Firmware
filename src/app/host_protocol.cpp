@@ -29,6 +29,7 @@ HostCommand HostProtocol::processLine(const char* line) {
     if (strcmp(line, "GET_RESULTS") == 0) return HostCommand::GET_RESULTS;
     if (strcmp(line, "GET_ADAPTER") == 0)       return HostCommand::GET_ADAPTER;
     if (strcmp(line, "DISCOVER") == 0)          return HostCommand::DISCOVER;
+    if (strcmp(line, "DISCOVERY_SCAN") == 0)   return HostCommand::DISCOVERY_SCAN;
     if (strncmp(line, "DEBUG_PWR_SWEEP ", 16) == 0) {
         _debugPadMapId = (uint8_t)atoi(line + 16);
         return HostCommand::DEBUG_PWR_SWEEP;
@@ -38,7 +39,15 @@ HostCommand HostProtocol::processLine(const char* line) {
         return HostCommand::DEBUG_BIASED_SWEEP;
     }
     if (strncmp(line, "PROVISION", 9) == 0) {
-        _provisionPadmapId = (line[9] == ' ') ? (uint8_t)atoi(line + 10) : 0xFF;
+        _provisionMfgDate = 0;
+        if (line[9] == ' ') {
+            _provisionPadmapId = (uint8_t)atoi(line + 10);
+            const char* p = line + 10;
+            while (*p && *p != ' ') p++;
+            if (*p == ' ') _provisionMfgDate = (uint32_t)atol(p + 1);  // YYYYMMDD
+        } else {
+            _provisionPadmapId = 0xFF;
+        }
         return HostCommand::PROVISION;
     }
     if (strncmp(line, "SET_PADMAP ", 11) == 0) {
@@ -128,3 +137,13 @@ void HostProtocol::sendSummary(const TestResult& result) {
 void HostProtocol::sendError(const char* description) {
     Serial.print("ERROR "); Serial.println(description);
 }
+
+void HostProtocol::sendDiscoveryScanPoint(uint8_t src, uint8_t snk, float v) {
+    Serial.print("DSCAN "); Serial.print(src); Serial.print(' ');
+    Serial.print(snk);     Serial.print(' '); Serial.println(v, 3);
+}
+
+void HostProtocol::sendDiscoveryScanDone() {
+    Serial.println("DSCAN DONE");
+}
+

@@ -5,7 +5,7 @@ static constexpr uint8_t  START_PIN   = 0;   // GP0 — active low, internal pul
 static constexpr uint32_t DEBOUNCE_MS = 20;
 
 void Buttons::begin() {
-    pinMode(START_PIN, INPUT_PULLUP);
+    pinMode(START_PIN, INPUT);
 }
 
 void Buttons::poll() {

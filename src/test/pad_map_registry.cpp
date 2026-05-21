@@ -15,11 +15,11 @@ static constexpr uint8_t GND = 10;  // mez10 = die GND 19; all GND pins equivale
 #define IO1(m_, p_, n_, d_)  \
     { .mezPin=(m_), .gndPin=GND, .prevPin=(p_), .nextPin=(n_), \
       .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
-      .groupId=0, .settleMs=2, .thresholds=&kThreshIoPm1 }
+      .groupId=0, .settleMs=1, .thresholds=&kThreshIoPm1 }
 #define IO2(m_, p_, n_, d_)  \
     { .mezPin=(m_), .gndPin=GND, .prevPin=(p_), .nextPin=(n_), \
       .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
-      .groupId=0, .settleMs=2, .thresholds=&kThreshIoPm2 }
+      .groupId=0, .settleMs=1, .thresholds=&kThreshIoPm2 }
 
 // — Pad map 1: Mezzanine70 v1 ——————————————————————————————————————————————
 // 55 IO + 8 VDD/PWR = 63 cases. Source: docs/MEZ_CONNECTOR_MAP.md.

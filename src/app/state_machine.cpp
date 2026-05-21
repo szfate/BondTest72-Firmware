@@ -186,7 +186,8 @@ void StateMachine::handleCommand(HostCommand cmd) {
         case HostCommand::PROVISION:
             if (!_eeprom.isPresent()) {
                 _hostProtocol.sendError("no adapter");
-            } else if (!provisionEeprom(_hostProtocol.provisionPadmapId())) {
+            } else if (!provisionEeprom(_hostProtocol.provisionPadmapId(),
+                                        _hostProtocol.provisionMfgDate())) {
                 _hostProtocol.sendError("provision write failed");
             } else {
                 _adapter = nullptr; _padMap = nullptr;
@@ -196,6 +197,9 @@ void StateMachine::handleCommand(HostCommand cmd) {
             break;
         case HostCommand::DISCOVER:
             _hostProtocol.sendError("DISCOVER not implemented");
+            break;
+        case HostCommand::DISCOVERY_SCAN:
+            discoveryScan();
             break;
         case HostCommand::GET_ADAPTER:
             if (!_adapter) {
@@ -226,7 +230,7 @@ void StateMachine::handleCommand(HostCommand cmd) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
-bool StateMachine::provisionEeprom(uint8_t padmapId) {
+bool StateMachine::provisionEeprom(uint8_t padmapId, uint32_t timestamp) {
     EepromData d = {};
     d.adapterModel            = AdapterModel::Mezzanine70;
     d.adapterVersion          = 1;
@@ -234,11 +238,11 @@ bool StateMachine::provisionEeprom(uint8_t padmapId) {
     d.supportedPadmapIds[1]   = EepromData::PADMAP_UNSET;
     d.supportedPadmapIds[2]   = EepromData::PADMAP_UNSET;
     d.supportedPadmapIds[3]   = EepromData::PADMAP_UNSET;
-    d.designedLifespan        = 10;
-    d.dateOfManufacture = 0;
-    d.insertionCount    = 0;
-    d.testCount         = 0;
-    d.eolReached        = 0x00;
+    d.designedLifespan        = 100;
+    d.dateOfManufacture       = timestamp;
+    d.insertionCount          = 0;
+    d.testCount               = 0;
+    d.eolReached              = 0x00;
 
     uint8_t buf[36];
     eepromSerialize(d, buf);
@@ -263,10 +267,11 @@ bool StateMachine::tryInitAdapter() {
 
     if (!eepromDeserialize(buf, _eepromData)) { LOG_E("adapter: eeprom deserialize failed"); return false; }
 
-    LOG_I("adapter: model=%u ver=%u padmaps=[%u,%u,%u,%u] lifespan=%lu ins=%lu tests=%lu eol=%s",
+    LOG_I("adapter: model=%u ver=%u padmaps=[%u,%u,%u,%u] dom=%lu lifespan=%lu ins=%lu tests=%lu eol=%s",
           (uint8_t)_eepromData.adapterModel, _eepromData.adapterVersion,
           _eepromData.supportedPadmapIds[0], _eepromData.supportedPadmapIds[1],
           _eepromData.supportedPadmapIds[2], _eepromData.supportedPadmapIds[3],
+          _eepromData.dateOfManufacture,
           _eepromData.designedLifespan, _eepromData.insertionCount, _eepromData.testCount,
           _eepromData.eolReached == EepromData::EOL_REACHED ? "YES" : "no");
 
@@ -370,6 +375,25 @@ static const char* padTypeName(PadType t) {
         default:                return "?";
     }
 }
+
+void StateMachine::discoveryScan() {
+    LOG_I("=== discovery scan start ===");
+    for (uint8_t src = 1; src <= 70; src++) {
+        for (uint8_t snk = 1; snk <= 70; snk++) {
+            if (src == snk) continue;
+            _mux.clearAll();
+            _mux.setChannel(src - 1, Bus::D);
+            _mux.setChannel(snk - 1, Bus::B);
+            delay(1);
+            float v = _adc.readVoltage(0);
+            _hostProtocol.sendDiscoveryScanPoint(src, snk, v);
+        }
+    }
+    _mux.clearAll();
+    _hostProtocol.sendDiscoveryScanDone();
+    LOG_I("=== discovery scan done ===");
+}
+
 
 void StateMachine::debugPwrSweep(uint8_t padMapId) {
     const PadMap* pm = PadMapRegistry::find(padMapId);

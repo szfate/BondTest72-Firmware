@@ -168,14 +168,11 @@ void AT21CS01Driver::begin() {
     timingInit();
     gpio_init(SWI_PIN);
     gpio_put(SWI_PIN, 0);               // output latch = 0; never changes
-    gpio_pull_down(SWI_PIN);            // A2 keeper fix: pull-down ensures 0 V when no board; external pull-up wins when board present
+    gpio_disable_pulls(SWI_PIN);        // external pull-down fitted; no internal pulls needed
 }
 
 bool AT21CS01Driver::isPresent() {
-    // E9 errata: keeper latches last input state. Drive low to reset it to 0,
-    // then release with pull-down so only a real external pull-up reads high.
     pinLow();
-    gpio_pull_down(SWI_PIN);
     pinRelease();
     delayUs(1);
     return pinRead();
