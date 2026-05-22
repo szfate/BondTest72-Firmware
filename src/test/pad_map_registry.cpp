@@ -23,9 +23,10 @@ static constexpr uint8_t GND = 10;  // mez10 = die GND 19; all GND pins equivale
       .groupId=0, .settleMs=1, .thresholds=&kThreshIoPm2 }
 
 // — Pad map 1: Mezzanine70 v1 ——————————————————————————————————————————————
-// 55 IO + 8 VDD/PWR = 63 cases. Source: docs/MEZ_CONNECTOR_MAP.md.
+// 56 IO + 7 VDD/PWR = 63 cases. Source: docs/MEZ_CONNECTOR_MAP.md.
 // GND mez pins (equivalent): 10, 18, 26, 46, 53, 61.
-// mez34/die44 omitted — unconnected PCB trace on v1 boards.
+// mez52/die64 (PWR_AUX) omitted — unconnected PCB trace on v1 boards.
+// mez34/die44 IS connected on v1 (contrary to earlier assumption).
 
 static const TestCase _pm1Cases[] = {
     // ── die  1– 8  (mez 63–70) ─────────────────────────────────────────────
@@ -60,14 +61,15 @@ static const TestCase _pm1Cases[] = {
     IO1( 22,  21,  23, 31),
     IO1( 23,  22,  24, 32),
     IO1( 24,  23, NON, 33),  // [gap: VDD_CORE mez25, VDDIO mez27]
-    // ── die 38–43, 45  (mez 28–33, 35) — mez34/die44 unconnected on v1 ────
+    // ── die 38–45  (mez 28–35) ─────────────────────────────────────────────
     IO1( 28, NON,  29, 38),
     IO1( 29,  28,  30, 39),
     IO1( 30,  29,  31, 40),
     IO1( 31,  30,  32, 41),
     IO1( 32,  31,  33, 42),
-    IO1( 33,  32,  35, 43),
-    IO1( 35,  33,  36, 45),  // die 44 / mez 34 skipped
+    IO1( 33,  32,  34, 43),
+    IO1( 34,  33,  35, 44),
+    IO1( 35,  34,  36, 45),
     // ── die 47–56  (mez 36–45) ─────────────────────────────────────────────
     IO1( 36,  35,  37, 47),
     IO1( 37,  36,  38, 48),
@@ -98,7 +100,6 @@ static const TestCase _pm1Cases[] = {
     { .mezPin = 25, .gndPin = GND, .prevPin = NON, .nextPin = NON, .diePad = 35, .strategy = TestStrategy::STANDARD, .padType = PadType::VDD_CORE, .groupId = 0, .settleMs = 2, .thresholds = &kThreshPwrPm1    },  // die 35 VDD_CORE
     { .mezPin = 27, .gndPin = GND, .prevPin = NON, .nextPin =  28, .diePad = 37, .strategy = TestStrategy::STANDARD, .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm1    },  // die 37 VDDIO
     { .mezPin = 47, .gndPin = GND, .prevPin = NON, .nextPin =  48, .diePad = 58, .strategy = TestStrategy::STANDARD, .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm1    },  // die 58 VDDIO
-    { .mezPin = 52, .gndPin = GND, .prevPin = NON, .nextPin =  54, .diePad = 64, .strategy = TestStrategy::SKIP_SENSE, .padType = PadType::PWR_AUX,  .groupId = 1, .settleMs = 2, .thresholds = &kThreshPwrAuxPm1 },  // die 64 PWR_AUX
     { .mezPin = 60, .gndPin = GND, .prevPin = NON, .nextPin = NON, .diePad = 72, .strategy = TestStrategy::STANDARD, .padType = PadType::VDD_CORE, .groupId = 0, .settleMs = 2, .thresholds = &kThreshPwrPm1    },  // die 72 VDD_CORE
     { .mezPin = 62, .gndPin = GND, .prevPin = NON, .nextPin =  63, .diePad = 74, .strategy = TestStrategy::STANDARD, .padType = PadType::VDDIO,   .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm1    },  // die 74 VDDIO
 };
