@@ -10,8 +10,6 @@ enum class HostCommand : uint8_t {
     SET_PADMAP,
     DISCOVER,
     PROVISION,
-    DEBUG_PWR_SWEEP,
-    DEBUG_BIASED_SWEEP,
     GET_ADAPTER,
     DISCOVERY_SCAN,
 };
@@ -24,8 +22,6 @@ public:
 
     uint8_t     provisionPadmapId()   const { return _provisionPadmapId; }
     uint32_t    provisionMfgDate()    const { return _provisionMfgDate; }  // YYYYMMDD
-    uint8_t     debugPadMapId()       const { return _debugPadMapId; }
-
     void sendAdapterInfo(uint8_t model, uint8_t version, const uint8_t* padmapIds,
                          uint32_t lifespan, uint32_t dateOfManufacture,
                          uint32_t insertions, uint32_t tests, bool eol,
@@ -48,5 +44,4 @@ private:
     uint8_t _setPadmapId       = 0;
     uint8_t  _provisionPadmapId  = 0xFF;
     uint32_t _provisionMfgDate = 0;
-    uint8_t  _debugPadMapId      = 0;
 };

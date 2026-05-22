@@ -53,12 +53,22 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
                 _mux.setChannel(adapter.channelForPin(tc.gndPin), Bus::B);
                 _mux.setChannel(adapter.channelForPin(tc.mezPin), Bus::B);
                 delay(tc.settleMs);
+                _mux.clearAll();
+                continue;
+            }
+            if (tc.strategy == TestStrategy::PRECHARGE) {
+                // Charge cap through the bond: inject at mezPin, return at gndPin.
+                _mux.setChannel(adapter.channelForPin(tc.mezPin), Bus::D);
+                _mux.setChannel(adapter.channelForPin(tc.gndPin), Bus::B);
+                delay(tc.settleMs);
+                _mux.clearAll();
                 continue;
             }
 
             // Phase 1: neighbour short detection
             // DUT pad pre-grounded (no injection) so neighbours read clean mid-rail;
             // any short to DUT pulls them toward 0 V without injection crosstalk.
+            _mux.clearAll();
             _mux.setChannel(adapter.channelForPin(tc.mezPin), Bus::B);
             if (tc.prevPin != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.prevPin), Bus::A);
             if (tc.nextPin != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.nextPin), Bus::C);
@@ -68,13 +78,26 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
             if (tc.nextPin != NO_NEIGHBOUR) r.nextNeighbour = _adc.readVoltage(2);
 
             // Phase 2: bond sense
-            // Re-establish return path then connect injection — neighbours disconnected
-            // so the sense bus has no additional load.
             _mux.clearAll();
-            _mux.setChannel(adapter.channelForPin(tc.mezPin), Bus::B);
-            _mux.setChannel(adapter.channelForPin(tc.gndPin), Bus::D);
-            delay(tc.settleMs);
-            r.sense = _adc.readVoltage(0);
+            if (tc.strategy == TestStrategy::CAP_SENSE) {
+                // Inject at mezPin (charges cap through bond); 3 readings spaced settleMs apart.
+                // Rising voltage confirms current flowed through the bond to charge the cap.
+                // An open bond leaves Bus::D unloaded (reads high); a short reads near 0 V.
+                _mux.setChannel(adapter.channelForPin(tc.mezPin), Bus::D);
+                _mux.setChannel(adapter.channelForPin(tc.gndPin), Bus::B);
+                float v0, v1;
+                delay(tc.settleMs); v0 = _adc.readVoltage(0);
+                delay(tc.settleMs); v1 = _adc.readVoltage(0);
+                delay(tc.settleMs); r.sense = _adc.readVoltage(0);
+                LOG_I("slot%u amez%u die%u cap-charge: %.3f→%.3f→%.3f",
+                      slot, tc.mezPin, tc.diePad, v0, v1, r.sense);
+            } else {    
+                // STANDARD / SKIP_SENSE: inject at gndPin, return at mezPin.
+                _mux.setChannel(adapter.channelForPin(tc.mezPin), Bus::B);
+                _mux.setChannel(adapter.channelForPin(tc.gndPin), Bus::D);
+                delay(tc.settleMs);
+                r.sense = _adc.readVoltage(0);
+            }
             _mux.clearAll();
 
             PadResult   pr = classify(r, tc);
@@ -113,7 +136,8 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
             // Ungrouped pads: every one must pass.
             for (uint8_t i = 0; i < padMap.caseCount && result.outcome == TestOutcome::PASS; i++) {
                 const TestCase& tc = padMap.cases[i];
-                if (tc.strategy == TestStrategy::DISCHARGE || tc.groupId != 0) continue;
+                if (tc.strategy == TestStrategy::DISCHARGE ||
+                    tc.strategy == TestStrategy::PRECHARGE || tc.groupId != 0) continue;
                 const PadResult& pr = sr.byChannel[adapter.channelForPin(tc.mezPin)];
                 if (pr.bond != BondResult::GOOD || pr.prevShort || pr.nextShort)
                     result.outcome = TestOutcome::FAIL;

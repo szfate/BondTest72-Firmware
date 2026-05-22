@@ -13,7 +13,10 @@ struct TestThresholds {
 enum class TestStrategy : uint8_t {
     STANDARD,    // sense + neighbours
     SKIP_SENSE,  // capacitive pad: neighbours only, bond sense not checked
-    DISCHARGE,   // nop: connect buses for settleMs, no result recorded
+    DISCHARGE,   // nop: short mezPin+gndPin to Bus::B for settleMs; discharges cap, no result
+    PRECHARGE,   // nop: mezPin→Bus::D, gndPin→Bus::B for settleMs; charges cap, no result
+    CAP_SENSE,   // cap charging test: 3 readings spaced settleMs apart (mezPin→Bus::D, gndPin→Bus::B);
+                 // pass if final reading ≥ senseGoodMin — confirms bond conducted to charge the cap
 };
 
 enum class PadType : uint8_t {

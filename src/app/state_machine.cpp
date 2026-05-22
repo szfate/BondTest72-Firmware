@@ -217,12 +217,6 @@ void StateMachine::handleCommand(HostCommand cmd) {
                     _padMap ? _padMap->name : nullptr);
             }
             break;
-        case HostCommand::DEBUG_PWR_SWEEP:
-            debugPwrSweep(_hostProtocol.debugPadMapId());
-            break;
-        case HostCommand::DEBUG_BIASED_SWEEP:
-            debugBiasedSweep(_hostProtocol.debugPadMapId());
-            break;
         case HostCommand::NONE:
             break;
     }
@@ -394,101 +388,6 @@ void StateMachine::discoveryScan() {
     LOG_I("=== discovery scan done ===");
 }
 
-
-void StateMachine::debugPwrSweep(uint8_t padMapId) {
-    const PadMap* pm = PadMapRegistry::find(padMapId);
-    if (!pm) { LOG_E("padmap %u not found", padMapId); return; }
-
-    LOG_I("=== pwr sweep: %s ===", pm->name);
-
-    // Collect unique power mez pins (skip DISCHARGE duplicates)
-    uint8_t pwrPins[16];
-    PadType pwrTypes[16];
-    uint8_t pwrCount = 0;
-    uint8_t gndPin = pm->cases[0].gndPin;
-
-    for (uint8_t i = 0; i < pm->caseCount; i++) {
-        const TestCase& tc = pm->cases[i];
-        if (tc.padType == PadType::IO || tc.padType == PadType::GND) continue;
-        if (tc.strategy == TestStrategy::DISCHARGE) continue;
-        bool seen = false;
-        for (uint8_t j = 0; j < pwrCount; j++) {
-            if (pwrPins[j] == tc.mezPin) { seen = true; break; }
-        }
-        if (!seen && pwrCount < 16) {
-            pwrPins[pwrCount]  = tc.mezPin;
-            pwrTypes[pwrCount] = tc.padType;
-            pwrCount++;
-        }
-    }
-
-    if (pwrCount == 0) { LOG_E("no power pads in pad map"); return; }
-    LOG_I("  %u power pins, gnd=mez%02u", pwrCount, gndPin);
-
-    for (uint8_t i = 0; i < pwrCount; i++) {
-        uint8_t pwrPin = pwrPins[i];
-        for (uint8_t dir = 0; dir < 2; dir++) {
-            LOG_I("--- mez%02u (%s) %s, probing all ---",
-                  pwrPin, padTypeName(pwrTypes[i]),
-                  dir == 0 ? "->D" : "->B");
-
-            // Discharge: sink all power pins to GND
-            _mux.clearAll();
-            for (uint8_t j = 0; j < pwrCount; j++)
-                _mux.setChannel(pwrPins[j] - 1, Bus::B);
-            delay(100);
-            _mux.clearAll();
-
-            for (uint8_t probe = 1; probe <= 70; probe++) {
-                if (probe == pwrPin) continue;
-                _mux.clearAll();
-                if (dir == 0) {
-                    _mux.setChannel(pwrPin - 1, Bus::D);
-                    _mux.setChannel(probe  - 1, Bus::B);
-                } else {
-                    _mux.setChannel(probe  - 1, Bus::D);
-                    _mux.setChannel(pwrPin - 1, Bus::B);
-                }
-                delay(5);
-                float v = _adc.readVoltage(0);
-                _mux.clearAll();
-                if (v < 3.0f)
-                    LOG_I("  probe mez%02u  sense=%.3fV", probe, v);
-                delay(20);
-            }
-        }
-    }
-
-    LOG_I("=== pwr sweep done ===");
-}
-
-void StateMachine::debugBiasedSweep(uint8_t padMapId) {
-    const PadMap* pm = PadMapRegistry::find(padMapId);
-    if (!pm) { LOG_E("padmap %u not found", padMapId); return; }
-    LOG_I("=== biased sweep: %s (%u cases) ===", pm->name, pm->caseCount);
-    for (uint8_t i = 0; i < pm->caseCount; i++) {
-        const TestCase& tc = pm->cases[i];
-        uint8_t mezCh = tc.mezPin - 1;
-        uint8_t gndCh = tc.gndPin - 1;
-
-        _mux.clearAll();
-        _mux.setChannel(mezCh, Bus::D);
-        _mux.setChannel(gndCh, Bus::B);
-        delay(1);
-        float fwd = _adc.readVoltage(0);
-
-        _mux.clearAll();
-        _mux.setChannel(gndCh, Bus::D);
-        _mux.setChannel(mezCh, Bus::B);
-        delay(1);
-        float rev = _adc.readVoltage(0);
-
-        _mux.clearAll();
-        LOG_I("mez%02u gnd%02u  fwd=%.3fV  rev=%.3fV  delta=%.3fV",
-              tc.mezPin, tc.gndPin, fwd, rev, fwd - rev);
-    }
-    LOG_I("=== biased sweep done ===");
-}
 
 // ——————————————————————————————————————————————————————————————————————————
 
