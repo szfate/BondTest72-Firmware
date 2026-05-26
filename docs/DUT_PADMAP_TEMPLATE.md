@@ -1,7 +1,12 @@
 # DUT Pad Map — [Project Name]
 
-Copy this file to `DUT_PADMAP_<PROJECT>.md` and fill in every field.
+Copy this file to `DUT_PADMAP_<PROJECT>.md` and fill in every blank field.
 When complete, translate into a `PadMap` entry in `src/test/pad_map_registry.cpp`.
+
+Adapter: [adapter name]
+Source: [spreadsheet / schematic reference]
+
+Mapping: mez_pad = 71 − die_pad, tester_ch = mez_pad − 1
 
 ---
 
@@ -14,19 +19,20 @@ When complete, translate into a `PadMap` entry in `src/test/pad_map_registry.cpp
 
 ---
 
+## Bond Pad to Tester Channel Cross-Reference
+
+| BP # | Signal | Die Pad | Mez Pad | Tester Ch | Role |
+|------|--------|---------|---------|-----------|------|
+| 1  | | | | | |
+| 2  | | | | | |
+| …  | | | | | |
+
+---
+
 ## Pad Roles
 
-Assign one role to every pad index 0–71.
-Unused pads on this die (pad indices not bonded out) → **NC**.
-
-Roles:
-- **IO** — bonded signal pad (will be tested)
-- **GND** — die ground pad (current injection point — must match `gndPad` below)
-- **VCC** — die power pad (excluded from bond test)
-- **NC** — not connected / no bond on this adapter
-
-| Pad Index | Role (IO / GND / VCC / NC) | Notes |
-|-----------|---------------------------|-------|
+| Tester Ch | Role | Signal |
+|-----------|------|--------|
 | 0  | | |
 | 1  | | |
 | 2  | | |
@@ -97,50 +103,46 @@ Roles:
 | 67 | | |
 | 68 | | |
 | 69 | | |
-| 70 | | |
-| 71 | | |
+| 70 | NC | — |
+| 71 | NC | — |
 
 ---
 
 ## GND Pad
 
-The pad index used for current injection (must have role GND above).
+Multiple GND pads are typically present. Pick one for current injection; note the others.
+
+| Tester Ch | Signal | Die Pad |
+|-----------|--------|---------|
+| | | |
 
 ```
-gndPad = 
+gndPad =   (pick one — TBD after hardware bring-up)
 ```
 
 ---
 
 ## IO Pads in Physical Ring Order
 
-List **only IO-role pad indices**, in the order they appear around the die pad ring
-(e.g. clockwise starting from pad 1). This defines the neighbour pairs used for
-adjacent-bond short detection.
-
-Do **not** include GND, VCC, or NC pads here.
+BP order from the spreadsheet, clockwise, skipping GND/VCC/NC.
 
 ```
-ioPadsInRingOrder = [ ]
-```
+ioPadsInRingOrder = [
 
-Example: `[ 0, 1, 2, 5, 6, 7, 8, 10, 11 ]`
+]
+```
 
 ---
 
 ## Presence Detection
 
-Two pad indices that are shorted together through the DUT PCB (adapter routing).
-When a DUT is seated, continuity between these pads is detectable — voltage on
-COM_A drops below `presenceThresholdV`.
-
-Choose a pair of NC or GND pads that the adapter PCB connects together so the
-tester can confirm a die is physically present without consuming IO pads.
+The adapter PCB shorts two GND mez channels together. When seated, continuity
+between them is detectable.
 
 | Field | Value |
 |-------|-------|
-| `presencePadA` | |
-| `presencePadB` | |
+| `presencePadA` | 10 (mez pin) |
+| `presencePadB` | 53 (mez pin) |
 | `presenceThresholdV` | 0.3 (default — calibrate in Phase 3 if needed) |
 
 ---
@@ -162,4 +164,4 @@ are shown; override here if this die's process differs.
 
 ## Notes
 
-<!-- Any die-specific quirks, special pads, bonding exceptions, etc. -->
+<!-- IO count, power domains, any die-specific quirks or bonding exceptions -->

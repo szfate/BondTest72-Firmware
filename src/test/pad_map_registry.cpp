@@ -8,22 +8,30 @@ static constexpr TestThresholds kThreshPwrPm2    = { 0.2f, 0.8f, 0.2f, 1.5f };
 // Use SKIP_SENSE — bond result is always GOOD; neighbour shorts are still checked.
 static constexpr TestThresholds kThreshPwrAuxPm1 = { 0.2f, 3.0f, 0.2f, 3.0f };
 static constexpr TestThresholds kThreshPwrAuxPm2 = { 0.2f, 3.0f, 0.2f, 3.0f };
+static constexpr TestThresholds kThreshIoPm3     = { 0.2f, 0.8f, 0.2f, 1.5f };
+static constexpr TestThresholds kThreshPwrPm3    = { 0.2f, 0.8f, 0.2f, 1.5f };
+static constexpr TestThresholds kThreshPwrAuxPm3 = { 0.2f, 3.0f, 0.2f, 3.0f };
 
 #define NON NO_NEIGHBOUR
-static constexpr uint8_t GND = 10;  // mez10 = die GND 19; all GND pins equivalent
+static constexpr uint8_t GND  = 10;  // mez10 = die GND 19; all GND pins equivalent (1x1)
+static constexpr uint8_t GND3 = 26;  // mez26 = die GND 45; all GND pins equivalent (1x0p5)
 
 // IO case shorthand — args: mez, prevMez, nextMez, diePad
 #define IO1(m_, p_, n_, d_)  \
-    { .mezPin=(m_), .gndPin=GND, .prevPin=(p_), .nextPin=(n_), \
+    { .mezPin=(m_), .gndPin=GND,  .prevPin=(p_), .nextPin=(n_), \
       .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
       .groupId=0, .settleMs=1, .thresholds=&kThreshIoPm1 }
 #define IO2(m_, p_, n_, d_)  \
-    { .mezPin=(m_), .gndPin=GND, .prevPin=(p_), .nextPin=(n_), \
+    { .mezPin=(m_), .gndPin=GND,  .prevPin=(p_), .nextPin=(n_), \
       .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
       .groupId=0, .settleMs=1, .thresholds=&kThreshIoPm2 }
+#define IO3(m_, p_, n_, d_)  \
+    { .mezPin=(m_), .gndPin=GND3, .prevPin=(p_), .nextPin=(n_), \
+      .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
+      .groupId=0, .settleMs=1, .thresholds=&kThreshIoPm3 }
 
 // — Pad map 1: Mezzanine70 v1 ——————————————————————————————————————————————
-// 56 IO + 7 VDD/PWR = 63 cases. Source: docs/MEZ_CONNECTOR_MAP.md.
+// 56 IO + 7 VDD/PWR = 63 cases. Source: docs/DUT_PADMAP_1X1.md.
 // GND mez pins (equivalent): 10, 18, 26, 46, 53, 61.
 // mez52/die64 (PWR_AUX) omitted — unconnected PCB trace on v1 boards.
 // mez34/die44 IS connected on v1 (contrary to earlier assumption).
@@ -185,21 +193,110 @@ static const TestCase _pm2Cases[] = {
 };
 static_assert(sizeof(_pm2Cases) / sizeof(_pm2Cases[0]) == 64, "pm2 case count mismatch");
 
+// — Pad map 3: 1x0p5 Mezzanine70 v1 ————————————————————————————————————————
+// 56 IO + 8 VDD/PWR = 64 cases. Source: docs/DUT_PADMAP_1X0P5.md.
+// GND mez pins (equivalent): 10, 18, 26, 46, 53, 61. Using mez26 (die45) as gndPad.
+
+static const TestCase _pm3Cases[] = {
+    // ── die 8–5 (mez 63–66) — clk, rst_n, bidir_0–1 ──────────────────────────
+    IO3( 63, NON,  64,  8),  // clk
+    IO3( 64,  63,  65,  7),  // rst_n
+    IO3( 65,  64,  66,  6),  // bidir_0
+    IO3( 66,  65, NON,  5),  // bidir_1   [gap: GND mez61 die10, VDD_CORE1 mez60 die11]
+    // ── die 4–1, 70–63 (mez 67–70, 1–8) — bidir_2–13 ────────────────────────
+    IO3( 67, NON,  68,  4),  // bidir_2
+    IO3( 68,  67,  69,  3),  // bidir_3
+    IO3( 69,  68,  70,  2),  // bidir_4
+    IO3( 70,  69,   1,  1),  // bidir_5
+    IO3(  1,  70,   2, 70),  // bidir_6
+    IO3(  2,   1,   3, 69),  // bidir_7
+    IO3(  3,   2,   4, 68),  // bidir_8
+    IO3(  4,   3,   5, 67),  // bidir_9
+    IO3(  5,   4,   6, 66),  // bidir_10
+    IO3(  6,   5,   7, 65),  // bidir_11
+    IO3(  7,   6,   8, 64),  // bidir_12
+    IO3(  8,   7, NON, 63),  // bidir_13  [gap: GND IO mez10 die61, VDD IO 0 mez9 die62]
+    // ── die 60–57 (mez 11–14) — bidir_14–17 ─────────────────────────────────
+    IO3( 11, NON,  12, 60),  // bidir_14
+    IO3( 12,  11,  13, 59),  // bidir_15
+    IO3( 13,  12,  14, 58),  // bidir_16
+    IO3( 14,  13, NON, 57),  // bidir_17  [gap: GND mez18 die53, PWR_AUX mez17 die54]
+    // ── die 56–47 (mez 15–16, 19–24) — bidir_18–25 ───────────────────────────
+    IO3( 15, NON,  16, 56),  // bidir_18
+    IO3( 16,  15,  19, 55),  // bidir_19
+    IO3( 19,  16,  20, 52),  // bidir_20
+    IO3( 20,  19,  21, 51),  // bidir_21
+    IO3( 21,  20,  22, 50),  // bidir_22
+    IO3( 22,  21,  23, 49),  // bidir_23
+    IO3( 23,  22,  24, 48),  // bidir_24
+    IO3( 24,  23, NON, 47),  // bidir_25  [gap: GND(no mez), VDD IO 1 mez27 die44]
+    // ── die 43–40 (mez 28–31) — bidir_26–29 ─────────────────────────────────
+    IO3( 28, NON,  29, 43),  // bidir_26
+    IO3( 29,  28,  30, 42),  // bidir_27
+    IO3( 30,  29,  31, 41),  // bidir_28
+    IO3( 31,  30, NON, 40),  // bidir_29  [gap: VDD_CORE mez25 die46, GND mez26 die45]
+    // ── die 39–28 (mez 32–43) — bidir_30–41 ─────────────────────────────────
+    IO3( 32, NON,  33, 39),  // bidir_30
+    IO3( 33,  32,  34, 38),  // bidir_31
+    IO3( 34,  33,  35, 37),  // bidir_32
+    IO3( 35,  34,  36, 36),  // bidir_33
+    IO3( 36,  35,  37, 35),  // bidir_34
+    IO3( 37,  36,  38, 34),  // bidir_35
+    IO3( 38,  37,  39, 33),  // bidir_36
+    IO3( 39,  38,  40, 32),  // bidir_37
+    IO3( 40,  39,  41, 31),  // bidir_38
+    IO3( 41,  40,  42, 30),  // bidir_39
+    IO3( 42,  41,  43, 29),  // bidir_40
+    IO3( 43,  42, NON, 28),  // bidir_41  [gap: VDD IO 2 mez47 die24, GND mez46 die25]
+    // ── die 27–22 (mez 44–45, 48–49) — bidir_42–45 ───────────────────────────
+    IO3( 44, NON,  45, 27),  // bidir_42
+    IO3( 45,  44,  48, 26),  // bidir_43
+    IO3( 48,  45,  49, 23),  // bidir_44
+    IO3( 49,  48, NON, 22),  // bidir_45  [gap: PWR_AUX mez52 die19, GND mez53 die18]
+    // ── die 21–12 (mez 50–51, 54–55, 59–56) — an_0–3, in_0–3 ────────────────
+    IO3( 50, NON,  51, 21),  // an_0
+    IO3( 51,  50,  54, 20),  // an_1
+    IO3( 54,  51,  55, 17),  // an_2
+    IO3( 55,  54,  59, 16),  // an_3
+    IO3( 59,  55,  58, 12),  // in_0
+    IO3( 58,  59,  57, 13),  // in_1
+    IO3( 57,  58,  56, 14),  // in_2
+    IO3( 56,  57, NON, 15),  // in_3      [gap: VDD IO 3 mez62 die9, GND(no mez)]
+    // ── VDD / PWR ─────────────────────────────────────────────────────────────
+    { .mezPin =  9, .gndPin = GND3, .prevPin = NON, .nextPin =  11, .diePad = 62, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,    .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm3    },  // VDD IO 0
+    { .mezPin = 17, .gndPin = GND3, .prevPin = NON, .nextPin =  15, .diePad = 54, .strategy = TestStrategy::SKIP_SENSE, .padType = PadType::PWR_AUX,  .groupId = 1, .settleMs = 2, .thresholds = &kThreshPwrAuxPm3 },  // PWR Aux 0
+    { .mezPin = 25, .gndPin = GND3, .prevPin =  31, .nextPin = NON, .diePad = 46, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE, .groupId = 0, .settleMs = 2, .thresholds = &kThreshPwrPm3    },  // VDD CORE
+    { .mezPin = 27, .gndPin = GND3, .prevPin = NON, .nextPin =  28, .diePad = 44, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,    .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm3    },  // VDD IO 1
+    { .mezPin = 47, .gndPin = GND3, .prevPin =  43, .nextPin = NON, .diePad = 24, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,    .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm3    },  // VDD IO 2
+    { .mezPin = 52, .gndPin = GND3, .prevPin =  49, .nextPin = NON, .diePad = 19, .strategy = TestStrategy::SKIP_SENSE, .padType = PadType::PWR_AUX,  .groupId = 1, .settleMs = 2, .thresholds = &kThreshPwrAuxPm3 },  // PWR Aux 1
+    { .mezPin = 60, .gndPin = GND3, .prevPin = NON, .nextPin =  67, .diePad = 11, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDD_CORE, .groupId = 0, .settleMs = 2, .thresholds = &kThreshPwrPm3    },  // VDD CORE 1
+    { .mezPin = 62, .gndPin = GND3, .prevPin =  56, .nextPin = NON, .diePad =  9, .strategy = TestStrategy::STANDARD,   .padType = PadType::VDDIO,    .groupId = 2, .settleMs = 2, .thresholds = &kThreshPwrPm3    },  // VDD IO 3
+};
+static_assert(sizeof(_pm3Cases) / sizeof(_pm3Cases[0]) == 64, "pm3 case count mismatch");
+
 #undef IO1
 #undef IO2
+#undef IO3
 #undef NON
 
-// Groups shared across pad maps (same die, same grouping rules)
+// Groups for 1x1 pad maps (pm1, pm2)
 static const PadGroup _groups[] = {
     { .id = 1, .minPass = 1, .name = "PWR_AUX" },  // 2 pins: die26, die64 — pass if ≥1 bond
     { .id = 2, .minPass = 1, .name = "VDDIO"   },  // 4 pins: die18, die37, die58, die74 — pass if ≥1 bond
 };
 static constexpr uint8_t GROUP_COUNT = sizeof(_groups) / sizeof(_groups[0]);
 
+// Groups for 1x0p5 pad map (pm3)
+static const PadGroup _pm3Groups[] = {
+    { .id = 1, .minPass = 1, .name = "PWR_AUX" },  // 2 pins: die54, die19 — pass if ≥1 bond
+    { .id = 2, .minPass = 1, .name = "VDDIO"   },  // 4 pins: die62, die44, die24, die9 — pass if ≥1 bond
+};
+static constexpr uint8_t PM3_GROUP_COUNT = sizeof(_pm3Groups) / sizeof(_pm3Groups[0]);
+
 static const PadMap _maps[] = {
     {
         .id                 = 1,
-        .name               = "Mezzanine70 v1",
+        .name               = "1x1 Mezzanine70 v1",
         .cases              = _pm1Cases,
         .caseCount          = 63,
         .presencePadA       = 10,
@@ -210,7 +307,7 @@ static const PadMap _maps[] = {
     },
     {
         .id                 = 2,
-        .name               = "Mezzanine70 v2",
+        .name               = "1x1 Mezzanine70 v2",
         .cases              = _pm2Cases,
         .caseCount          = 64,
         .presencePadA       = 10,
@@ -218,6 +315,17 @@ static const PadMap _maps[] = {
         .presenceThresholdV = 0.3f,
         .padGroups          = _groups,
         .padGroupCount      = GROUP_COUNT,
+    },
+    {
+        .id                 = 3,
+        .name               = "1x0p5 Mezzanine70 v1",
+        .cases              = _pm3Cases,
+        .caseCount          = 64,
+        .presencePadA       = 10,
+        .presencePadB       = 53,
+        .presenceThresholdV = 0.3f,
+        .padGroups          = _pm3Groups,
+        .padGroupCount      = PM3_GROUP_COUNT,
     },
 };
 static constexpr uint8_t MAP_COUNT = sizeof(_maps) / sizeof(_maps[0]);

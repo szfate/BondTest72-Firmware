@@ -8,12 +8,12 @@
 
 | Item | Detail |
 |------|--------|
-| MCU | RP2354B (Raspberry Pi Pico 2) |
+| MCU | RP2350 (Raspberry Pi Pico 2) |
 | Muxes | 3× CH446X (24:5 matrix), covering 72 channels |
 | LEDs | 3× SK6812 addressable RGB, single GPIO, series chain |
 | Buttons | 2× start, 1× reset |
 | EEPROM | AT21CS01 (Microchip Single-Wire Interface — **not** Dallas/Maxim 1-Wire) |
-| ADC | Internal RP2354B ADC; reads COM_D (ADC0/GP26), COM_A (ADC1/GP27), COM_C (ADC2/GP28) |
+| ADC | Internal RP2350 ADC; reads COM_D (ADC0/GP26), COM_A (ADC1/GP27), COM_C (ADC2/GP28) |
 | USB | CDC serial to host PC |
 | Adapter connector | 2×41 pin (82 pins): 72 measurement channels + 7 adapter-control GPIOs + power/GND |
 
@@ -38,7 +38,7 @@ The last pin of CON6 (adapter header) is dedicated to the AT21CS01 SWI data line
 │   MuxController · ADC · SK6812Controller                 │
 │   Buttons · AT21CS01Driver · UsbSerial                   │
 ├──────────────────────────────────────────────────────────┤
-│                    RP2354B / Arduino                     │
+│                    RP2350 / Arduino                     │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -248,11 +248,11 @@ run(adapter, padMap):
 | Bus | COM pin | GPIO | ADC ch | Bias circuit | "Normal" reading | Short reading |
 |-----|---------|------|--------|-------------|-----------------|---------------|
 | BUS_D | COM_D | GP26 | ADC0 | 27 kΩ pullup to 3.3 V | 0.5–0.7 V (good bond) | ~0 V |
-| BUS_A | COM_A | GP27 | ADC1 | 1 MΩ/1 MΩ divider (3.3 V) | ~1.65 V | ~0 V |
-| BUS_C | COM_C | GP28 | ADC2 | 1 MΩ/1 MΩ divider (3.3 V) | ~1.65 V | ~0 V |
+| BUS_A | COM_A | GP27 | ADC1 | 1 MΩ/220 kΩ divider (3.3 V) | ~0.6 V | ~0 V |
+| BUS_C | COM_C | GP28 | ADC2 | 1 MΩ/220 kΩ divider (3.3 V) | ~0.6 V | ~0 V |
 
 COM_D carries the injection+sense bus (27 kΩ pullup). COM_A and COM_C carry the
-neighbour sense buses (1 MΩ/1 MΩ divider at mid-rail). BUS_B is tester GND — no ADC.
+neighbour sense buses (1 MΩ/220 kΩ divider, ~0.6 V idle). BUS_B is tester GND — no ADC.
 BUS_E is spare. GP29 (ADC3) is internal VSYS monitor — not available on header.
 
 ### Result Classification
@@ -263,8 +263,8 @@ COM_D (injection+sense):
 - `< ~0.1 V`  → **SHORT** to GND
 
 COM_A / COM_C (neighbour sense):
-- `~1.65 V`   → no short to neighbour
-- `< ~0.3 V`  → **SHORT** between bond-under-test and this neighbour
+- `~0.6 V`    → no short to neighbour
+- `< ~0.2 V`  → **SHORT** between bond-under-test and this neighbour
 
 Thresholds defined per PadMap (process-dependent).
 
