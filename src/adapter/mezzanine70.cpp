@@ -1,11 +1,12 @@
 #include "mezzanine70.h"
-#include "../hal/mux.h"
-#include "../hal/adc.h"
-#include "../test/pad_map.h"
-#include "../debug/log.h"
+#include "hal/mux.h"
+#include "hal/adc.h"
+#include "test/pad_map.h"
+#include "debug/log.h"
 #include <Arduino.h>
 
 static constexpr uint8_t EOL_LED_PIN = 18;  // CON5 = GP18
+static constexpr uint8_t MEZ_PIN_COUNT_PLUS_1 = 71;  // mirror formula for flipped-DUT detection: flipped_pin = 71 - normal_pin
 
 Mezzanine70::Mezzanine70(const EepromData& eeprom)
     : _version(eeprom.adapterVersion)
@@ -71,4 +72,33 @@ bool Mezzanine70::selfTest(MuxController& mux, AdcDriver& adc) const {
     mux.clearAll();
     LOG_I("adapter self-test: fwd=%.3fV rev=%.3fV", fwd, rev);
     return fwd > DIODE_FWD_MIN && fwd < DIODE_FWD_MAX && rev > DIODE_REV_MIN;
+}
+
+bool Mezzanine70::senseDutPresent(MuxController& mux, AdcDriver& adc,
+                                    const PadMap& padMap) const {
+    mux.clearAll();
+    mux.setChannel(channelForPin(padMap.presencePadA), Bus::D);
+    mux.setChannel(channelForPin(padMap.presencePadB), Bus::B);
+    float v = adc.readVoltage(0);  // COM_D
+    mux.clearAll();
+    LOG_D("dut present: amez%u→D amez%u→B: %.3fV", padMap.presencePadA, padMap.presencePadB, v);
+    return v < padMap.presenceThresholdV;
+}
+
+bool Mezzanine70::senseDutFlipped(MuxController& mux, AdcDriver& adc,
+                                    const PadMap& padMap) const {
+    uint8_t flippedA = MEZ_PIN_COUNT_PLUS_1 - padMap.presencePadA;
+    uint8_t flippedB = MEZ_PIN_COUNT_PLUS_1 - padMap.presencePadB;
+    mux.clearAll();
+    mux.setChannel(channelForPin(flippedA), Bus::D);
+    mux.setChannel(channelForPin(flippedB), Bus::B);
+    float v = adc.readVoltage(0);  // COM_D
+    mux.clearAll();
+    LOG_D("dut flipped: amez%u→D amez%u→B: %.3fV", flippedA, flippedB, v);
+    return v < padMap.presenceThresholdV;
+}
+
+bool Mezzanine70::checkDutNow(MuxController& mux, AdcDriver& adc,
+                                const PadMap& padMap) const {
+    return senseDutPresent(mux, adc, padMap);
 }

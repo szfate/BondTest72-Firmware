@@ -1,4 +1,5 @@
 #include "host_protocol.h"
+#include "debug/log.h"
 #include <Arduino.h>
 #include <string.h>
 #include <stdlib.h>
@@ -14,11 +15,16 @@ HostCommand HostProtocol::poll() {
             if (_lineLen > 0) {
                 _lineBuf[_lineLen] = '\0';
                 _lineLen = 0;
+                _overflowWarned = false;
                 HostCommand cmd = processLine(_lineBuf);
                 if (cmd != HostCommand::NONE) return cmd;
             }
         } else if (_lineLen < sizeof(_lineBuf) - 1) {
             _lineBuf[_lineLen++] = c;
+            if (_lineLen >= 60 && !_overflowWarned) {
+                _overflowWarned = true;
+                LOG_W("host: command line approaching buffer limit");
+            }
         }
     }
     return HostCommand::NONE;
@@ -109,6 +115,13 @@ void HostProtocol::sendPadResult(uint8_t slot, uint8_t mezPin, const PadResult& 
     }
     Serial.print(' '); Serial.print(r.prevShort ? 1 : 0);
     Serial.print(' '); Serial.println(r.nextShort ? 1 : 0);
+}
+
+void HostProtocol::sendSlotStatus(uint8_t slot, bool present, bool tested) {
+    Serial.print("SLOT ");
+    Serial.print(slot); Serial.print(' ');
+    Serial.print(present ? 1 : 0); Serial.print(' ');
+    Serial.println(tested ? 1 : 0);
 }
 
 void HostProtocol::sendSummary(const TestResult& result) {

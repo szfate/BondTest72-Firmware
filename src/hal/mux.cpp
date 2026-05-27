@@ -1,6 +1,6 @@
 #include "mux.h"
 #include "mux_map.h"
-#include "../debug/log.h"
+#include "debug/log.h"
 #include <Arduino.h>
 
 // Pin assignments — from docs/RP2350 PINMAP.md
@@ -47,14 +47,14 @@ void MuxController::begin() {
 }
 
 void MuxController::setChannel(uint8_t ch, Bus bus) {
-    if (ch >= 72) return;
+    if (ch >= MUX_CHANNEL_COUNT) { LOG_E("mux: invalid channel %u", ch); return; }
     const MuxEntry& e = MUX_MAP[ch];
     LOG_D("mux set  ch=%u chip=%u x=%u bus=%u", ch, e.chip, e.channel, (uint8_t)bus);
     writeSwitch(e.chip, computeAddr(static_cast<uint8_t>(bus), e.channel), true);
 }
 
 void MuxController::clearChannel(uint8_t ch, Bus bus) {
-    if (ch >= 72) return;
+    if (ch >= MUX_CHANNEL_COUNT) { LOG_E("mux: invalid channel %u", ch); return; }
     const MuxEntry& e = MUX_MAP[ch];
     LOG_D("mux clr  ch=%u chip=%u x=%u bus=%u", ch, e.chip, e.channel, (uint8_t)bus);
     writeSwitch(e.chip, computeAddr(static_cast<uint8_t>(bus), e.channel), false);

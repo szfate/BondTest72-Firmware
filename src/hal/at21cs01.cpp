@@ -1,5 +1,5 @@
 #include "at21cs01.h"
-#include "../debug/log.h"
+#include "debug/log.h"
 #include <Arduino.h>
 #include <hardware/gpio.h>
 #include <hardware/clocks.h>

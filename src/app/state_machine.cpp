@@ -1,57 +1,48 @@
 #include "state_machine.h"
-#include "../adapter/adapter_registry.h"
-#include "../test/pad_map_registry.h"
-#include "../debug/log.h"
-#include "../debug/adapter_self_test.h"
+#include "adapter/adapter_registry.h"
+#include "test/pad_map_registry.h"
+#include "debug/log.h"
+#include "debug/adapter_self_test.h"
 #include <Arduino.h>
 
-static const char* stateName(StateMachine::State s) {
+static const char* stateName(State s) {
     switch (s) {
-        case StateMachine::State::NO_ADAPTER:        return "NO_ADAPTER";
-        case StateMachine::State::ADAPTER_DETECTED:  return "ADAPTER_DETECTED";
-        case StateMachine::State::READY:             return "READY";
-        case StateMachine::State::EOL_ADAPTER:        return "EOL_ADAPTER";
-        case StateMachine::State::WRONG_ORIENTATION: return "WRONG_ORIENTATION";
-        case StateMachine::State::TESTING:           return "TESTING";
-        case StateMachine::State::PASS:              return "PASS";
-        case StateMachine::State::FAIL:              return "FAIL";
-        case StateMachine::State::FAULT:             return "FAULT";
-        default:                                     return "?";
+        case State::NO_ADAPTER:        return "NO_ADAPTER";
+        case State::ADAPTER_DETECTED:  return "ADAPTER_DETECTED";
+        case State::READY:             return "READY";
+        case State::EOL_ADAPTER:        return "EOL_ADAPTER";
+        case State::WRONG_ORIENTATION: return "WRONG_ORIENTATION";
+        case State::TESTING:           return "TESTING";
+        case State::PASS:              return "PASS";
+        case State::FAIL:              return "FAIL";
+        case State::FAULT:             return "FAULT";
+        default:                        return "?";
     }
 }
-
-// LED colours
-static constexpr uint8_t YELLOW_R = 170, YELLOW_G =  30, YELLOW_B = 0;
-static constexpr uint8_t GREEN_R  =   0, GREEN_G  = 255, GREEN_B  = 0;
-static constexpr uint8_t RED_R    = 255, RED_G    =   0, RED_B    = 0;
-static constexpr uint8_t DIM_RED_R =  50, DIM_RED_G =  0, DIM_RED_B = 0;
-
-// Blink periods
-static constexpr uint32_t BLINK_SLOW_MS = 800;
-static constexpr uint32_t BLINK_FAST_MS = 200;
 
 StateMachine::StateMachine(MuxController&    mux,
                            AdcDriver&        adc,
                            SK6812Controller& leds,
                            Buttons&          buttons,
-                           AT21CS01Driver&   eeprom,
+                           EepromManager&    eepromMgr,
                            DutDetector&      dutDetector,
                            TestRunner&       testRunner,
                            HostProtocol&     hostProtocol)
     : _mux(mux)
     , _adc(adc)
-    , _leds(leds)
+    , _ledManager(leds)
     , _buttons(buttons)
-    , _eeprom(eeprom)
+    , _eepromMgr(eepromMgr)
     , _dutDetector(dutDetector)
     , _testRunner(testRunner)
     , _hostProtocol(hostProtocol)
+    , _discoveryScanner(mux, adc, hostProtocol)
 {
 }
 
 void StateMachine::begin() {
-    LOG_I("begin, eeprom present=%d", _eeprom.isPresent());
-    if (_eeprom.isPresent()) {
+    LOG_I("begin, eeprom present=%d", _eepromMgr.isPresent());
+    if (_eepromMgr.isPresent()) {
         bool ok = tryInitAdapter();
         if (ok && _eepromData.eolReached == EepromData::EOL_REACHED) {
             LOG_W("adapter: EOL — rejecting");
@@ -62,7 +53,7 @@ void StateMachine::begin() {
         }
         LOG_I("adapter init %s -> %s", ok ? "ok" : "FAILED", stateName(_state));
     }
-    updateLeds();
+    _ledManager.update(_state);
 }
 
 void StateMachine::update() {
@@ -96,16 +87,17 @@ void StateMachine::update() {
         }
     }
 
-    if (_state == State::READY && _buttons.startPressed())
+    bool startReq = _buttons.startPressed();
+    if (_state == State::READY && startReq)
         startTest();
     else if ((_state == State::PASS || _state == State::FAIL) &&
-             _buttons.startPressed() && _dutDetector.checkNow())
+             startReq && _dutDetector.checkNow())
         startTest();
 
     // Poll for adapter in NO_ADAPTER state
     if (_state == State::NO_ADAPTER) {
         if (now - _lastAdapterPoll >= ADAPTER_POLL_INTERVAL_FAST_MS) {
-            if (_eeprom.isPresent()) {
+            if (_eepromMgr.isPresent()) {
                 if (tryInitAdapter()) {
                     if (_eepromData.eolReached == EepromData::EOL_REACHED) {
                         LOG_W("adapter: EOL — rejecting");
@@ -121,7 +113,7 @@ void StateMachine::update() {
         }
     }
 
-    updateLeds();
+    _ledManager.update(_state);
 }
 
 // ——————————————————————————————————————————————————————————————————————————
@@ -137,7 +129,7 @@ void StateMachine::transition(State next) {
             _adapter->getSupportedPadmapIds());
     }
 
-    updateLeds();
+    _ledManager.update(_state);
 }
 
 void StateMachine::handleDutEvent(DutEvent ev) {
@@ -146,7 +138,10 @@ void StateMachine::handleDutEvent(DutEvent ev) {
             _hostProtocol.sendDutInserted();
             _eepromData.insertionCount++;
             flushEeprom();
-            transition(State::READY);
+            if (_eepromData.eolReached == EepromData::EOL_REACHED)
+                transition(State::EOL_ADAPTER);
+            else
+                transition(State::READY);
             _dutSettleUntil = millis() + DUT_INSERT_SETTLE_MS;
             break;
         case DutEvent::REMOVED:
@@ -184,7 +179,7 @@ void StateMachine::handleCommand(HostCommand cmd) {
             break;
         }
         case HostCommand::PROVISION:
-            if (!_eeprom.isPresent()) {
+            if (!_eepromMgr.isPresent()) {
                 _hostProtocol.sendError("no adapter");
             } else if (!provisionEeprom(_hostProtocol.provisionPadmapId(),
                                         _hostProtocol.provisionMfgDate())) {
@@ -199,7 +194,13 @@ void StateMachine::handleCommand(HostCommand cmd) {
             _hostProtocol.sendError("DISCOVER not implemented");
             break;
         case HostCommand::DISCOVERY_SCAN:
-            discoveryScan();
+            if (_state == State::TESTING) {
+                _hostProtocol.sendError("busy");
+            } else if (!_adapter || !_padMap) {
+                _hostProtocol.sendError("no adapter");
+            } else {
+                _discoveryScanner.run();
+            }
             break;
         case HostCommand::GET_ADAPTER:
             if (!_adapter) {
@@ -238,28 +239,25 @@ bool StateMachine::provisionEeprom(uint8_t padmapId, uint32_t timestamp) {
     d.testCount               = 0;
     d.eolReached              = 0x00;
 
-    uint8_t buf[36];
-    eepromSerialize(d, buf);
-    if (!_eeprom.write(0, buf, 36)) { LOG_E("adapter: eeprom provision write failed"); return false; }
+    if (!_eepromMgr.write(d)) { LOG_E("adapter: eeprom provision write failed"); return false; }
     LOG_I("adapter: eeprom provisioned (Mezzanine70 v1)");
     return true;
 }
 
 bool StateMachine::tryInitAdapter() {
-    uint8_t buf[36];
-    if (!_eeprom.read(0, buf, 36)) { LOG_E("adapter: eeprom read failed");         return false; }
+    auto result = _eepromMgr.read(_eepromData);
 
-    LOG_I("eeprom[0..7]: %02X %02X %02X %02X %02X %02X %02X %02X",
-          buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
-
-    // Blank EEPROM (never programmed) — provision with defaults and re-read.
-    if (buf[0] == 0xFF && buf[1] == 0xFF) {
+    if (result == EepromManager::ReadResult::Blank) {
         LOG_W("adapter: eeprom blank, provisioning defaults");
-        if (!provisionEeprom())              { return false; }
-        if (!_eeprom.read(0, buf, 36))       { LOG_E("adapter: eeprom re-read after provision failed"); return false; }
+        if (!provisionEeprom())
+            return false;
+        result = _eepromMgr.read(_eepromData);
     }
 
-    if (!eepromDeserialize(buf, _eepromData)) { LOG_E("adapter: eeprom deserialize failed"); return false; }
+    if (result != EepromManager::ReadResult::Ok) {
+        LOG_E("adapter: eeprom read failed");
+        return false;
+    }
 
     LOG_I("adapter: model=%u ver=%u padmaps=[%u,%u,%u,%u] dom=%lu lifespan=%lu ins=%lu tests=%lu eol=%s",
           (uint8_t)_eepromData.adapterModel, _eepromData.adapterVersion,
@@ -303,16 +301,14 @@ void StateMachine::flushEeprom() {
     }
     if (_adapter && _eepromData.eolReached == EepromData::EOL_REACHED) {
         _adapter->setEolLed(true);
-        transition(State::FAULT);
     }
-    uint8_t buf[36];
-    eepromSerialize(_eepromData, buf);
-    if (!_eeprom.write(0, buf, 36))
-        LOG_E("adapter: eeprom write failed");
+    if (!_eepromMgr.write(_eepromData)) {
+        _hostProtocol.sendError("eeprom write failed");
+    }
 }
 
 bool StateMachine::checkAdapterAlive() {
-    if (_eeprom.isPresent()) return true;
+    if (_eepromMgr.isPresent()) return true;
     LOG_W("adapter removed");
     if (_adapter) _adapter->setEolLed(false);
     _adapter = nullptr;
@@ -332,7 +328,7 @@ void StateMachine::startTest() {
         _adapter->getSupportedPadmapIds());
 
     transition(State::TESTING);
-    updateLeds();
+    _ledManager.update(_state);
 
     _lastResult = _testRunner.run(*_adapter, *_padMap);
     _eepromData.testCount++;
@@ -345,84 +341,23 @@ void StateMachine::startTest() {
         LOG_I("  slot %u: %u/%u good", s, _lastResult.slots[s].goodCount, _lastResult.slots[s].testedCount);
 
     sendResults();
-    transition(_lastResult.outcome == TestOutcome::PASS ? State::PASS : State::FAIL);
+    if (_eepromData.eolReached == EepromData::EOL_REACHED)
+        transition(State::EOL_ADAPTER);
+    else
+        transition(_lastResult.outcome == TestOutcome::PASS ? State::PASS : State::FAIL);
 }
 
 void StateMachine::sendResults() {
-    if (!_padMap) return;
-    for (uint8_t i = 0; i < _padMap->caseCount; i++) {
-        uint8_t mezPin  = _padMap->cases[i].mezPin;
-        uint8_t channel = _adapter->channelForPin(mezPin);
-        for (uint8_t slot = 0; slot < _lastResult.slotCount; slot++)
-            _hostProtocol.sendPadResult(slot, mezPin, _lastResult.slots[slot].byChannel[channel]);
-    }
-    _hostProtocol.sendSummary(_lastResult);
-}
-
-// ——————————————————————————————————————————————————————————————————————————
-
-static const char* padTypeName(PadType t) {
-    switch (t) {
-        case PadType::VDDIO:    return "VDDIO";
-        case PadType::VDD_CORE: return "VDD_CORE";
-        case PadType::PWR_AUX:  return "PWR_AUX";
-        default:                return "?";
-    }
-}
-
-void StateMachine::discoveryScan() {
-    LOG_I("=== discovery scan start ===");
-    for (uint8_t src = 1; src <= 70; src++) {
-        for (uint8_t snk = 1; snk <= 70; snk++) {
-            if (src == snk) continue;
-            _mux.clearAll();
-            _mux.setChannel(src - 1, Bus::D);
-            _mux.setChannel(snk - 1, Bus::B);
-            delay(1);
-            float v = _adc.readVoltage(0);
-            _hostProtocol.sendDiscoveryScanPoint(src, snk, v);
+    if (!_adapter || !_padMap) return;
+    for (uint8_t slot = 0; slot < _lastResult.slotCount; slot++) {
+        const SlotResult& sr = _lastResult.slots[slot];
+        _hostProtocol.sendSlotStatus(slot, sr.present, sr.tested);
+        if (!sr.tested) continue;
+        for (uint8_t i = 0; i < _padMap->caseCount; i++) {
+            uint8_t mezPin  = _padMap->cases[i].mezPin;
+            uint8_t channel = _adapter->channelForPin(mezPin);
+            _hostProtocol.sendPadResult(slot, mezPin, sr.byChannel[channel]);
         }
     }
-    _mux.clearAll();
-    _hostProtocol.sendDiscoveryScanDone();
-    LOG_I("=== discovery scan done ===");
-}
-
-
-// ——————————————————————————————————————————————————————————————————————————
-
-bool StateMachine::blinkOn(uint32_t periodMs) {
-    return (millis() % periodMs) < (periodMs / 2);
-}
-
-void StateMachine::updateLeds() {
-    _leds.clear();
-    switch (_state) {
-        case State::NO_ADAPTER:
-        case State::EOL_ADAPTER:
-            _leds.setAll(DIM_RED_R, DIM_RED_G, DIM_RED_B);
-            break;
-        case State::ADAPTER_DETECTED:
-            if (blinkOn(BLINK_SLOW_MS)) _leds.setPixel(0, YELLOW_R, YELLOW_G, YELLOW_B);
-            break;
-        case State::READY:
-            _leds.setPixel(0, YELLOW_R, YELLOW_G, YELLOW_B);
-            break;
-        case State::TESTING:
-            _leds.setPixel(0, YELLOW_R, YELLOW_G, YELLOW_B);
-            break;
-        case State::WRONG_ORIENTATION:
-            if (blinkOn(BLINK_SLOW_MS)) _leds.setPixel(0, RED_R, RED_G, RED_B);
-            break;
-        case State::PASS:
-            _leds.setPixel(1, GREEN_R, GREEN_G, GREEN_B);
-            break;
-        case State::FAIL:
-            _leds.setPixel(2, RED_R, RED_G, RED_B);
-            break;
-        case State::FAULT:
-            if (blinkOn(BLINK_FAST_MS)) _leds.setPixel(2, RED_R, RED_G, RED_B);
-            break;
-    }
-    _leds.show();
+    _hostProtocol.sendSummary(_lastResult);
 }

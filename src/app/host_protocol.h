@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
-#include "../test/result.h"
-#include "../test/pad_map.h"
+#include "test/result.h"
+#include "test/pad_map.h"
 
 enum class HostCommand : uint8_t {
     NONE,
@@ -31,6 +31,7 @@ public:
     void sendDutRemoved();
     void sendTestStart(uint8_t model, uint8_t version, const uint8_t* padmapIds);
     void sendPadResult(uint8_t slot, uint8_t mezPin, const PadResult& r);
+    void sendSlotStatus(uint8_t slot, bool present, bool tested);
     void sendSummary(const TestResult& result);
     void sendError(const char* description);
     void sendDiscoveryScanPoint(uint8_t src, uint8_t snk, float v);
@@ -39,8 +40,9 @@ public:
 private:
     HostCommand processLine(const char* line);
 
-    char    _lineBuf[32];
+    char    _lineBuf[64];
     uint8_t _lineLen           = 0;
+    bool    _overflowWarned    = false;
     uint8_t _setPadmapId       = 0;
     uint8_t  _provisionPadmapId  = 0xFF;
     uint32_t _provisionMfgDate = 0;

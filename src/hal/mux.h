@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
 
+static constexpr uint8_t MUX_CHANNEL_COUNT = 72;
+
 // Y port → COM line mapping (matches PCB routing):
 //   Y0 = COM_A (ADC1, GP27) — left neighbour sense
 //   Y1 = COM_B             — tester GND (return path)

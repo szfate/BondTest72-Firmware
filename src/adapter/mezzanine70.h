@@ -16,6 +16,12 @@ public:
     bool         selfTest(MuxController& mux, AdcDriver& adc) const override;
     bool         connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
                                          const PadMap& padMap) const override;
+    bool         senseDutPresent(MuxController& mux, AdcDriver& adc,
+                                 const PadMap& padMap) const override;
+    bool         senseDutFlipped(MuxController& mux, AdcDriver& adc,
+                                  const PadMap& padMap) const override;
+    bool         checkDutNow(MuxController& mux, AdcDriver& adc,
+                              const PadMap& padMap) const override;
     void         setEolLed(bool on) override;
     void         tickEolLed()       override;
 

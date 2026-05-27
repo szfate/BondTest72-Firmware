@@ -13,10 +13,14 @@ struct PadResult {
     bool       nextShort;
 };
 
+constexpr uint8_t MAX_DUT_SLOTS = 5;
+
 struct SlotResult {
     PadResult byChannel[72];   // indexed by tester channel (= mez_pin − 1); only tested entries are valid
     uint8_t   testedCount;
     uint8_t   goodCount;
+    bool      present;          // DUT detected in this slot
+    bool      tested;           // test completed for this slot
 };
 
 enum class TestOutcome : uint8_t {
@@ -27,7 +31,7 @@ enum class TestOutcome : uint8_t {
 };
 
 struct TestResult {
-    SlotResult  slots[5];   // [0] only for Mezzanine70; all 5 for Mezzanine70x5
+    SlotResult  slots[MAX_DUT_SLOTS];
     uint8_t     slotCount;
     TestOutcome outcome;
 };

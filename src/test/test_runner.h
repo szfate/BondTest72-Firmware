@@ -2,9 +2,9 @@
 #include "pad_map.h"
 #include "result.h"
 #include "dut_detector.h"
-#include "../hal/mux.h"
-#include "../hal/adc.h"
-#include "../adapter/adapter_base.h"
+#include "hal/mux.h"
+#include "hal/adc.h"
+#include "adapter/adapter_base.h"
 
 class TestRunner {
 public:

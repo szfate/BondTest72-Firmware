@@ -1,16 +1,17 @@
 #pragma once
-#include <stdint.h>
-#include "../hal/mux.h"
-#include "../hal/adc.h"
-#include "../hal/sk6812.h"
-#include "../hal/buttons.h"
-#include "../hal/at21cs01.h"
-#include "../adapter/adapter_base.h"
-#include "../adapter/eeprom_layout.h"
-#include "../test/dut_detector.h"
-#include "../test/test_runner.h"
-#include "../test/result.h"
+#include "state.h"
+#include "hal/mux.h"
+#include "hal/adc.h"
+#include "hal/sk6812.h"
+#include "hal/buttons.h"
+#include "adapter/adapter_base.h"
+#include "adapter/eeprom_manager.h"
+#include "test/dut_detector.h"
+#include "test/test_runner.h"
+#include "test/result.h"
 #include "host_protocol.h"
+#include "led_manager.h"
+#include "test/discovery_scanner.h"
 
 constexpr uint32_t ADAPTER_POLL_INTERVAL_MS       = 1500;
 constexpr uint32_t ADAPTER_POLL_INTERVAL_FAST_MS  = 100;
@@ -22,7 +23,7 @@ public:
                  AdcDriver&        adc,
                  SK6812Controller& leds,
                  Buttons&          buttons,
-                 AT21CS01Driver&   eeprom,
+                 EepromManager&    eepromMgr,
                  DutDetector&      dutDetector,
                  TestRunner&       testRunner,
                  HostProtocol&     hostProtocol);
@@ -30,24 +31,10 @@ public:
     void begin();   // call once from setup()
     void update();  // call every loop()
 
-    enum class State : uint8_t {
-        NO_ADAPTER,
-        EOL_ADAPTER,
-        ADAPTER_DETECTED,
-        READY,
-        WRONG_ORIENTATION,
-        TESTING,
-        PASS,
-        FAIL,
-        FAULT,
-    };
-
 private:
     void transition(State next);
     void handleDutEvent(DutEvent ev);
     void handleCommand(HostCommand cmd);
-    void updateLeds();
-    bool blinkOn(uint32_t periodMs);
     bool tryInitAdapter();
     bool provisionEeprom(uint8_t padmapId = EepromData::PADMAP_UNSET, uint32_t timestamp = 0);
     void selectPadMap();
@@ -55,16 +42,16 @@ private:
     void startTest();
     void sendResults();
     void flushEeprom();
-    void discoveryScan();
 
     MuxController&    _mux;
     AdcDriver&        _adc;
-    SK6812Controller& _leds;
+    LedManager        _ledManager;
     Buttons&          _buttons;
-    AT21CS01Driver&   _eeprom;
+    EepromManager&     _eepromMgr;
     DutDetector&      _dutDetector;
     TestRunner&       _testRunner;
     HostProtocol&     _hostProtocol;
+    DiscoveryScanner  _discoveryScanner;
 
     State         _state           = State::NO_ADAPTER;
     AdapterBase*  _adapter         = nullptr;

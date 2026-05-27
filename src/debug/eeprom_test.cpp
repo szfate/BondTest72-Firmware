@@ -28,7 +28,7 @@ void eepromTest() {
     if (!present) return;
 
     // 2. Hex-dump first 36 bytes (header)
-    uint8_t buf[36];
+    uint8_t buf[EepromData::WIRE_BYTES];
     if (eeprom.read(0x00, buf, sizeof(buf))) {
         Serial.println("read 0x00–0x21:");
         for (uint8_t i = 0; i < sizeof(buf); i++) {

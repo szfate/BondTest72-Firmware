@@ -1,5 +1,5 @@
 #include "test_runner.h"
-#include "../debug/log.h"
+#include "debug/log.h"
 #include <Arduino.h>
 
 TestRunner::TestRunner(MuxController& mux, AdcDriver& adc, DutDetector& dutDetector)
@@ -33,16 +33,25 @@ PadResult TestRunner::classify(const AdcReadings& r, const TestCase& tc) {
 }
 
 TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
-    TestResult result;
+    TestResult result = {};
     result.slotCount = adapter.getDutCount();
     result.outcome   = TestOutcome::PASS;
 
-    for (uint8_t slot = 0; slot < adapter.getDutCount(); slot++) {
+    if (result.slotCount == 0 || result.slotCount > MAX_DUT_SLOTS) {
+        LOG_E("test: invalid slot count %u", result.slotCount);
+        result.outcome = TestOutcome::FAIL;
+        result.slotCount = 0;
+        return result;
+    }
+
+    for (uint8_t slot = 0; slot < result.slotCount; slot++) {
         adapter.selectDut(slot);
 
         SlotResult& sr = result.slots[slot];
         sr.testedCount = 0;
         sr.goodCount   = 0;
+        sr.present      = false;
+        sr.tested       = false;
 
         for (uint8_t i = 0; i < padMap.caseCount; i++) {
             const TestCase& tc = padMap.cases[i];
@@ -123,8 +132,12 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
 
         if (!_dutDetector.checkNow()) {
             result.outcome = TestOutcome::FAIL_DUT_REMOVED;
+            sr.present = true;   // was present when slot started
+            sr.tested = false;   // removed mid-test
             break;
         }
+        sr.present = true;
+        sr.tested = true;
     }
 
     _mux.clearAll();
@@ -132,6 +145,7 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
     if (result.outcome == TestOutcome::PASS) {
         for (uint8_t slot = 0; slot < result.slotCount && result.outcome == TestOutcome::PASS; slot++) {
             const SlotResult& sr = result.slots[slot];
+            if (!sr.tested) continue;
 
             // Ungrouped pads: every one must pass.
             for (uint8_t i = 0; i < padMap.caseCount && result.outcome == TestOutcome::PASS; i++) {

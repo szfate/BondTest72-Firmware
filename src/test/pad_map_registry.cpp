@@ -1,16 +1,20 @@
 #include "pad_map_registry.h"
 
-static constexpr TestThresholds kThreshIoPm1     = { 0.2f, 0.8f, 0.2f, 1.5f };
-static constexpr TestThresholds kThreshPwrPm1    = { 0.2f, 0.8f, 0.2f, 1.5f };
-static constexpr TestThresholds kThreshIoPm2     = { 0.2f, 0.8f, 0.2f, 1.5f };
-static constexpr TestThresholds kThreshPwrPm2    = { 0.2f, 0.8f, 0.2f, 1.5f };
+static constexpr TestThresholds kThreshIO     = { 0.2f, 0.8f, 0.2f, 1.5f };
+static constexpr TestThresholds kThreshPwr    = { 0.2f, 0.8f, 0.2f, 1.5f };
 // PWR_AUX has a bypass cap to GND that distorts bond-sense readings regardless of direction.
 // Use SKIP_SENSE — bond result is always GOOD; neighbour shorts are still checked.
-static constexpr TestThresholds kThreshPwrAuxPm1 = { 0.2f, 3.0f, 0.2f, 3.0f };
-static constexpr TestThresholds kThreshPwrAuxPm2 = { 0.2f, 3.0f, 0.2f, 3.0f };
-static constexpr TestThresholds kThreshIoPm3     = { 0.2f, 0.8f, 0.2f, 1.5f };
-static constexpr TestThresholds kThreshPwrPm3    = { 0.2f, 0.8f, 0.2f, 1.5f };
-static constexpr TestThresholds kThreshPwrAuxPm3 = { 0.2f, 3.0f, 0.2f, 3.0f };
+static constexpr TestThresholds kThreshPwrAux = { 0.2f, 3.0f, 0.2f, 3.0f };
+
+static constexpr TestThresholds kThreshIoPm1     = kThreshIO;
+static constexpr TestThresholds kThreshPwrPm1    = kThreshPwr;
+static constexpr TestThresholds kThreshPwrAuxPm1 = kThreshPwrAux;
+static constexpr TestThresholds kThreshIoPm2     = kThreshIO;
+static constexpr TestThresholds kThreshPwrPm2    = kThreshPwr;
+static constexpr TestThresholds kThreshPwrAuxPm2 = kThreshPwrAux;
+static constexpr TestThresholds kThreshIoPm3     = kThreshIO;
+static constexpr TestThresholds kThreshPwrPm3    = kThreshPwr;
+static constexpr TestThresholds kThreshPwrAuxPm3 = kThreshPwrAux;
 
 #define NON NO_NEIGHBOUR
 static constexpr uint8_t GND  = 10;  // mez10 = die GND 19; all GND pins equivalent (1x1)

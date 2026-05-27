@@ -1,9 +1,9 @@
 #pragma once
 #include <stdint.h>
 #include "pad_map.h"
-#include "../hal/mux.h"
-#include "../hal/adc.h"
-#include "../adapter/adapter_base.h"
+#include "hal/mux.h"
+#include "hal/adc.h"
+#include "adapter/adapter_base.h"
 
 constexpr uint32_t DUT_POLL_INTERVAL_MS = 250;
 
@@ -22,12 +22,9 @@ public:
     void     setPadMap(const PadMap* padMap);
     DutEvent poll();
 
-    // Presence check without state update — call from TestRunner at end of scan.
     bool checkNow();
 
 private:
-    bool checkPresence(uint8_t pinA, uint8_t pinB);
-
     MuxController&      _mux;
     AdcDriver&          _adc;
     const AdapterBase*  _adapter;

@@ -175,6 +175,7 @@ EVENT TEST_START <model> <ver> [<padmap_id> ...]
 EVENT EOL_WARNING <insertion_count>
 
 ADAPTER model=N ver=N ...
+SLOT <slot> <present> <tested>
 PAD <slot> <mez_pin> <GOOD|OPEN|SHORT> <prev_short> <next_short>
 SUMMARY <PASS|FAIL> <good>/<tested>
 
@@ -195,13 +196,14 @@ Each adapter carries an AT21CS01 EEPROM that stores lifetime and configuration d
 | 0 | 2 | Magic: `{ 0xB7, 0x72 }` |
 | 2 | 1 | `adapter_model` (0x01 = Mezzanine70) |
 | 3 | 1 | `adapter_version` |
-| 4 | 1 | `supported_padmap_id` (0xFF = auto-detect) |
-| 6 | 2 | `designed_lifespan` — rated insertion count |
-| 8 | 4 | `date_of_manufacture` — Unix timestamp |
-| 12 | 4 | `insertion_count` — physical DUT insertions (wear metric) |
-| 16 | 4 | `test_count` — completed test runs |
-| 20 | 1 | `eol_reached` (0x00 = ok, 0xFF = EOL) |
-| 22 | 2 | CRC-16 over bytes 0–21 |
+| 4 | 4 | `supported_padmap_ids` (0xFF = unused slot, up to 4 IDs) |
+| 8 | 4 | reserved (all zeros) |
+| 12 | 4 | `designed_lifespan` — max insertions before EOL |
+| 16 | 4 | `date_of_manufacture` — Unix timestamp (little-endian) |
+| 20 | 4 | `insertion_count` — DUT insertions (wear metric) |
+| 24 | 4 | `test_count` — completed test runs |
+| 28 | 4 | `eol_reached` (0x00000000 = ok, 0xFFFFFFFF = EOL) |
+| 32 | 4 | CRC-32 over bytes 0–31 |
 
 `insertion_count` increments on each DUT absent → present transition. When it exceeds the `designed_lifespan` for the adapter model the firmware sets `eol_reached` and drives the ID LED on the adapter board.
 
