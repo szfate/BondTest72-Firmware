@@ -176,7 +176,7 @@ EVENT EOL_WARNING <insertion_count>
 
 ADAPTER model=N ver=N ...
 SLOT <slot> <present> <tested>
-PAD <slot> <mez_pin> <GOOD|OPEN|SHORT> <prev_short> <next_short>
+PAD <slot> <mez_pin> <die_pad> <GOOD|OPEN|SHORT> <prev_short> <next_short> <sense_V> <prev_V> <next_V>
 SUMMARY <PASS|FAIL> <good>/<tested>
 
 DSCAN <src_mez> <snk_mez> <voltage>   (streamed during DISCOVERY_SCAN)
@@ -247,6 +247,39 @@ uv run tools/provision.py --port COM3 --padmap 2 --date 20260101 --yes
 | `--padmap` | required | Pad map ID (1 = 1x1 Mezzanine70 r1, 2 = 1x1 Mezzanine70 r2, 3 = 1x0p5 Mezzanine70 v1) |
 | `--date` | today | Manufacture date as `YYYYMMDD` |
 | `--yes` / `-y` | — | Skip confirmation prompt |
+
+### `tools/visualize_results.py`
+
+Opens an interactive GUI window showing every bond pad coloured by test result. Hover over any pad to see its die pad number, role, and measured voltages. Also writes an SVG file for archival.
+
+The pad map is auto-detected from the adapter EEPROM via `GET_ADAPTER` before the test runs.
+
+```bash
+# Run a test — GUI window opens automatically
+uv run tools/visualize_results.py --port /dev/tty.usbmodem1101
+
+# Named result for a specific DUT slot
+uv run tools/visualize_results.py --port COM3 --slot 0 --name TTPG_lot3
+
+# Re-plot from a previously saved log file (no hardware needed)
+uv run tools/visualize_results.py --file saved_log.txt --padmap 2
+
+# SVG only, no window
+uv run tools/visualize_results.py --port /dev/tty.usbmodem1101 --no-gui
+```
+
+Color key: green = good IO bond · blue = good VCC bond · red = open · orange = shorted to GND · yellow = inter-pad short · gray = GND/NC · light gray = not tested.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--port` | — | Serial port — triggers `GET_ADAPTER` + `RUN` (mutually exclusive with `--file`) |
+| `--file` | — | Saved log file to re-parse (no hardware needed) |
+| `--baud` | 115200 | Baud rate |
+| `--slot` | all | DUT slot index to display |
+| `--padmap` | auto | Pad map ID — auto-detected from adapter EEPROM when using `--port` |
+| `--out` | `bond_result_YYYYMMDD_HHMMSS` | Output SVG basename (no extension) |
+| `--name` | — | Label shown in the window title and appended to the auto filename |
+| `--no-gui` | — | Skip GUI window, write SVG only |
 
 ---
 

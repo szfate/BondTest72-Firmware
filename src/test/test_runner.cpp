@@ -29,6 +29,10 @@ PadResult TestRunner::classify(const AdcReadings& r, const TestCase& tc) {
                    (r.nextNeighbour < th.neighbourGoodMin ||
                     r.nextNeighbour > th.neighbourGoodMax);
 
+    pr.senseV = r.sense;
+    pr.prevV  = r.prevNeighbour;
+    pr.nextV  = r.nextNeighbour;
+
     return pr;
 }
 

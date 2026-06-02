@@ -354,9 +354,11 @@ void StateMachine::sendResults() {
         _hostProtocol.sendSlotStatus(slot, sr.present, sr.tested);
         if (!sr.tested) continue;
         for (uint8_t i = 0; i < _padMap->caseCount; i++) {
-            uint8_t mezPin  = _padMap->cases[i].mezPin;
-            uint8_t channel = _adapter->channelForPin(mezPin);
-            _hostProtocol.sendPadResult(slot, mezPin, sr.byChannel[channel]);
+            const TestCase& tc = _padMap->cases[i];
+            if (tc.strategy == TestStrategy::DISCHARGE ||
+                tc.strategy == TestStrategy::PRECHARGE) continue;
+            uint8_t channel = _adapter->channelForPin(tc.mezPin);
+            _hostProtocol.sendPadResult(slot, tc.mezPin, tc.diePad, sr.byChannel[channel]);
         }
     }
     _hostProtocol.sendSummary(_lastResult);

@@ -104,17 +104,21 @@ void HostProtocol::sendTestStart(uint8_t model, uint8_t version, const uint8_t* 
     Serial.println();
 }
 
-void HostProtocol::sendPadResult(uint8_t slot, uint8_t mezPin, const PadResult& r) {
+void HostProtocol::sendPadResult(uint8_t slot, uint8_t mezPin, uint8_t diePad, const PadResult& r) {
     Serial.print("PAD ");
     Serial.print(slot);    Serial.print(' ');
     Serial.print(mezPin);  Serial.print(' ');
+    Serial.print(diePad);  Serial.print(' ');
     switch (r.bond) {
         case BondResult::GOOD:      Serial.print("GOOD");  break;
         case BondResult::OPEN:      Serial.print("OPEN");  break;
         case BondResult::SHORT_GND: Serial.print("SHORT"); break;
     }
     Serial.print(' '); Serial.print(r.prevShort ? 1 : 0);
-    Serial.print(' '); Serial.println(r.nextShort ? 1 : 0);
+    Serial.print(' '); Serial.print(r.nextShort ? 1 : 0);
+    Serial.print(' '); Serial.print(r.senseV, 3);
+    Serial.print(' '); Serial.print(r.prevV,  3);
+    Serial.print(' '); Serial.println(r.nextV, 3);
 }
 
 void HostProtocol::sendSlotStatus(uint8_t slot, bool present, bool tested) {

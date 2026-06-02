@@ -11,6 +11,9 @@ struct PadResult {
     BondResult bond;
     bool       prevShort;
     bool       nextShort;
+    float      senseV;   // COM_D sense voltage
+    float      prevV;    // COM_A prev-neighbour voltage (0 if not tested)
+    float      nextV;    // COM_C next-neighbour voltage (0 if not tested)
 };
 
 constexpr uint8_t MAX_DUT_SLOTS = 5;

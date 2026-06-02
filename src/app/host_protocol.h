@@ -30,7 +30,7 @@ public:
     void sendDutInserted();
     void sendDutRemoved();
     void sendTestStart(uint8_t model, uint8_t version, const uint8_t* padmapIds);
-    void sendPadResult(uint8_t slot, uint8_t mezPin, const PadResult& r);
+    void sendPadResult(uint8_t slot, uint8_t mezPin, uint8_t diePad, const PadResult& r);
     void sendSlotStatus(uint8_t slot, bool present, bool tested);
     void sendSummary(const TestResult& result);
     void sendError(const char* description);
