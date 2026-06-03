@@ -121,16 +121,25 @@ def run_scan(port: str, baud: int, timeout: int) -> dict:
 
         if line.startswith("DSCAN "):
             parts = line.split()
-            if len(parts) == 4:
-                src, snk, v = int(parts[1]), int(parts[2]), float(parts[3])
+            if len(parts) >= 4:
+                if '=' in parts[1]:
+                    d = dict(p.split('=', 1) for p in parts[1:] if '=' in p)
+                    src, snk, v = int(d.get('src', '0')), int(d.get('snk', '0')), float(d.get('sv', '0'))
+                else:
+                    src, snk, v = int(parts[1]), int(parts[2]), float(parts[3])
                 data[(src, snk)] = v
                 received += 1
                 pct = received * 100 // total_expected
                 if pct != last_progress:
                     print(f"\r  {pct:3d}%  ({received}/{total_expected})", end="", flush=True)
                     last_progress = pct
-        elif line.startswith("ERROR"):
-            print(f"\nERROR from tester: {line}")
+        elif line.startswith("ERROR "):
+            rest = line[6:]
+            if '=' in rest:
+                kv = dict(p.split('=', 1) for p in rest.split() if '=' in p)
+                print(f"\nERROR from tester (code {kv.get('code', '?')}): {kv.get('msg', rest)}")
+            else:
+                print(f"\nERROR from tester: {line}")
             ser.close()
             sys.exit(1)
         else:
