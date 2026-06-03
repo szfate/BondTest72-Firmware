@@ -1,0 +1,5 @@
+PAD slot=0 mez=63 dp=8 bond=GOOD ps=0 ns=0 sv=0.650 pv=1.600 nv=1.580
+PAD slot=0 mez=64 dp=7 bond=GOOD ps=0 ns=0 sv=0.620 pv=1.610 nv=1.590
+PAD slot=0 mez=8 dp=17 bond=GOOD ps=0 ns=0 sv=0.650 pv=1.600 nv=1.580
+SLOT slot=0 present=1 tested=1
+SUMMARY outcome=PASS good=3 tested=3
