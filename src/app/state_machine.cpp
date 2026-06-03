@@ -50,6 +50,7 @@ void StateMachine::begin() {
         } else {
             if (ok) _dutDetector.poll();  // prime detector state — no event fired, no counter increment
             _state = ok ? State::ADAPTER_DETECTED : State::FAULT;
+            if (!ok) _hostProtocol.sendFault("ADAPTER_INIT_FAILED");
         }
         LOG_I("adapter init %s -> %s", ok ? "ok" : "FAILED", stateName(_state));
     }
@@ -99,13 +100,15 @@ void StateMachine::update() {
         if (now - _lastAdapterPoll >= ADAPTER_POLL_INTERVAL_FAST_MS) {
             if (_eepromMgr.isPresent()) {
                 if (tryInitAdapter()) {
-                    if (_eepromData.eolReached == EepromData::EOL_REACHED) {
-                        LOG_W("adapter: EOL — rejecting");
-                        transition(State::EOL_ADAPTER);
-                    } else {
+if (_eepromData.eolReached == EepromData::EOL_REACHED) {
+            LOG_W("adapter: EOL — rejecting");
+            _hostProtocol.sendEolWarning(_eepromData.insertionCount);
+            _state = State::EOL_ADAPTER;
+        } else {
                         transition(State::ADAPTER_DETECTED);
                     }
                 } else {
+                    _hostProtocol.sendFault("ADAPTER_INIT_FAILED");
                     transition(State::FAULT);
                 }
             }
@@ -120,6 +123,11 @@ void StateMachine::update() {
 
 void StateMachine::transition(State next) {
     LOG_I("state %s -> %s", stateName(_state), stateName(next));
+
+    if (next == State::EOL_ADAPTER) {
+        _hostProtocol.sendEolWarning(_eepromData.insertionCount);
+    }
+
     _state = next;
 
     if (next == State::ADAPTER_DETECTED && _adapter) {
@@ -153,6 +161,7 @@ void StateMachine::handleDutEvent(DutEvent ev) {
                 _adapter->connectorIsolationSweep(_mux, _adc, *_padMap);
             break;
         case DutEvent::WRONG_ORIENTATION:
+            _hostProtocol.sendWrongOrientation();
             transition(State::WRONG_ORIENTATION);
             break;
         case DutEvent::NONE:
@@ -174,37 +183,34 @@ void StateMachine::handleCommand(HostCommand cmd) {
                 _padMap = map;
                 _dutDetector.setPadMap(_padMap);
             } else {
-                _hostProtocol.sendError("unknown pad map id");
+                _hostProtocol.sendError(ErrorCode::UNKNOWN_PADMAP, "UNKNOWN_PADMAP");
             }
             break;
         }
         case HostCommand::PROVISION:
             if (!_eepromMgr.isPresent()) {
-                _hostProtocol.sendError("no adapter");
+                _hostProtocol.sendError(ErrorCode::NO_ADAPTER, "NO_ADAPTER");
             } else if (!provisionEeprom(_hostProtocol.provisionPadmapId(),
                                         _hostProtocol.provisionMfgDate())) {
-                _hostProtocol.sendError("provision write failed");
+                _hostProtocol.sendError(ErrorCode::PROVISION_FAILED, "PROVISION_FAILED");
             } else {
                 _adapter = nullptr; _padMap = nullptr;
                 transition(tryInitAdapter() ? State::ADAPTER_DETECTED : State::FAULT);
                 Serial.println("OK PROVISION");
             }
             break;
-        case HostCommand::DISCOVER:
-            _hostProtocol.sendError("DISCOVER not implemented");
-            break;
         case HostCommand::DISCOVERY_SCAN:
             if (_state == State::TESTING) {
-                _hostProtocol.sendError("busy");
+                _hostProtocol.sendError(ErrorCode::BUSY, "BUSY");
             } else if (!_adapter || !_padMap) {
-                _hostProtocol.sendError("no adapter");
+                _hostProtocol.sendError(ErrorCode::NO_ADAPTER, "NO_ADAPTER");
             } else {
                 _discoveryScanner.run();
             }
             break;
         case HostCommand::GET_ADAPTER:
             if (!_adapter) {
-                _hostProtocol.sendError("no adapter");
+                _hostProtocol.sendError(ErrorCode::NO_ADAPTER, "NO_ADAPTER");
             } else {
                 _hostProtocol.sendAdapterInfo(
                     (uint8_t)_eepromData.adapterModel,
@@ -270,6 +276,16 @@ bool StateMachine::tryInitAdapter() {
     _adapter = AdapterRegistry::create(_eepromData);
     if (!_adapter) { LOG_E("adapter: unknown model %u", (uint8_t)_eepromData.adapterModel); return false; }
 
+    char uidBuf[17];
+    if (_eepromMgr.readSerialUid(uidBuf, sizeof(uidBuf))) {
+        memcpy(_adapterUid, uidBuf, sizeof(_adapterUid));
+        _hostProtocol.setUid(_adapterUid);
+    } else {
+        memset(_adapterUid, '0', sizeof(_adapterUid) - 1);
+        _adapterUid[sizeof(_adapterUid) - 1] = '\0';
+        _hostProtocol.setUid(_adapterUid);
+    }
+
     adapterSelfTest(_adapter);
     _dutDetector.setAdapter(_adapter);
     selectPadMap();
@@ -303,7 +319,7 @@ void StateMachine::flushEeprom() {
         _adapter->setEolLed(true);
     }
     if (!_eepromMgr.write(_eepromData)) {
-        _hostProtocol.sendError("eeprom write failed");
+        _hostProtocol.sendError(ErrorCode::PROVISION_FAILED, "EEPROM_WRITE_FAILED");
     }
 }
 
@@ -311,6 +327,7 @@ bool StateMachine::checkAdapterAlive() {
     if (_eepromMgr.isPresent()) return true;
     LOG_W("adapter removed");
     if (_adapter) _adapter->setEolLed(false);
+    _hostProtocol.sendAdapterRemoved();
     _adapter = nullptr;
     _padMap  = nullptr;
     _dutDetector.setAdapter(nullptr);

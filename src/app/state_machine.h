@@ -58,6 +58,7 @@ private:
     const PadMap* _padMap          = nullptr;
     TestResult    _lastResult      = {};
     EepromData    _eepromData;
+    char          _adapterUid[17]  = {};
 
     uint32_t      _lastAdapterPoll  = 0;
     uint32_t      _lastDutPoll      = 0;
