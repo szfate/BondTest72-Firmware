@@ -43,6 +43,23 @@ def parse_adapter_line(line: str) -> dict:
     return info
 
 
+def parse_error_line(line: str) -> str:
+    """Parse 'ERROR code=N msg=TEXT' or legacy 'ERROR text'. Returns human-readable string."""
+    if line.startswith("ERROR "):
+        rest = line[6:]
+        if "=" in rest:
+            parts = {}
+            for token in rest.split():
+                if "=" in token:
+                    k, _, v = token.partition("=")
+                    parts[k] = v
+            code = parts.get("code", "?")
+            msg = parts.get("msg", rest)
+            return f"code {code}: {msg}"
+        return rest
+    return line
+
+
 def query_adapter(ser: "serial.Serial", timeout: int = 5) -> dict | None:
     ser.reset_input_buffer()
     ser.write(b"GET_ADAPTER\n")
@@ -53,13 +70,14 @@ def query_adapter(ser: "serial.Serial", timeout: int = 5) -> dict | None:
         if line.startswith("ADAPTER "):
             return parse_adapter_line(line[8:])
         if line.startswith("ERROR"):
+            print(f"  Error: {parse_error_line(line)}")
             return None
     return None
 
 
 def send_provision(ser: "serial.Serial", padmap_id: int, mfg_date: str, timeout: int = 5) -> bool:
     ser.reset_input_buffer()
-    cmd = f"PROVISION {padmap_id} {mfg_date}\n"
+    cmd = f"PROVISION padmap={padmap_id} date={mfg_date}\n"
     ser.write(cmd.encode())
     ser.flush()
     start = time.time()
@@ -68,7 +86,7 @@ def send_provision(ser: "serial.Serial", padmap_id: int, mfg_date: str, timeout:
         if line == "OK PROVISION":
             return True
         if line.startswith("ERROR"):
-            print(f"  Tester error: {line}")
+            print(f"  Tester error: {parse_error_line(line)}")
             return False
     print("  Timed out waiting for OK PROVISION.")
     return False
@@ -84,6 +102,7 @@ def fmt_date(d: str) -> str:
 
 
 def print_adapter_info(info: dict):
+    uid      = info.get("uid",      "?")
     model    = info.get("model",    "?")
     ver      = info.get("ver",      "?")
     mfg      = fmt_date(info.get("mfg_date", "0"))
@@ -99,6 +118,7 @@ def print_adapter_info(info: dict):
         if v and v != "255":
             padmap_ids.append(v)
 
+    print(f"  UID        : {uid}")
     print(f"  Model      : {model}  ver {ver}")
     print(f"  Pad map IDs: {', '.join(padmap_ids) if padmap_ids else 'none'}")
     print(f"  Pad map    : {padmap}")
