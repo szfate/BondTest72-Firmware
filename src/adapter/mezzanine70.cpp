@@ -6,7 +6,7 @@
 #include <Arduino.h>
 
 static constexpr uint8_t EOL_LED_PIN = 18;  // CON5 = GP18
-static constexpr uint8_t MEZ_PIN_COUNT_PLUS_1 = 71;  // mirror formula for flipped-DUT detection: flipped_pin = 71 - normal_pin
+static constexpr uint8_t ADAPTER_PIN_COUNT_PLUS_1 = 71;  // mirror formula for flipped-DUT detection: flipped_pin = 71 - normal_pin
 
 Mezzanine70::Mezzanine70(const EepromData& eeprom)
     : _version(eeprom.adapterVersion)
@@ -26,11 +26,11 @@ bool Mezzanine70::connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
         const TestCase& tc = padMap.cases[i];
         mux.clearAll();
         mux.setChannel(channelForPin(tc.gndPin), Bus::D);
-        mux.setChannel(channelForPin(tc.mezPin), Bus::B);
+        mux.setChannel(channelForPin(tc.adapterPin), Bus::B);
         delay(1);
         float v = adc.readVoltage(0);  // COM_D
         if (v < ISOLATION_SHORT_THRESHOLD_V) {
-            LOG_W("connector isolation: amez%u sense=%.3fV SHORT?", tc.mezPin, v);
+            LOG_W("connector isolation: apin%u sense=%.3fV SHORT?", tc.adapterPin, v);
             ok = false;
         }
     }
@@ -81,20 +81,20 @@ bool Mezzanine70::senseDutPresent(MuxController& mux, AdcDriver& adc,
     mux.setChannel(channelForPin(padMap.presencePadB), Bus::B);
     float v = adc.readVoltage(0);  // COM_D
     mux.clearAll();
-    LOG_D("dut present: amez%u→D amez%u→B: %.3fV", padMap.presencePadA, padMap.presencePadB, v);
+    LOG_D("dut present: apin%u→D apin%u→B: %.3fV", padMap.presencePadA, padMap.presencePadB, v);
     return v < padMap.presenceThresholdV;
 }
 
 bool Mezzanine70::senseDutFlipped(MuxController& mux, AdcDriver& adc,
                                     const PadMap& padMap) const {
-    uint8_t flippedA = MEZ_PIN_COUNT_PLUS_1 - padMap.presencePadA;
-    uint8_t flippedB = MEZ_PIN_COUNT_PLUS_1 - padMap.presencePadB;
+    uint8_t flippedA = ADAPTER_PIN_COUNT_PLUS_1 - padMap.presencePadA;
+    uint8_t flippedB = ADAPTER_PIN_COUNT_PLUS_1 - padMap.presencePadB;
     mux.clearAll();
     mux.setChannel(channelForPin(flippedA), Bus::D);
     mux.setChannel(channelForPin(flippedB), Bus::B);
     float v = adc.readVoltage(0);  // COM_D
     mux.clearAll();
-    LOG_D("dut flipped: amez%u→D amez%u→B: %.3fV", flippedA, flippedB, v);
+    LOG_D("dut flipped: apin%u→D apin%u→B: %.3fV", flippedA, flippedB, v);
     return v < padMap.presenceThresholdV;
 }
 

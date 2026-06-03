@@ -13,9 +13,9 @@ struct TestThresholds {
 enum class TestStrategy : uint8_t {
     STANDARD,    // sense + neighbours
     SKIP_SENSE,  // capacitive pad: neighbours only, bond sense not checked
-    DISCHARGE,   // nop: short mezPin+gndPin to Bus::B for settleMs; discharges cap, no result
-    PRECHARGE,   // nop: mezPin→Bus::D, gndPin→Bus::B for settleMs; charges cap, no result
-    CAP_SENSE,   // cap charging test: 3 readings spaced settleMs apart (mezPin→Bus::D, gndPin→Bus::B);
+    DISCHARGE,   // nop: short adapterPin+gndPin to Bus::B for settleMs; discharges cap, no result
+    PRECHARGE,   // nop: adapterPin→Bus::D, gndPin→Bus::B for settleMs; charges cap, no result
+    CAP_SENSE,   // cap charging test: 3 readings spaced settleMs apart (adapterPin→Bus::D, gndPin→Bus::B);
                  // pass if final reading ≥ senseGoodMin — confirms bond conducted to charge the cap
 };
 
@@ -29,7 +29,7 @@ enum class PadType : uint8_t {
 
 // One measurement step: which pad to test, which is GND, which are neighbours,
 // how to measure it, and what values are acceptable.
-// All pin indices are mezzanine connector pins (adapter-space).
+// All pin indices are adapter pins (1-indexed).
 //
 // Use NO_NEIGHBOUR when a physical neighbour is a GND pad. GND pads are the
 // current injection point (BUS_D), so routing one to BUS_A or BUS_C would read
@@ -38,10 +38,10 @@ enum class PadType : uint8_t {
 // DISCHARGE steps use gndPin for both BUS_B and BUS_D to short the cap to GND;
 // no result is recorded. thresholds may be nullptr for DISCHARGE.
 struct TestCase {
-    uint8_t               mezPin;      // mez pin under test (BUS_B return path)
-    uint8_t               gndPin;      // mez GND pin — injection/reference (BUS_D sense)
-    uint8_t               prevPin;     // mez pin of previous neighbour (BUS_A, die N-1), NO_NEIGHBOUR if GND pad
-    uint8_t               nextPin;     // mez pin of next neighbour (BUS_C, die N+1), NO_NEIGHBOUR if GND pad
+    uint8_t               adapterPin;  // adapter pin under test (BUS_B return path)
+    uint8_t               gndPin;      // adapter GND pin — injection/reference (BUS_D sense)
+    uint8_t               prevPin;     // adapter pin of previous neighbour (BUS_A, die N-1), NO_NEIGHBOUR if GND pad
+    uint8_t               nextPin;     // adapter pin of next neighbour (BUS_C, die N+1), NO_NEIGHBOUR if GND pad
     uint8_t               diePad;      // die pad number (for logging; 0 for DISCHARGE steps)
     TestStrategy          strategy;
     PadType               padType;
@@ -62,8 +62,8 @@ struct PadMap {
     const char*      name;
     const TestCase*  cases;
     uint8_t          caseCount;
-    uint8_t          presencePadA;        // mezzanine GND pin → Bus::D (27K pull-up, sense)
-    uint8_t          presencePadB;        // mezzanine GND pin → Bus::B (GND return)
+    uint8_t          presencePadA;        // adapter GND pin → Bus::D (27K pull-up, sense)
+    uint8_t          presencePadB;        // adapter GND pin → Bus::B (GND return)
     float            presenceThresholdV;  // COM_D below this → DUT present
     const PadGroup*  padGroups;
     uint8_t          padGroupCount;
@@ -72,5 +72,5 @@ struct PadMap {
 // Helper for simple ring-layout dies: populates out[count] from an ordered
 // ring of pads sharing one GND. Neighbours wrap around at ring ends.
 // Caller owns the output array (typically a static local in pad_map_registry.cpp).
-void buildRingCases(TestCase* out, const uint8_t* ring, const uint8_t* diePads, uint8_t count, uint8_t gnd,
+void buildRingCases(TestCase* out, const uint8_t* adapterPins, const uint8_t* diePads, uint8_t count, uint8_t gnd,
                     const TestThresholds* thresholds, TestStrategy strategy = TestStrategy::STANDARD, uint16_t settleMs = 2);

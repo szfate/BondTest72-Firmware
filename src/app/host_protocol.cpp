@@ -153,10 +153,10 @@ void HostProtocol::sendWrongOrientation() {
     Serial.println("EVENT WRONG_ORIENTATION");
 }
 
-void HostProtocol::sendPadResult(uint8_t slot, uint8_t mezPin, uint8_t diePad, const PadResult& r) {
+void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad, const PadResult& r) {
     Serial.print("PAD ");
     Serial.print("slot=");   Serial.print(slot);
-    Serial.print(" mez=");    Serial.print(mezPin);
+    Serial.print(" apin=");    Serial.print(adapterPin);
     Serial.print(" dp=");     Serial.print(diePad);
     Serial.print(" bond=");
     switch (r.bond) {

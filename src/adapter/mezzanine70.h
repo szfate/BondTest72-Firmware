@@ -12,7 +12,7 @@ public:
     AdapterModel getAdapterModel()       const override { return AdapterModel::Mezzanine70; }
     uint8_t      getAdapterVersion()     const override { return _version; }
     const uint8_t* getSupportedPadmapIds() const override { return _padmapIds; }
-    uint8_t      channelForPin(uint8_t mezPin) const override { return mezPin - 1; }
+    uint8_t      channelForPin(uint8_t adapterPin) const override { return adapterPin - 1; }
     bool         selfTest(MuxController& mux, AdcDriver& adc) const override;
     bool         connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
                                          const PadMap& padMap) const override;

@@ -1,12 +1,25 @@
 # DUT Pad Map — [Project Name]
 
 Copy this file to `DUT_PADMAP_<PROJECT>.md` and fill in every blank field.
-When complete, translate into a `PadMap` entry in `src/test/pad_map_registry.cpp`.
+When complete, translate into a `TestCase` array in `src/test/pad_map_registry.cpp`.
+Use `ADAPTER_MEZ70.md` to convert adapter pins to tester channels.
 
 Adapter: [adapter name]
 Source: [spreadsheet / schematic reference]
 
-Mapping: mez_pad = 71 − die_pad, tester_ch = mez_pad − 1
+Die pad 0 is at the top-right corner; numbers increase counter-clockwise.
+
+**Mapping layers:**
+
+| Layer | Formula | Owner |
+|-------|---------|-------|
+| Die Pad → DUT Pin | physical bond wires on the DUT PCB | this die |
+| DUT Pin → Adapter Pin | `adapter_pin = 71 − dut_pin` | DUT PCB (connector orientation) |
+| Adapter Pin → Tester Ch | `tester_ch = adapter_pin − 1` | adapter — see `ADAPTER_MEZ70.md` |
+
+> **DUT Pin is reference only.** It traces the physical bond wire path and is
+> not used in firmware. Only Adapter Pin values appear in `pad_map_registry.cpp`.
+> See `GLOSSARY.md` for definitions.
 
 ---
 
@@ -19,115 +32,39 @@ Mapping: mez_pad = 71 − die_pad, tester_ch = mez_pad − 1
 
 ---
 
-## Bond Pad to Tester Channel Cross-Reference
+## Die Pad to Adapter Pin Cross-Reference
 
-| BP # | Signal | Die Pad | Mez Pad | Tester Ch | Role |
-|------|--------|---------|---------|-----------|------|
-| 1  | | | | | |
-| 2  | | | | | |
-| …  | | | | | |
-
----
-
-## Pad Roles
-
-| Tester Ch | Role | Signal |
-|-----------|------|--------|
-| 0  | | |
-| 1  | | |
-| 2  | | |
-| 3  | | |
-| 4  | | |
-| 5  | | |
-| 6  | | |
-| 7  | | |
-| 8  | | |
-| 9  | | |
-| 10 | | |
-| 11 | | |
-| 12 | | |
-| 13 | | |
-| 14 | | |
-| 15 | | |
-| 16 | | |
-| 17 | | |
-| 18 | | |
-| 19 | | |
-| 20 | | |
-| 21 | | |
-| 22 | | |
-| 23 | | |
-| 24 | | |
-| 25 | | |
-| 26 | | |
-| 27 | | |
-| 28 | | |
-| 29 | | |
-| 30 | | |
-| 31 | | |
-| 32 | | |
-| 33 | | |
-| 34 | | |
-| 35 | | |
-| 36 | | |
-| 37 | | |
-| 38 | | |
-| 39 | | |
-| 40 | | |
-| 41 | | |
-| 42 | | |
-| 43 | | |
-| 44 | | |
-| 45 | | |
-| 46 | | |
-| 47 | | |
-| 48 | | |
-| 49 | | |
-| 50 | | |
-| 51 | | |
-| 52 | | |
-| 53 | | |
-| 54 | | |
-| 55 | | |
-| 56 | | |
-| 57 | | |
-| 58 | | |
-| 59 | | |
-| 60 | | |
-| 61 | | |
-| 62 | | |
-| 63 | | |
-| 64 | | |
-| 65 | | |
-| 66 | | |
-| 67 | | |
-| 68 | | |
-| 69 | | |
-| 70 | NC | — |
-| 71 | NC | — |
+| Die Pad | Signal | DUT Pin | Adapter Pin | Role |
+|---------|--------|---------|---------|------|
+| 0  | | | | |
+| 1  | | | | |
+| …  | | | | |
 
 ---
 
-## GND Pad
+## GND Pads
 
 Multiple GND pads are typically present. Pick one for current injection; note the others.
 
-| Tester Ch | Signal | Die Pad |
-|-----------|--------|---------|
-| | | |
+| Die Pad | Signal | DUT Pin | Adapter Pin |
+|---------|--------|---------|-------------|
+| | | | |
+
+GND plane only (no DUT pin, no adapter pin): die pads [list if any]
 
 ```
-gndPad =   (pick one — TBD after hardware bring-up)
+gndPin =   // adapter pin — TBD after hardware bring-up
 ```
 
 ---
 
-## IO Pads in Physical Ring Order
+## IO Adapter Pins in Ring Order
 
-BP order from the spreadsheet, clockwise, skipping GND/VCC/NC.
+Counter-clockwise from die pad 0 (top-right corner), IO connections only.
+Values are **adapter pins** (1-indexed). GND/VCC die pads are skipped.
 
 ```
-ioPadsInRingOrder = [
+ioAdapterPinsInRingOrder = [
 
 ]
 ```
@@ -136,14 +73,17 @@ ioPadsInRingOrder = [
 
 ## Presence Detection
 
-The adapter PCB shorts two GND mez channels together. When seated, continuity
-between them is detectable.
+Pick two GND adapter pins that are always connected on this DUT. The adapter
+PCB shorts them together — firmware reads continuity to detect DUT presence.
 
-| Field | Value |
-|-------|-------|
-| `presencePadA` | 10 (mez pin) |
-| `presencePadB` | 53 (mez pin) |
-| `presenceThresholdV` | 0.3 (default — calibrate in Phase 3 if needed) |
+| Die Pad | Signal | DUT Pin | Adapter Pin |
+|---------|--------|---------|-------------|
+| | | | |
+| | | | |
+
+```
+presenceThresholdV = 0.3  // default — calibrate in Phase 3 if needed
+```
 
 ---
 

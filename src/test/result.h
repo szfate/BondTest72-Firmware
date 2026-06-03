@@ -19,7 +19,7 @@ struct PadResult {
 constexpr uint8_t MAX_DUT_SLOTS = 5;
 
 struct SlotResult {
-    PadResult byChannel[72];   // indexed by tester channel (= mez_pin − 1); only tested entries are valid
+    PadResult byChannel[72];   // indexed by tester channel (= adapter_pin − 1); only tested entries are valid
     uint8_t   testedCount;
     uint8_t   goodCount;
     bool      present;          // DUT detected in this slot
