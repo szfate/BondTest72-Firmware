@@ -12,6 +12,8 @@ public:
     ReadResult read(EepromData& out);
     bool write(const EepromData& data);
 
+    bool readSerialUid(char* buf, uint8_t bufLen);
+
 private:
     AT21CS01Driver& _eeprom;
 };

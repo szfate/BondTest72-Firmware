@@ -38,3 +38,16 @@ bool EepromManager::write(const EepromData& data) {
     }
     return true;
 }
+
+bool EepromManager::readSerialUid(char* buf, uint8_t bufLen) {
+    if (bufLen < 17) return false;
+    uint8_t serial[8];
+    if (!_eeprom.readSerial(serial)) return false;
+    static const char hex[] = "0123456789abcdef";
+    for (uint8_t i = 0; i < 8; i++) {
+        buf[i * 2]     = hex[serial[i] >> 4];
+        buf[i * 2 + 1] = hex[serial[i] & 0x0F];
+    }
+    buf[16] = '\0';
+    return true;
+}
