@@ -313,31 +313,56 @@ is detected, transitioning back to READY.
 
 ## Host Protocol (USB CDC)
 
-Line-oriented text to start; can be made binary later.
+Line-oriented text protocol using `key=value` pairs for all messages with arguments. 115200 baud.
 
 ### Commands (host → tester)
 
 ```
-RUN                          trigger test (same as button press)
-SET_PADMAP <id>              select active pad map by project ID
-GET_RESULTS                  re-send last result set
-DISCOVER                     run discovery scan (unknown pad map)
+RUN                              trigger test (same as button press)
+GET_ADAPTER                      query adapter info
+GET_RESULTS                      re-send last result set
+SET_PADMAP id=<uint>             select active pad map by project ID
+PROVISION padmap=<uint> [date=<YYYYMMDD>]  write adapter EEPROM (factory use)
+DISCOVERY_SCAN                   sweep all pad pairs, stream sense voltages
 ```
 
 ### Events and responses (tester → host)
 
 ```
-EVENT ADAPTER_DETECTED <model> <version> <padmap_id>
+EVENT ADAPTER_DETECTED uid=<hex16> model=<uint> ver=<uint> pm=<uint> [<pm=<uint>> ...]
 EVENT ADAPTER_REMOVED
 EVENT DUT_INSERTED
 EVENT DUT_REMOVED
-EVENT TEST_START <model> <version> <padmap_id>   ← CV pipeline trigger
-EVENT EOL_WARNING <insertion_count>
+EVENT TEST_START uid=<hex16> model=<uint> ver=<uint> pm=<uint> [<pm=<uint>> ...]
+EVENT EOL_WARNING ins=<uint>
+EVENT WRONG_ORIENTATION
+EVENT FAULT msg=<string>
 
-PAD <slot> <pad_index> <GOOD|OPEN|SHORT> <left_short:0|1> <right_short:0|1>   ← streamed during test
-SUMMARY <PASS|FAIL> <n_good>/<n_tested> [FAIL_DUT_REMOVED]
-ERROR <code> <description>
+ADAPTER uid=<hex16> model=<uint> ver=<uint> padmap0=<uint> [padmap1=<uint> ...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> padmap=<name|none>
+
+PAD slot=<uint> mez=<uint> dp=<uint> bond=<GOOD|OPEN|SHORT_GND> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
+
+SLOT slot=<uint> present=<0|1> tested=<0|1>
+
+SUMMARY outcome=<PASS|FAIL> good=<uint> tested=<uint> [fail_reason=DUT_REMOVED]
+
+DSCAN src=<uint> snk=<uint> sv=<float>
+DSCAN DONE
+
+OK PROVISION
+
+ERROR code=<uint> msg=<string>
 ```
+
+### Error codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 1 | NO_ADAPTER | No adapter detected |
+| 2 | BUSY | Tester busy (testing or scanning) |
+| 3 | UNKNOWN_PADMAP | Pad map ID not found |
+| 4 | PROVISION_FAILED | EEPROM write failed |
+| 5 | NOT_IMPLEMENTED | Command not implemented |
 
 ---
 

@@ -150,7 +150,7 @@ Hold the BOOTSEL button on the Pico 2 while connecting USB to enter the bootload
 
 ## Host Protocol
 
-Line-oriented text over USB CDC, 115200 baud. Commands are sent from host to tester; events and results are streamed back.
+Line-oriented text over USB CDC, 115200 baud. All messages with arguments use `key=value` pairs. Commands are sent from host to tester; events and results are streamed back.
 
 ### Commands (host → tester)
 
@@ -159,31 +159,47 @@ Line-oriented text over USB CDC, 115200 baud. Commands are sent from host to tes
 | `RUN` | Trigger a test (same as pressing the button) |
 | `GET_RESULTS` | Re-send the last result set |
 | `GET_ADAPTER` | Query current adapter info |
-| `SET_PADMAP <id>` | Override pad map selection |
-| `PROVISION [<id>]` | Write adapter EEPROM (factory use) |
+| `SET_PADMAP id=<uint>` | Override pad map selection |
+| `PROVISION padmap=<uint> [date=<YYYYMMDD>]` | Write adapter EEPROM (factory use) |
 | `DISCOVERY_SCAN` | Sweep all 70×70 pad pairs, stream sense voltages |
-| `DEBUG_BIASED_SWEEP <id>` | Debug: biased forward/reverse sweep |
 
 ### Responses (tester → host)
 
 ```
-EVENT ADAPTER_DETECTED <model> <ver> [<padmap_id> ...]
+ADAPTER uid=<hex16> model=<uint> ver=<uint> padmap0=<uint> [padmap1=<uint> ...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> padmap=<name|none>
+
+PAD slot=<uint> mez=<uint> dp=<uint> bond=<GOOD|OPEN|SHORT_GND> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
+
+SLOT slot=<uint> present=<0|1> tested=<0|1>
+
+SUMMARY outcome=<PASS|FAIL> good=<uint> tested=<uint> [fail_reason=DUT_REMOVED]
+
+EVENT ADAPTER_DETECTED uid=<hex16> model=<uint> ver=<uint> pm=<uint> [<pm=<uint>> ...]
 EVENT ADAPTER_REMOVED
 EVENT DUT_INSERTED
 EVENT DUT_REMOVED
-EVENT TEST_START <model> <ver> [<padmap_id> ...]
-EVENT EOL_WARNING <insertion_count>
+EVENT TEST_START uid=<hex16> model=<uint> ver=<uint> pm=<uint> [<pm=<uint>> ...]
+EVENT EOL_WARNING ins=<uint>
+EVENT WRONG_ORIENTATION
+EVENT FAULT msg=<string>
 
-ADAPTER model=N ver=N ...
-SLOT <slot> <present> <tested>
-PAD <slot> <mez_pin> <die_pad> <GOOD|OPEN|SHORT> <prev_short> <next_short> <sense_V> <prev_V> <next_V>
-SUMMARY <PASS|FAIL> <good>/<tested>
-
-DSCAN <src_mez> <snk_mez> <voltage>   (streamed during DISCOVERY_SCAN)
+DSCAN src=<uint> snk=<uint> sv=<float>
 DSCAN DONE
 
-ERROR <description>
+OK PROVISION
+
+ERROR code=<uint> msg=<string>
 ```
+
+### Error codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 1 | NO_ADAPTER | No adapter detected |
+| 2 | BUSY | Tester busy (testing or scanning) |
+| 3 | UNKNOWN_PADMAP | Pad map ID not found |
+| 4 | PROVISION_FAILED | EEPROM write failed |
+| 5 | NOT_IMPLEMENTED | Command not implemented |
 
 ---
 
@@ -199,7 +215,7 @@ Each adapter carries an AT21CS01 EEPROM that stores lifetime and configuration d
 | 4 | 4 | `supported_padmap_ids` (0xFF = unused slot, up to 4 IDs) |
 | 8 | 4 | reserved (all zeros) |
 | 12 | 4 | `designed_lifespan` — max insertions before EOL |
-| 16 | 4 | `date_of_manufacture` — Unix timestamp (little-endian) |
+| 16 | 4 | `date_of_manufacture` — YYYYMMDD as uint32 (e.g. 20260101) |
 | 20 | 4 | `insertion_count` — DUT insertions (wear metric) |
 | 24 | 4 | `test_count` — completed test runs |
 | 28 | 4 | `eol_reached` (0x00000000 = ok, 0xFFFFFFFF = EOL) |
