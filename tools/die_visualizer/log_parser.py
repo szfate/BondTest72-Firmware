@@ -21,7 +21,7 @@ def _parse_pad_kv(parts: list[str]) -> tuple[int, PadResult] | None:
     d = _parse_kv(parts[1:])
     if 'dp' not in d:
         return None
-    bond_str = d.get('bond', 'GOOD')
+    bond_str = d.get('result', 'GOOD')
     if bond_str == 'SHORT':
         bond_str = 'SHORT_GND'
     slot = int(d.get('slot', '0'))

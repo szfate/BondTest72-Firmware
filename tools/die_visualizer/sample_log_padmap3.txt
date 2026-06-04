@@ -61,5 +61,4 @@ PAD slot=0 apin=27 dp=36 result=GOOD ps=0 ns=0 sv=0.398 pv=0.000 nv=0.503
 PAD slot=0 apin=47 dp=57 result=GOOD ps=0 ns=0 sv=0.413 pv=0.000 nv=0.557
 PAD slot=0 apin=52 dp=63 result=GOOD ps=0 ns=0 sv=0.455 pv=0.000 nv=0.382
 PAD slot=0 apin=60 dp=71 result=GOOD ps=0 ns=0 sv=0.411 pv=0.000 nv=0.000
-PAD slot=0 apin=62 dp=73 result=GOOD ps=0 ns=0 sv=0.399 pv=0.000 nv=0.510
 SUMMARY outcome=FAIL good=62 tested=64

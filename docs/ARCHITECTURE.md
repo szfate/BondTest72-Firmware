@@ -107,7 +107,7 @@ Offset  Size  Field
 4       1     supported_padmap_id  (0xFF = unset → auto-detect)
 5       1     reserved
 6       2     designed_lifespan  (uint16, max insertions before EOL — set at manufacture)
-8       4     date_of_manufacture  (Unix timestamp, little-endian)
+8       4     date_of_manufacture  (YYYYMMDD)
 12      4     insertion_count  (physical DUT insertions — wear metric)
 16      4     test_count       (completed test runs)
 20      1     eol_reached                (0x00 = ok, 0xFF = EOL)
@@ -340,7 +340,7 @@ EVENT FAULT msg=<string>
 
 ADAPTER uid=<hex16> model=<uint> ver=<uint> padmap0=<uint> [padmap1=<uint> ...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> padmap=<name|none>
 
-PAD slot=<uint> mez=<uint> dp=<uint> bond=<GOOD|OPEN|SHORT_GND> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
+PAD slot=<uint> mez=<uint> dp=<uint> result=<GOOD|OPEN|SHORT> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
 
 SLOT slot=<uint> present=<0|1> tested=<0|1>
 

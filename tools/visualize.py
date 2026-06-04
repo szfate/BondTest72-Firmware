@@ -21,7 +21,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from die_visualizer.die_shapes import shape_1x1
+from die_visualizer.die_shapes import shape_1x1, shape_1x0p5
 from die_visualizer.die_map_widget import DieMapWidget, create_main_layout
 from die_visualizer.log_parser import parse_log
 
@@ -30,6 +30,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QW
 PADMAP_SHAPES = {
     1: shape_1x1,
     2: shape_1x1,
+    3: shape_1x0p5,
 }
 
 

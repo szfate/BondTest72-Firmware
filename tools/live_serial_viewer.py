@@ -42,6 +42,7 @@ PADMAP_SHAPES = {
 class SerialReader(QThread):
     line_received = Signal(str)
     connection_lost = Signal()
+    hello_received = Signal(str, str, str)  # name, build, uid
 
     def __init__(self, port, baud, parent=None):
         super().__init__(parent)
@@ -55,6 +56,8 @@ class SerialReader(QThread):
         except Exception as e:
             self.line_received.emit(f"__ERROR__ {e}")
             return
+
+        ser.write(b"HELLO\n")
 
         buf = b""
         while self._running:
@@ -70,7 +73,18 @@ class SerialReader(QThread):
                     except Exception:
                         text = line.decode("latin-1", errors="replace").strip()
                     if text:
-                        self.line_received.emit(text)
+                        if text.startswith("HELLO "):
+                            parts = {}
+                            for kv in text[6:].split():
+                                k, _, v = kv.partition('=')
+                                if v:
+                                    parts[k] = v
+                            name = parts.get('name', '')
+                            build = parts.get('build', '')
+                            uid = parts.get('uid', '')
+                            self.hello_received.emit(name, build, uid)
+                        else:
+                            self.line_received.emit(text)
             except serial.SerialException:
                 self.connection_lost.emit()
                 break
@@ -126,6 +140,7 @@ class LiveViewer(QMainWindow):
         self.reader = SerialReader(port, baud)
         self.reader.line_received.connect(self._on_line)
         self.reader.connection_lost.connect(self._on_disconnect)
+        self.reader.hello_received.connect(self._on_hello)
         self.reader.start()
 
     def _on_line(self, line):
@@ -141,6 +156,13 @@ class LiveViewer(QMainWindow):
             self.status_bar.showMessage(f"Error: {line[10:]}")
         elif line.startswith("ERROR "):
             self.status_bar.showMessage(line)
+
+    def _on_hello(self, name, build, uid):
+        if name and name != "BondTest72":
+            self.status_bar.showMessage(f"WARNING: unexpected device '{name}' — expected BondTest72")
+        else:
+            self.status_bar.showMessage(f"Connected: {name} build={build} uid={uid}")
+        self.setWindowTitle(f"{name} — build {build}")
 
     def _handle_pad(self, line):
         from die_visualizer.log_parser import _detect_format, _parse_pad_kv, _parse_pad_positional

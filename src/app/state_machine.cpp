@@ -224,6 +224,9 @@ void StateMachine::handleCommand(HostCommand cmd) {
                     _padMap ? _padMap->name : nullptr);
             }
             break;
+        case HostCommand::HELLO:
+            _hostProtocol.sendHello();
+            break;
         case HostCommand::NONE:
             break;
     }
@@ -231,7 +234,7 @@ void StateMachine::handleCommand(HostCommand cmd) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
-bool StateMachine::provisionEeprom(uint8_t padmapId, uint32_t timestamp) {
+bool StateMachine::provisionEeprom(uint8_t padmapId, uint32_t mfgDate) {
     EepromData d = {};
     d.adapterModel            = AdapterModel::Mezzanine70;
     d.adapterVersion          = 1;
@@ -240,7 +243,7 @@ bool StateMachine::provisionEeprom(uint8_t padmapId, uint32_t timestamp) {
     d.supportedPadmapIds[2]   = EepromData::PADMAP_UNSET;
     d.supportedPadmapIds[3]   = EepromData::PADMAP_UNSET;
     d.designedLifespan        = 100;
-    d.dateOfManufacture       = timestamp;
+    d.dateOfManufacture       = mfgDate;
     d.insertionCount          = 0;
     d.testCount               = 0;
     d.eolReached              = 0x00;

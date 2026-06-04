@@ -120,9 +120,9 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
 
             bool ok = pr.bond == BondResult::GOOD && !pr.prevShort && !pr.nextShort;
             if (!ok) {
-                LOG_I("slot%u apin%u die%u FAIL: bond=%s%s%s sense=%.3f prev=%.3f next=%.3f",
+                LOG_I("slot%u apin%u die%u FAIL: result=%s%s%s sense=%.3f prev=%.3f next=%.3f",
                       slot, tc.adapterPin, tc.diePad,
-                      pr.bond == BondResult::SHORT_GND ? "SHORT_GND" :
+                      pr.bond == BondResult::SHORT_GND ? "SHORT"      :
                       pr.bond == BondResult::OPEN      ? "OPEN"      : "GOOD",
                       pr.prevShort ? " +PREV_SHORT" : "",
                       pr.nextShort ? " +NEXT_SHORT" : "",

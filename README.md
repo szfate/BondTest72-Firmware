@@ -168,7 +168,7 @@ Line-oriented text over USB CDC, 115200 baud. All messages with arguments use `k
 ```
 ADAPTER uid=<hex16> model=<uint> ver=<uint> padmap0=<uint> [padmap1=<uint> ...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> padmap=<name|none>
 
-PAD slot=<uint> mez=<uint> dp=<uint> bond=<GOOD|OPEN|SHORT_GND> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
+PAD slot=<uint> mez=<uint> dp=<uint> result=<GOOD|OPEN|SHORT> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
 
 SLOT slot=<uint> present=<0|1> tested=<0|1>
 
@@ -264,24 +264,13 @@ uv run tools/provision.py --port COM3 --padmap 2 --date 20260101 --yes
 | `--date` | today | Manufacture date as `YYYYMMDD` |
 | `--yes` / `-y` | — | Skip confirmation prompt |
 
-### `tools/visualize_results.py`
+### `tools/visualize.py`
 
-Opens an interactive GUI window showing every bond pad coloured by test result. Hover over any pad to see its die pad number, role, and measured voltages. Also writes an SVG file for archival.
-
-The pad map is auto-detected from the adapter EEPROM via `GET_ADAPTER` before the test runs.
+Opens an interactive GUI window showing every bond pad coloured by test result. Hover over any pad to see its die pad number, role, and measured voltages.
 
 ```bash
-# Run a test — GUI window opens automatically
-uv run tools/visualize_results.py --port /dev/tty.usbmodem1101
-
-# Named result for a specific DUT slot
-uv run tools/visualize_results.py --port COM3 --slot 0 --name TTPG_lot3
-
-# Re-plot from a previously saved log file (no hardware needed)
-uv run tools/visualize_results.py --file saved_log.txt --padmap 2
-
-# SVG only, no window
-uv run tools/visualize_results.py --port /dev/tty.usbmodem1101 --no-gui
+# Re-plot from a saved log file (no hardware needed)
+uv run tools/visualize.py --file saved_log.txt --padmap 2
 ```
 
 Color key: green = good IO bond · blue = good VCC bond · red = open · orange = shorted to GND · yellow = inter-pad short · gray = GND/NC · light gray = not tested.

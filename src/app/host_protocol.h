@@ -19,6 +19,7 @@ enum class HostCommand : uint8_t {
     PROVISION,
     GET_ADAPTER,
     DISCOVERY_SCAN,
+    HELLO,
 };
 
 class HostProtocol {
@@ -50,6 +51,7 @@ public:
     void sendFault(const char* msg);
     void sendDiscoveryScanPoint(uint8_t src, uint8_t snk, float v);
     void sendDiscoveryScanDone();
+    void sendHello();
 
 private:
     HostCommand processLine(const char* line);

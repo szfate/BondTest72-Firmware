@@ -1,6 +1,8 @@
 #include "host_protocol.h"
+#include "build_info.h"
 #include "debug/log.h"
 #include <Arduino.h>
+#include <pico/unique_id.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -36,6 +38,7 @@ HostCommand HostProtocol::processLine(const char* line) {
     if (strcmp(line, "GET_RESULTS") == 0)      return HostCommand::GET_RESULTS;
     if (strcmp(line, "GET_ADAPTER") == 0)       return HostCommand::GET_ADAPTER;
     if (strcmp(line, "DISCOVERY_SCAN") == 0)    return HostCommand::DISCOVERY_SCAN;
+    if (strcmp(line, "HELLO") == 0)             return HostCommand::HELLO;
 
     if (strncmp(line, "SET_PADMAP ", 11) == 0) {
         uint32_t id;
@@ -158,11 +161,11 @@ void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePa
     Serial.print("slot=");   Serial.print(slot);
     Serial.print(" apin=");    Serial.print(adapterPin);
     Serial.print(" dp=");     Serial.print(diePad);
-    Serial.print(" bond=");
+    Serial.print(" result=");
     switch (r.bond) {
         case BondResult::GOOD:      Serial.print("GOOD");      break;
         case BondResult::OPEN:      Serial.print("OPEN");      break;
-        case BondResult::SHORT_GND: Serial.print("SHORT_GND"); break;
+        case BondResult::SHORT_GND: Serial.print("SHORT");      break;
     }
     Serial.print(" ps=");     Serial.print(r.prevShort ? 1 : 0);
     Serial.print(" ns=");     Serial.print(r.nextShort ? 1 : 0);
@@ -215,4 +218,16 @@ void HostProtocol::sendDiscoveryScanPoint(uint8_t src, uint8_t snk, float v) {
 
 void HostProtocol::sendDiscoveryScanDone() {
     Serial.println("DSCAN DONE");
+}
+
+void HostProtocol::sendHello() {
+    Serial.print("HELLO name=");
+    Serial.print(FW_NAME);
+    Serial.print(" build=");
+    Serial.print(FW_BUILD_ID);
+    Serial.print(" uid=");
+    char uidhex[17];
+    pico_get_unique_board_id_string(uidhex, sizeof(uidhex));
+    Serial.print(uidhex);
+    Serial.println();
 }

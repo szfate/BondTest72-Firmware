@@ -11,7 +11,7 @@ struct EepromData {
     uint8_t      adapterVersion;
     uint8_t      supportedPadmapIds[4];  // PADMAP_UNSET-terminated list of supported pad map IDs
     uint32_t     designedLifespan;       // max insertions before EOL (set at manufacture)
-    uint32_t     dateOfManufacture;      // Unix timestamp, little-endian
+    uint32_t     dateOfManufacture;      // YYYYMMDD
     uint32_t     insertionCount;         // absent→present transitions (wear metric)
     uint32_t     testCount;              // completed test runs
     uint32_t     eolReached;             // 0 = ok, EOL_REACHED = end-of-life
