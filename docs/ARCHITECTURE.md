@@ -382,11 +382,6 @@ as open (~3.3 V) — they naturally register as FAIL. At the end of the scan,
 
 | Item | Notes |
 |------|-------|
-| Mezzanine70x5 adapter | 5-DUT, isolation GPIO mapping TBD when hardware exists |
-| Discovery scan | Iterates all pad combinations to identify GND pad on unknown die |
-| Binary host protocol | Swap text protocol for framed binary once PC software matures |
-| Computer vision integration | `EVENT TEST_START` is the hook; CV side is future work |
 | External ADC reference | Optional external Vref for Pico 2 ADC — not needed for MVP |
 | PadMap over USB | `SET_PADMAP` with full map payload (for new die projects without firmware update) |
 | EOL service limit values | Per-model thresholds TBD; placeholders in AdapterRegistry |
-| Multi-slot READY logic | For Mezzanine70x5: whether all 5 slots must be loaded or any 1 is enough |

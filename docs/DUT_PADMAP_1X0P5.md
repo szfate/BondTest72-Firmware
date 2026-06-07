@@ -1,6 +1,6 @@
 # DUT Pad Map — 1x0p5
 
-Adapter: 1x0p5 (COB die on 0.5 mm pitch mezzanine adapter)
+Adapter: 1x0p5 (COB die on Mezzanine70 connector)
 Source: `2026-05-18 Working out pin mapping.xlsx` sheet `1x0p5`
 Tester channels: see `ADAPTER_MEZ70.md` (`tester_ch = adapter_pin − 1`)
 

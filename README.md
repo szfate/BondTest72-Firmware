@@ -51,7 +51,7 @@ The system is a two-board design:
 └──────────────────────────────────┘
 ```
 
-The adapter board is specific to a die form factor (e.g. 1×0.5 mm, 0.5×1 mm, 0.5×0.5 mm) and connector type. Different adapters can also support testing customer boards directly, provided a compatible connector is used. The adapter's EEPROM stores metadata (adapter model, version, pad map ID, insertion count, manufacturing date) so the firmware automatically selects the correct test sequence when an adapter is plugged in.
+The adapter board is specific to a die form factor (e.g. 1×0.5, 1×1) and connector type. Different adapters can also support testing customer boards directly, provided a compatible connector is used. The adapter's EEPROM stores metadata (adapter model, version, pad map ID, insertion count, manufacturing date) so the firmware automatically selects the correct test sequence when an adapter is plugged in.
 
 | Component | Part | Notes |
 |-----------|------|-------|
@@ -75,7 +75,7 @@ The adapter board is specific to a die form factor (e.g. 1×0.5 mm, 0.5×1 mm, 0
 |---------|---------|-----------|-----|-------|
 | Mezzanine70 r1 | COB v1  | 1 | 1x1   | Early die samples with an unconnected trace |
 | Mezzanine70 r1 | COB v2+ | 2 | 1x1   | Fixed COB boards |
-| Mezzanine70 r1 | 1x0p5       | 3 | 1x0p5 | First 1x0.5 mm die adapter |
+| Mezzanine70 r1 | 1x0p5       | 3 | 1x0p5 | First 1x0p5 die adapter |
 
 ---
 
@@ -248,7 +248,7 @@ docs/
 ├── MUX_MAP.md            logical pad → MUX chip/channel mapping
 ├── DUT_PADMAP_TEMPLATE.md  pad map template for new adapters
 ├── DUT_PADMAP_1X1.md       pad map — 1x1 die (Mezzanine70)
-├── DUT_PADMAP_1X0P5.md     pad map — 1x0.5 mm die
+├── DUT_PADMAP_1X0P5.md     pad map — 1x0p5 die
 └── RP2350 PINMAP.md      MCU GPIO assignments
 tools/                    host-side Python scripts
 ```
