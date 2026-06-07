@@ -16,6 +16,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 Real-time die map GUI that reads from a serial port. Pads light up as PAD results arrive; the results table updates incrementally. The active adapter and pad map are auto-detected from the tester.
 
+![live_serial_viewer](../docs/images/live_serial_viewer.png)
+
 ```sh
 uv run tools/live_serial_viewer.py --port /dev/tty.usbmodem1101
 uv run tools/live_serial_viewer.py --port COM3 --baud 115200
