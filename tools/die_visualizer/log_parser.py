@@ -1,4 +1,12 @@
-from .result_types import BondResult, PadRole, PadResult, SlotResult, TestResult
+from .result_types import (
+    BondResult,
+    PadRole,
+    PadResult,
+    SlotResult,
+    TestResult,
+    TesterInfo,
+    AdapterInfo,
+)
 
 
 def _parse_kv(tokens: list[str]) -> dict:
@@ -15,6 +23,40 @@ def _detect_format(line: str) -> str:
     if len(parts) < 2:
         return 'positional'
     return 'kv' if '=' in parts[1] else 'positional'
+
+
+def _parse_hello(parts: list[str]) -> TesterInfo | None:
+    d = _parse_kv(parts[1:])
+    if 'name' not in d:
+        return None
+    return TesterInfo(
+        name=d.get('name', ''),
+        build=d.get('build', ''),
+        uid=d.get('uid', ''),
+    )
+
+
+def _parse_adapter(parts: list[str]) -> AdapterInfo | None:
+    d = _parse_kv(parts[1:])
+    if 'uid' not in d:
+        return None
+    padmaps = []
+    i = 0
+    while f'padmap{i}' in d:
+        padmaps.append(d[f'padmap{i}'])
+        i += 1
+    return AdapterInfo(
+        uid=d.get('uid', ''),
+        model=d.get('model', ''),
+        ver=d.get('ver', ''),
+        padmaps=padmaps,
+        lifespan=int(d.get('lifespan', '0')),
+        mfg_date=d.get('mfg_date', ''),
+        ins=int(d.get('ins', '0')),
+        tests=int(d.get('tests', '0')),
+        eol=d.get('eol', '0') == '1',
+        padmap=d.get('padmap', ''),
+    )
 
 
 def _parse_pad_kv(parts: list[str]) -> tuple[int, PadResult] | None:
@@ -111,6 +153,8 @@ def parse_log(lines: list[str], shape=None) -> TestResult | None:
     outcome = None
     good_count = 0
     tested_count = 0
+    tester = TesterInfo()
+    adapter = AdapterInfo()
 
     for line in lines:
         line = line.strip()
@@ -143,6 +187,18 @@ def parse_log(lines: list[str], shape=None) -> TestResult | None:
             if result:
                 outcome, good_count, tested_count = result
 
+        elif line.startswith("HELLO "):
+            parts = line.split()
+            parsed = _parse_hello(parts)
+            if parsed:
+                tester = parsed
+
+        elif line.startswith("ADAPTER "):
+            parts = line.split()
+            parsed = _parse_adapter(parts)
+            if parsed:
+                adapter = parsed
+
     if outcome is None:
         return None
 
@@ -158,4 +214,6 @@ def parse_log(lines: list[str], shape=None) -> TestResult | None:
         good_count=good_count,
         tested_count=tested_count,
         slots=slots,
+        tester=tester,
+        adapter=adapter,
     )

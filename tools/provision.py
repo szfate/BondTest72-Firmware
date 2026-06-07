@@ -28,8 +28,8 @@ except ImportError:
 
 # Known pad maps (mirrors pad_map_registry.cpp)
 PAD_MAPS = {
-    1: "Mezzanine70 v1  (63 cases — mez34/die44 unconnected)",
-    2: "Mezzanine70 v2  (64 cases — mez34/die44 connected)",
+    1: "Mezzanine70 v1  (63 cases — die44 unconnected)",
+    2: "Mezzanine70 v2  (64 cases — die44 connected)",
 }
 
 

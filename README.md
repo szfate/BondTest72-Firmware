@@ -156,6 +156,7 @@ Line-oriented text over USB CDC, 115200 baud. All messages with arguments use `k
 
 | Command | Description |
 |---------|-------------|
+| `HELLO` | Request firmware name, build ID, and board UID |
 | `RUN` | Trigger a test (same as pressing the button) |
 | `GET_RESULTS` | Re-send the last result set |
 | `GET_ADAPTER` | Query current adapter info |
@@ -166,9 +167,11 @@ Line-oriented text over USB CDC, 115200 baud. All messages with arguments use `k
 ### Responses (tester → host)
 
 ```
+HELLO name=<string> build=<string> uid=<hex16>
+
 ADAPTER uid=<hex16> model=<uint> ver=<uint> padmap0=<uint> [padmap1=<uint> ...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> padmap=<name|none>
 
-PAD slot=<uint> mez=<uint> dp=<uint> result=<GOOD|OPEN|SHORT> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
+PAD slot=<uint> apin=<uint> dp=<uint> result=<GOOD|OPEN|SHORT> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
 
 SLOT slot=<uint> present=<0|1> tested=<0|1>
 
@@ -227,64 +230,7 @@ Each adapter carries an AT21CS01 EEPROM that stores lifetime and configuration d
 
 ## Tools
 
-Requires [uv](https://docs.astral.sh/uv/). Dependencies are declared inline — no separate install step.
-
-### `tools/discovery_scan.py`
-
-Runs a full discovery scan: sweeps every pad-pair combination and saves the resulting 74×74 voltage matrix. Useful for characterising an unknown die or verifying bond coverage before writing a formal pad map.
-
-```bash
-uv run tools/discovery_scan.py --port /dev/tty.usbmodem1101
-uv run tools/discovery_scan.py --port COM3 --out my_die_scan
-```
-
-Outputs `discovery_<timestamp>.csv` and `discovery_<timestamp>.xlsx` (green→red colour scale).
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--port` | required | Serial port |
-| `--baud` | 115200 | Baud rate |
-| `--out` | `discovery_YYYYMMDD_HHMMSS` | Output basename (no extension) |
-| `--timeout` | 120 s | Abort if scan takes longer |
-
-### `tools/provision.py`
-
-Writes the EEPROM on a new adapter at manufacture time. Stores model, version, pad map ID, designed lifespan, and date of manufacture.
-
-```bash
-uv run tools/provision.py --port /dev/tty.usbmodem1101 --padmap 1
-uv run tools/provision.py --port COM3 --padmap 2 --date 20260101 --yes
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--port` | required | Serial port |
-| `--baud` | 115200 | Baud rate |
-| `--padmap` | required | Pad map ID (1 = 1x1 Mezzanine70 r1, 2 = 1x1 Mezzanine70 r2, 3 = 1x0p5 Mezzanine70 v1) |
-| `--date` | today | Manufacture date as `YYYYMMDD` |
-| `--yes` / `-y` | — | Skip confirmation prompt |
-
-### `tools/visualize.py`
-
-Opens an interactive GUI window showing every bond pad coloured by test result. Hover over any pad to see its die pad number, role, and measured voltages.
-
-```bash
-# Re-plot from a saved log file (no hardware needed)
-uv run tools/visualize.py --file saved_log.txt --padmap 2
-```
-
-Color key: green = good IO bond · blue = good VCC bond · red = open · orange = shorted to GND · yellow = inter-pad short · gray = GND/NC · light gray = not tested.
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--port` | — | Serial port — triggers `GET_ADAPTER` + `RUN` (mutually exclusive with `--file`) |
-| `--file` | — | Saved log file to re-parse (no hardware needed) |
-| `--baud` | 115200 | Baud rate |
-| `--slot` | all | DUT slot index to display |
-| `--padmap` | auto | Pad map ID — auto-detected from adapter EEPROM when using `--port` |
-| `--out` | `bond_result_YYYYMMDD_HHMMSS` | Output SVG basename (no extension) |
-| `--name` | — | Label shown in the window title and appended to the auto filename |
-| `--no-gui` | — | Skip GUI window, write SVG only |
+Host-side Python scripts for interacting with the tester. See [tools/README.md](tools/README.md) for full usage.
 
 ---
 

@@ -40,8 +40,31 @@ class SlotResult:
 
 
 @dataclass
+class TesterInfo:
+    name: str = ""
+    build: str = ""
+    uid: str = ""
+
+
+@dataclass
+class AdapterInfo:
+    uid: str = ""
+    model: str = ""
+    ver: str = ""
+    padmaps: list = field(default_factory=list)
+    lifespan: int = 0
+    mfg_date: str = ""
+    ins: int = 0
+    tests: int = 0
+    eol: bool = False
+    padmap: str = ""
+
+
+@dataclass
 class TestResult:
     outcome: str
     good_count: int
     tested_count: int
     slots: list = field(default_factory=list)
+    tester: TesterInfo = field(default_factory=TesterInfo)
+    adapter: AdapterInfo = field(default_factory=AdapterInfo)

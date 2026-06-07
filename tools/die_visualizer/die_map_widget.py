@@ -23,7 +23,7 @@ COLOR_MAP = {
     (BondResult.SHORT_GND, PadRole.GND): QColor("#F44336"),
 }
 
-NEIGHBOUR_SHORT_COLOR = QColor("#FFEB3B")
+NEIGHBOUR_SHORT_COLOR = QColor("#F44336")
 UNTESTED_COLOR = QColor("#E0E0E0")
 GND_BUS_ONLY_COLOR = QColor("#616161")
 NC_COLOR = QColor("#424242")
@@ -213,27 +213,108 @@ class DieMapWidget(QWidget):
                          Qt.AlignHCenter | Qt.AlignTop, self.shape.name)
 
         if self.result_text:
-            is_fail = "FAIL" in self.result_text
-            result_color = QColor("#F44336") if is_fail else QColor("#4CAF50")
-            bg_color = QColor("#3a1a1a") if is_fail else QColor("#1a3a1a")
+            # Parse result text: "62/64 FAIL" or "45/64" (running)
+            parts = self.result_text.split(maxsplit=1)
+            count_parts = parts[0].split('/')
+            good = int(count_parts[0]) if len(count_parts) > 0 else 0
+            tested = int(count_parts[1]) if len(count_parts) > 1 else 0
+            fail = tested - good
+            outcome = parts[1] if len(parts) > 1 else ""
 
-            status_font = QFont("Menlo, Consolas, Courier New, monospace", max(18, int(pad_size * 1.2)))
+            status_font = QFont("Menlo, Consolas, Courier New, monospace", max(16, int(pad_size * 1.0)))
             status_font.setBold(True)
             fm = QFontMetrics(status_font)
-            sw = fm.horizontalAdvance(self.result_text)
-            sh = fm.height()
-            box_w = sw + 24
-            box_h = sh + 12
-            box_x = int(die_x + (die_w - box_w) / 2)
-            box_y = int(die_y + (die_h - box_h) / 2)
+            line_h = fm.height()
+            gap = 10
 
-            painter.setPen(QPen(result_color, 2))
-            painter.setBrush(bg_color)
-            painter.drawRoundedRect(box_x, box_y, box_w, box_h, 8, 8)
+            if outcome in ("PASS", "FAIL"):
+                label_font = QFont("Menlo, Consolas, Courier New, monospace", max(12, int(pad_size * 0.7)))
+                label_font.setBold(True)
+                label_fm = QFontMetrics(label_font)
 
-            painter.setPen(result_color)
-            painter.setFont(status_font)
-            painter.drawText(QRect(box_x, box_y, box_w, box_h), Qt.AlignCenter, self.result_text)
+                box_pad = 10
+                mid_gap = 6
+                show_pass = good > 0
+                show_fail = fail > 0
+
+                if not show_pass or not show_fail:
+                    # Only one side has results — show a single centered box
+                    single_label = outcome
+                    single_text = str(good) if outcome == "PASS" else str(fail)
+                    single_color = QColor("#4CAF50") if outcome == "PASS" else QColor("#F44336")
+                    single_bg = QColor("#1a3a1a") if outcome == "PASS" else QColor("#3a1a1a")
+                    single_w = max(fm.horizontalAdvance(single_text), label_fm.horizontalAdvance(single_label)) + 24
+                    single_h = 2 * box_pad + label_fm.height() + mid_gap + line_h
+                    box_x = int(die_x + (die_w - single_w) / 2)
+                    box_y = int(die_y + (die_h - single_h) / 2)
+
+                    painter.setPen(QPen(single_color, 2))
+                    painter.setBrush(single_bg)
+                    painter.drawRoundedRect(box_x, box_y, single_w, single_h, 8, 8)
+                    painter.setPen(single_color)
+                    painter.setFont(label_font)
+                    painter.drawText(QRect(box_x, box_y + box_pad, single_w, label_fm.height()), Qt.AlignCenter, single_label)
+                    painter.setFont(status_font)
+                    painter.drawText(QRect(box_x, box_y + box_pad + label_fm.height() + mid_gap, single_w, line_h), Qt.AlignCenter, single_text)
+                else:
+                    # Two boxes side-by-side
+                    pass_text = str(good)
+                    pass_label = "PASS"
+                    pass_w = max(fm.horizontalAdvance(pass_text), label_fm.horizontalAdvance(pass_label)) + 24
+                    pass_color = QColor("#4CAF50")
+                    pass_bg = QColor("#1a3a1a")
+
+                    fail_text = str(fail)
+                    fail_label = "FAIL"
+                    fail_w = max(fm.horizontalAdvance(fail_text), label_fm.horizontalAdvance(fail_label)) + 24
+                    fail_color = QColor("#F44336")
+                    fail_bg = QColor("#3a1a1a")
+
+                    pass_h = 2 * box_pad + label_fm.height() + mid_gap + line_h
+                    fail_h = pass_h
+
+                    total_w = pass_w + fail_w + gap
+                    box_y = int(die_y + (die_h - pass_h) / 2)
+                    pass_x = int(die_x + (die_w - total_w) / 2)
+                    fail_x = pass_x + pass_w + gap
+
+                    # Draw PASS box
+                    painter.setPen(QPen(pass_color, 2))
+                    painter.setBrush(pass_bg)
+                    painter.drawRoundedRect(pass_x, box_y, pass_w, pass_h, 8, 8)
+                    painter.setPen(pass_color)
+                    painter.setFont(label_font)
+                    painter.drawText(QRect(pass_x, box_y + box_pad, pass_w, label_fm.height()), Qt.AlignCenter, pass_label)
+                    painter.setFont(status_font)
+                    painter.drawText(QRect(pass_x, box_y + box_pad + label_fm.height() + mid_gap, pass_w, line_h), Qt.AlignCenter, pass_text)
+
+                    # Draw FAIL box
+                    painter.setPen(QPen(fail_color, 2))
+                    painter.setBrush(fail_bg)
+                    painter.drawRoundedRect(fail_x, box_y, fail_w, fail_h, 8, 8)
+                    painter.setPen(fail_color)
+                    painter.setFont(label_font)
+                    painter.drawText(QRect(fail_x, box_y + box_pad, fail_w, label_fm.height()), Qt.AlignCenter, fail_label)
+                    painter.setFont(status_font)
+                    painter.drawText(QRect(fail_x, box_y + box_pad + label_fm.height() + mid_gap, fail_w, line_h), Qt.AlignCenter, fail_text)
+            else:
+                # Running / no outcome yet — single neutral box
+                result_color = QColor("#FFFFFF")
+                bg_color = QColor("#2a2a2a")
+                count_line = parts[0]
+                sw = fm.horizontalAdvance(count_line)
+                box_w = sw + 24
+                box_h = line_h + 12
+                box_x = int(die_x + (die_w - box_w) / 2)
+                box_y = int(die_y + (die_h - box_h) / 2)
+
+                painter.setPen(QPen(result_color, 2))
+                painter.setBrush(bg_color)
+                painter.drawRoundedRect(box_x, box_y, box_w, box_h, 8, 8)
+
+                painter.setPen(result_color)
+                painter.setFont(status_font)
+                painter.drawText(QRect(box_x, box_y, box_w, box_h), Qt.AlignCenter, count_line)
 
         # Draw pads
         pad_font = QFont("Menlo, Consolas, Courier New, monospace", max(8, int(pad_size * 0.38)))
@@ -298,6 +379,7 @@ def build_results_table(shape: DieShape, results: dict) -> QTableWidget:
     header = table.horizontalHeader()
     header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
     table.verticalHeader().setVisible(False)
+    table.setMinimumWidth(370)
 
     return table
 
