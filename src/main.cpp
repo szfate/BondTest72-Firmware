@@ -40,7 +40,7 @@ void setup() {
 }
 
 static void heartbeat() {
-    bool ledOn = (millis() % 2000) < 1;
+    bool ledOn = (millis() % 2000) < 20;
     static bool lastLedOn = false;
     if (ledOn != lastLedOn) {
         digitalWrite(LED_BUILTIN, ledOn);
