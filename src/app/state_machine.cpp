@@ -74,6 +74,7 @@ void StateMachine::update() {
         }
     }
 
+    // Keep the EOL LED blinking even after the adapter is rejected so the operator sees the warning
     if (_state == State::EOL_ADAPTER && _adapter)
         _adapter->tickEolLed();
 
@@ -82,6 +83,7 @@ void StateMachine::update() {
         _state != State::NO_ADAPTER &&
         _state != State::EOL_ADAPTER &&
         _state != State::FAULT) {
+        // _dutSettleUntil suppresses re-polling for a short window after insertion to absorb connector bounce
         if (now >= _dutSettleUntil && now - _lastDutPoll >= DUT_POLL_INTERVAL_MS) {
             handleDutEvent(_dutDetector.poll());
             _lastDutPoll = now;
@@ -91,20 +93,24 @@ void StateMachine::update() {
     bool startReq = _buttons.startPressed();
     if (_state == State::READY && startReq)
         startTest();
-    else if ((_state == State::PASS || _state == State::FAIL) &&
-             startReq && _dutDetector.checkNow())
-        startTest();
+    else if ((_state == State::PASS || _state == State::FAIL) && startReq) {
+        // DUT may have been removed while result was displayed; re-check before starting another run
+        if (_dutDetector.checkNow())
+            startTest();
+        else
+            transition(State::ADAPTER_DETECTED);
+    }
 
     // Poll for adapter in NO_ADAPTER state
     if (_state == State::NO_ADAPTER) {
         if (now - _lastAdapterPoll >= ADAPTER_POLL_INTERVAL_FAST_MS) {
             if (_eepromMgr.isPresent()) {
                 if (tryInitAdapter()) {
-if (_eepromData.eolReached == EepromData::EOL_REACHED) {
-            LOG_W("adapter: EOL — rejecting");
-            _hostProtocol.sendEolWarning(_eepromData.insertionCount);
-            _state = State::EOL_ADAPTER;
-        } else {
+                    if (_eepromData.eolReached == EepromData::EOL_REACHED) {
+                        LOG_W("adapter: EOL — rejecting");
+                        _hostProtocol.sendEolWarning(_eepromData.insertionCount);
+                        _state = State::EOL_ADAPTER;
+                    } else {
                         transition(State::ADAPTER_DETECTED);
                     }
                 } else {
@@ -130,6 +136,8 @@ void StateMachine::transition(State next) {
 
     _state = next;
 
+    // Announce adapter details on ADAPTER_DETECTED rather than on READY, so the host
+    // knows the model before the DUT is inserted and can validate the pad map selection.
     if (next == State::ADAPTER_DETECTED && _adapter) {
         _hostProtocol.sendAdapterDetected(
             (uint8_t)_adapter->getAdapterModel(),
@@ -145,7 +153,7 @@ void StateMachine::handleDutEvent(DutEvent ev) {
         case DutEvent::INSERTED:
             _hostProtocol.sendDutInserted();
             _eepromData.insertionCount++;
-            flushEeprom();
+            flushEeprom();  // flushEeprom sets EOL_REACHED flag if the new count hit the lifespan limit
             if (_eepromData.eolReached == EepromData::EOL_REACHED)
                 transition(State::EOL_ADAPTER);
             else
@@ -194,6 +202,7 @@ void StateMachine::handleCommand(HostCommand cmd) {
                                         _hostProtocol.provisionMfgDate())) {
                 _hostProtocol.sendError(ErrorCode::PROVISION_FAILED, "PROVISION_FAILED");
             } else {
+                // Null out stale pointers before re-init so no code can touch the old adapter mid-transition
                 _adapter = nullptr; _padMap = nullptr;
                 transition(tryInitAdapter() ? State::ADAPTER_DETECTED : State::FAULT);
                 Serial.println("OK PROVISION");
@@ -257,10 +266,9 @@ bool StateMachine::tryInitAdapter() {
     auto result = _eepromMgr.read(_eepromData);
 
     if (result == EepromManager::ReadResult::Blank) {
-        LOG_W("adapter: eeprom blank, provisioning defaults");
-        if (!provisionEeprom())
-            return false;
-        result = _eepromMgr.read(_eepromData);
+        LOG_E("adapter: eeprom blank — adapter must be provisioned before use");
+        _hostProtocol.sendFault("ADAPTER_NOT_PROVISIONED");
+        return false;
     }
 
     if (result != EepromManager::ReadResult::Ok) {
@@ -279,6 +287,8 @@ bool StateMachine::tryInitAdapter() {
     _adapter = AdapterRegistry::create(_eepromData);
     if (!_adapter) { LOG_E("adapter: unknown model %u", (uint8_t)_eepromData.adapterModel); return false; }
 
+    // UID is a unique 64-bit serial burned into the AT21CS01; fall back to all-zeros if the read fails
+    // so the host always receives a valid-length UID string rather than garbage.
     char uidBuf[17];
     if (_eepromMgr.readSerialUid(uidBuf, sizeof(uidBuf))) {
         memcpy(_adapterUid, uidBuf, sizeof(_adapterUid));
@@ -292,6 +302,7 @@ bool StateMachine::tryInitAdapter() {
     adapterSelfTest(_adapter);
     _dutDetector.setAdapter(_adapter);
     selectPadMap();
+    // Discharge any residual charge on the connector pins before the first test to avoid false readings
     if (_padMap)
         _adapter->connectorIsolationSweep(_mux, _adc, *_padMap);
     LOG_I("adapter: init ok, padmap=%s", _padMap ? "set" : "null");
@@ -304,6 +315,7 @@ void StateMachine::selectPadMap() {
         _padMap = PadMapRegistry::find(ids[i]);
         if (_padMap) break;
     }
+    // Fall back to the universal pad map if no adapter-specific one is registered yet
     if (!_padMap)
         _padMap = PadMapRegistry::all();
     _dutDetector.setPadMap(_padMap);
@@ -318,6 +330,7 @@ void StateMachine::flushEeprom() {
         _eepromData.eolReached = EepromData::EOL_REACHED;
         LOG_W("adapter: EOL reached (%lu insertions)", _eepromData.insertionCount);
     }
+    // Light the EOL LED on the adapter itself so the operator gets a physical indicator
     if (_adapter && _eepromData.eolReached == EepromData::EOL_REACHED) {
         _adapter->setEolLed(true);
     }
@@ -329,7 +342,7 @@ void StateMachine::flushEeprom() {
 bool StateMachine::checkAdapterAlive() {
     if (_eepromMgr.isPresent()) return true;
     LOG_W("adapter removed");
-    if (_adapter) _adapter->setEolLed(false);
+    if (_adapter) _adapter->setEolLed(false);  // adapter is going away; clear its LED state first
     _hostProtocol.sendAdapterRemoved();
     _adapter = nullptr;
     _padMap  = nullptr;
