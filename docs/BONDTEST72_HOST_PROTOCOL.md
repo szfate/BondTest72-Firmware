@@ -31,11 +31,11 @@ Recommended: send `HELLO` immediately after opening the serial port to verify th
 
 ### `RUN`
 
-Start a bond test. Only valid in `READY` state.
+Start a bond test. Valid in `READY`, `PASS`, or `FAIL` state. In `PASS`/`FAIL` state, the DUT must still be present; if removed, the tester transitions to `ADAPTER_DETECTED`.
 
 **Request:** `RUN`
 
-**Response:** `EVENT TEST_START ...` followed by `PAD` lines and a `SUMMARY` line. If not in `READY` state, the command is silently ignored.
+**Response:** `EVENT TEST_START ...` followed by `PAD` lines and a `SUMMARY` line. Ignored in other states.
 
 ---
 
@@ -298,7 +298,7 @@ The tester operates as a state machine. Some commands are only valid in certain 
 | `ADAPTER_DETECTED` | HELLO, SET_PADMAP, GET_ADAPTER, DISCOVERY_SCAN |
 | `READY` | HELLO, RUN, SET_PADMAP, GET_ADAPTER, DISCOVERY_SCAN |
 | `TESTING` | HELLO |
-| `PASS` / `FAIL` | HELLO, GET_RESULTS |
+| `PASS` / `FAIL` | HELLO, RUN, GET_RESULTS |
 | `EOL_ADAPTER` | HELLO, PROVISION |
 | `WRONG_ORIENTATION` | HELLO |
 | `FAULT` | HELLO |

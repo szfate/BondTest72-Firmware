@@ -180,6 +180,12 @@ void StateMachine::handleCommand(HostCommand cmd) {
     switch (cmd) {
         case HostCommand::RUN:
             if (_state == State::READY) startTest();
+            else if (_state == State::PASS || _state == State::FAIL) {
+                if (_dutDetector.checkNow())
+                    startTest();
+                else
+                    transition(State::ADAPTER_DETECTED);
+            }
             break;
         case HostCommand::GET_RESULTS:
             sendResults();
