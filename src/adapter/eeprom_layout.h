@@ -7,9 +7,9 @@ struct EepromData {
     static constexpr uint32_t EOL_REACHED  = 0xFFFFFFFFu;     // eolReached flag value
     static constexpr uint8_t  WIRE_BYTES   = 36;              // total on-wire size (32 header + 4 CRC)
 
-    AdapterModel adapterModel;
-    uint8_t      adapterVersion;
-    uint8_t      supportedPadmapIds[4];  // PADMAP_UNSET-terminated list of supported pad map IDs
+    AdapterHardware adapterHardware;
+    uint8_t         rfu;
+    uint8_t         supportedPadmapIds[4];  // PADMAP_UNSET-terminated list of supported pad map IDs
     uint32_t     designedLifespan;       // max insertions before EOL (set at manufacture)
     uint32_t     dateOfManufacture;      // YYYYMMDD
     uint32_t     insertionCount;         // absent→present transitions (wear metric)
@@ -18,7 +18,7 @@ struct EepromData {
 };
 
 // Pack EepromData into EEPROM_WIRE_BYTES (32 header + 4 CRC-32). buf must be at least EEPROM_WIRE_BYTES.
-// Layout: [0..1] magic  [2] model  [3] version  [4..7] padmapIds  [8..11] reserved
+// Layout: [0..1] magic  [2] hwId  [3] rfu  [4..7] padmapIds  [8..11] reserved
 //         [12..15] designedLifespan  [16..19] dateOfManufacture
 //         [20..23] insertionCount    [24..27] testCount  [28..31] eolReached  [32..35] CRC32
 void eepromSerialize(const EepromData& data, uint8_t buf[EepromData::WIRE_BYTES]);

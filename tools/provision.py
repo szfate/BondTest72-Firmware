@@ -32,9 +32,13 @@ PAD_MAPS = {
     2: "Mezzanine70 v2  (64 cases — die44 connected)",
 }
 
+ADAPTER_HW_NAMES = {
+    "1": "Mezzanine70",
+}
+
 
 def parse_adapter_line(line: str) -> dict:
-    """Parse 'ADAPTER model=N ver=N padmap0=N ... mfg_date=N ins=N tests=N eol=N padmap=name'"""
+    """Parse 'ADAPTER hw=N pm=N[,N] ... mfg_date=N ins=N tests=N eol=N dut=N'"""
     info = {}
     for token in line.split():
         if "=" in token:
@@ -103,29 +107,27 @@ def fmt_date(d: str) -> str:
 
 def print_adapter_info(info: dict):
     uid      = info.get("uid",      "?")
-    model    = info.get("model",    "?")
-    ver      = info.get("ver",      "?")
+    hw       = info.get("hw",       "?")
+    pm       = info.get("pm",       "")
     mfg      = fmt_date(info.get("mfg_date", "0"))
     ins      = info.get("ins",      "?")
     tests    = info.get("tests",    "?")
     lifespan = info.get("lifespan", "?")
     eol      = info.get("eol",      "?")
-    padmap   = info.get("padmap",   "none")
+    dut      = info.get("dut",      "?")
 
-    padmap_ids = []
-    for i in range(4):
-        v = info.get(f"padmap{i}")
-        if v and v != "255":
-            padmap_ids.append(v)
+    padmap_ids = [s for s in pm.split(',') if s] if pm else []
 
+    hw_name = ADAPTER_HW_NAMES.get(hw, f"hw {hw}")
+    pm_display = ', '.join(PAD_MAPS.get(int(p), f"pm {p}") for p in padmap_ids) if padmap_ids else 'none'
     print(f"  UID        : {uid}")
-    print(f"  Model      : {model}  ver {ver}")
-    print(f"  Pad map IDs: {', '.join(padmap_ids) if padmap_ids else 'none'}")
-    print(f"  Pad map    : {padmap}")
+    print(f"  Hardware   : {hw_name} (hw {hw})")
+    print(f"  Pad map IDs: {pm} ({pm_display})")
     print(f"  Mfg date   : {mfg}")
     print(f"  Insertions : {ins} / {lifespan}")
     print(f"  Tests      : {tests}")
     print(f"  EOL        : {'YES' if eol == '1' else 'no'}")
+    print(f"  DUT present : {'YES' if dut == '1' else 'no'}")
 
 
 def main():

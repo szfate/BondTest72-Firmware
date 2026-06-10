@@ -93,33 +93,43 @@ void HostProtocol::setUid(const char* uid16) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
-void HostProtocol::sendAdapterInfo(uint8_t model, uint8_t version, const uint8_t* padmapIds,
+void HostProtocol::sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
                                     uint32_t lifespan, uint32_t dateOfManufacture,
                                     uint32_t insertions, uint32_t tests, bool eol,
-                                    const char* padMapName) {
+                                    bool dutPresent) {
     Serial.print("ADAPTER");
     Serial.print(" uid=");     Serial.print(_uid);
-    Serial.print(" model=");  Serial.print(model);
-    Serial.print(" ver=");    Serial.print(version);
-    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) {
-        Serial.print(" padmap"); Serial.print(i); Serial.print('='); Serial.print(padmapIds[i]);
+    Serial.print(" hw=");      Serial.print(hwId);
+    uint8_t pmCount = 0;
+    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) pmCount++;
+    if (pmCount > 0) {
+        Serial.print(" pm=");
+        for (uint8_t i = 0; i < pmCount; i++) {
+            if (i > 0) Serial.print(',');
+            Serial.print(padmapIds[i]);
+        }
     }
     Serial.print(" lifespan=");   Serial.print(lifespan);
     Serial.print(" mfg_date=");   Serial.print(dateOfManufacture);
     Serial.print(" ins=");        Serial.print(insertions);
     Serial.print(" tests=");      Serial.print(tests);
     Serial.print(" eol=");        Serial.print(eol ? 1 : 0);
-    Serial.print(" padmap=");     Serial.print(padMapName ? padMapName : "none");
+    Serial.print(" dut=");        Serial.print(dutPresent ? 1 : 0);
     Serial.println();
 }
 
-void HostProtocol::sendAdapterDetected(uint8_t model, uint8_t version, const uint8_t* padmapIds) {
+void HostProtocol::sendAdapterDetected(uint8_t hwId, const uint8_t* padmapIds) {
     Serial.print("EVENT ADAPTER_DETECTED ");
     Serial.print("uid=");     Serial.print(_uid);
-    Serial.print(" model=");  Serial.print(model);
-    Serial.print(" ver=");    Serial.print(version);
-    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) {
-        Serial.print(" pm="); Serial.print(padmapIds[i]);
+    Serial.print(" hw=");      Serial.print(hwId);
+    uint8_t pmCount = 0;
+    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) pmCount++;
+    if (pmCount > 0) {
+        Serial.print(" pm=");
+        for (uint8_t i = 0; i < pmCount; i++) {
+            if (i > 0) Serial.print(',');
+            Serial.print(padmapIds[i]);
+        }
     }
     Serial.println();
 }
@@ -136,13 +146,18 @@ void HostProtocol::sendDutRemoved() {
     Serial.println("EVENT DUT_REMOVED");
 }
 
-void HostProtocol::sendTestStart(uint8_t model, uint8_t version, const uint8_t* padmapIds) {
+void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds) {
     Serial.print("EVENT TEST_START ");
     Serial.print("uid=");     Serial.print(_uid);
-    Serial.print(" model=");  Serial.print(model);
-    Serial.print(" ver=");    Serial.print(version);
-    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) {
-        Serial.print(" pm="); Serial.print(padmapIds[i]);
+    Serial.print(" hw=");      Serial.print(hwId);
+    uint8_t pmCount = 0;
+    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) pmCount++;
+    if (pmCount > 0) {
+        Serial.print(" pm=");
+        for (uint8_t i = 0; i < pmCount; i++) {
+            if (i > 0) Serial.print(',');
+            Serial.print(padmapIds[i]);
+        }
     }
     Serial.println();
 }

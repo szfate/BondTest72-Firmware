@@ -43,8 +43,8 @@ void eepromTest() {
     if (buf[0] == 0xFF && buf[1] == 0xFF) {
         Serial.println("header blank — provisioning defaults");
         EepromData d = {};
-        d.adapterModel            = AdapterModel::Mezzanine70;
-        d.adapterVersion          = 1;
+        d.adapterHardware          = AdapterHardware::Mezzanine70;
+        d.rfu        = 0xFF;
         d.supportedPadmapIds[0]   = EepromData::PADMAP_UNSET;
         d.supportedPadmapIds[1]   = EepromData::PADMAP_UNSET;
         d.supportedPadmapIds[2]   = EepromData::PADMAP_UNSET;

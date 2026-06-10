@@ -9,7 +9,6 @@ static constexpr uint8_t EOL_LED_PIN = 18;  // CON5 = GP18
 static constexpr uint8_t ADAPTER_PIN_COUNT_PLUS_1 = 71;  // mirror formula for flipped-DUT detection: flipped_pin = 71 - normal_pin
 
 Mezzanine70::Mezzanine70(const EepromData& eeprom)
-    : _version(eeprom.adapterVersion)
 {
     for (uint8_t i = 0; i < 4; i++) _padmapIds[i] = eeprom.supportedPadmapIds[i];
     pinMode(EOL_LED_PIN, OUTPUT);

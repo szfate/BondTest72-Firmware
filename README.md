@@ -51,7 +51,7 @@ The system is a two-board design:
 └──────────────────────────────────┘
 ```
 
-The adapter board is specific to a die form factor (e.g. 1×0.5, 1×1) and connector type. Different adapters can also support testing customer boards directly, provided a compatible connector is used. The adapter's EEPROM stores metadata (adapter model, version, pad map ID, insertion count, manufacturing date) so the firmware automatically selects the correct test sequence when an adapter is plugged in.
+The adapter board is specific to a die form factor (e.g. 1×0.5, 1×1) and connector type. Different adapters can also support testing customer boards directly, provided a compatible connector is used. The adapter's EEPROM stores metadata (hardware ID, pad map ID, insertion count, manufacturing date) so the firmware automatically selects the correct test sequence when an adapter is plugged in.
 
 | Component | Part | Notes |
 |-----------|------|-------|
@@ -169,7 +169,7 @@ Line-oriented text over USB CDC, 115200 baud. All messages with arguments use `k
 ```
 HELLO name=<string> build=<string> uid=<hex16>
 
-ADAPTER uid=<hex16> model=<uint> ver=<uint> padmap0=<uint> [padmap1=<uint> ...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> padmap=<name|none>
+ADAPTER uid=<hex16> hw=<uint> pm=<uint>[,<uint>...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1>
 
 PAD slot=<uint> apin=<uint> dp=<uint> result=<GOOD|OPEN|SHORT> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
 
@@ -177,11 +177,11 @@ SLOT slot=<uint> present=<0|1> tested=<0|1>
 
 SUMMARY outcome=<PASS|FAIL> good=<uint> tested=<uint> [fail_reason=DUT_REMOVED]
 
-EVENT ADAPTER_DETECTED uid=<hex16> model=<uint> ver=<uint> pm=<uint> [<pm=<uint>> ...]
+EVENT ADAPTER_DETECTED uid=<hex16> hw=<uint> pm=<uint>[,<uint>...]
 EVENT ADAPTER_REMOVED
 EVENT DUT_INSERTED
 EVENT DUT_REMOVED
-EVENT TEST_START uid=<hex16> model=<uint> ver=<uint> pm=<uint> [<pm=<uint>> ...]
+EVENT TEST_START uid=<hex16> hw=<uint> pm=<uint>[,<uint>...]
 EVENT EOL_WARNING ins=<uint>
 EVENT WRONG_ORIENTATION
 EVENT FAULT msg=<string>
@@ -213,8 +213,8 @@ Each adapter carries an AT21CS01 EEPROM that stores lifetime and configuration d
 | Offset | Size | Field |
 |--------|------|-------|
 | 0 | 2 | Magic: `{ 0xB7, 0x72 }` |
-| 2 | 1 | `adapter_model` (0x01 = Mezzanine70) |
-| 3 | 1 | `adapter_version` |
+| 2 | 1 | `adapter_hardware` (0x01 = Mezzanine70) |
+| 3 | 1 | `rfu` (reserved, write 0xFF) |
 | 4 | 4 | `supported_padmap_ids` (0xFF = unused slot, up to 4 IDs) |
 | 8 | 4 | reserved (all zeros) |
 | 12 | 4 | `designed_lifespan` — max insertions before EOL |

@@ -64,7 +64,7 @@ src/
 │   ├── eeprom_layout.h              # EepromData struct + serialize/deserialize
 │   ├── mezzanine70.h / .cpp         # 1-DUT adapter, no isolation switches
 │   ├── mezzanine70x5.h / .cpp       # 5-DUT adapter, drives isolation GPIOs (future)
-│   └── adapter_registry.h / .cpp   # (model, version) → AdapterBase* factory
+│   └── adapter_registry.h / .cpp   # (hwId) → AdapterBase* factory
 │
 ├── test/
 │   ├── pad_map.h / pad_map.cpp             # pad roles + presence detection recipe
@@ -102,8 +102,8 @@ constexpr uint32_t DUT_POLL_INTERVAL_MS = 250;
 Offset  Size  Field
 ──────  ────  ──────────────────────────────────────────────────
 0       2     magic: { 0xB7, 0x72 }  — "BT72" sentinel
-2       1     adapter_model      (enum: 0x01 = Mezzanine70, ...)
-3       1     adapter_version    (e.g. 0x01)
+2       1     adapter_hardware      (enum: 0x01 = Mezzanine70, ...)
+3       1     rfu    (reserved, 0xFF)
 4       1     supported_padmap_id  (0xFF = unset → auto-detect)
 5       1     reserved
 6       2     designed_lifespan  (uint16, max insertions before EOL — set at manufacture)
@@ -133,20 +133,19 @@ Offset  Size  Field
 getDutCount()          → number of DUT slots (1 or 5)
 selectDut(index)       → activate one slot (drives isolation GPIOs; no-op for single-DUT)
 getPadCount()          → pads per DUT slot
-getAdapterModel()      → model enum
-getAdapterVersion()    → version byte
+getAdapterHardware()   → hardware ID enum (replaces former model+version pair)
 getSupportedPadmapId() → padmap hint from EEPROM (or 0xFF)
 ```
 
 ### AdapterRegistry
 
-Maps (model, version) to the correct subclass. DUT count is encoded in the subclass,
+Maps hardware ID to the correct subclass. DUT count is encoded in the subclass,
 not stored in EEPROM.
 
 ```
-(0x01, *)  → Mezzanine70     // 1 DUT, no isolation switches
-(0x02, *)  → Mezzanine70x5   // 5 DUTs, drives isolation GPIOs (future)
-default    → nullptr → FAULT (unknown adapter)
+(0x01)  → Mezzanine70     // 1 DUT, no isolation switches
+(0x02)  → Mezzanine70x5   // 5 DUTs, drives isolation GPIOs (future)
+default → nullptr → FAULT (unknown adapter)
 ```
 
 ---
@@ -329,16 +328,16 @@ DISCOVERY_SCAN                   sweep all pad pairs, stream sense voltages
 ### Events and responses (tester → host)
 
 ```
-EVENT ADAPTER_DETECTED uid=<hex16> model=<uint> ver=<uint> pm=<uint> [<pm=<uint>> ...]
+EVENT ADAPTER_DETECTED uid=<hex16> hw=<uint> pm=<uint>[,<uint>...]
 EVENT ADAPTER_REMOVED
 EVENT DUT_INSERTED
 EVENT DUT_REMOVED
-EVENT TEST_START uid=<hex16> model=<uint> ver=<uint> pm=<uint> [<pm=<uint>> ...]
+EVENT TEST_START uid=<hex16> hw=<uint> pm=<uint>[,<uint>...]
 EVENT EOL_WARNING ins=<uint>
 EVENT WRONG_ORIENTATION
 EVENT FAULT msg=<string>
 
-ADAPTER uid=<hex16> model=<uint> ver=<uint> padmap0=<uint> [padmap1=<uint> ...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> padmap=<name|none>
+ADAPTER uid=<hex16> hw=<uint> pm=<uint>[,<uint>...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1>
 
 PAD slot=<uint> mez=<uint> dp=<uint> result=<GOOD|OPEN|SHORT> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
 

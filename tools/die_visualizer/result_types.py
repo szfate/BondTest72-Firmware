@@ -49,15 +49,14 @@ class TesterInfo:
 @dataclass
 class AdapterInfo:
     uid: str = ""
-    model: str = ""
-    ver: str = ""
+    hw: str = ""
     padmaps: list = field(default_factory=list)
     lifespan: int = 0
     mfg_date: str = ""
     ins: int = 0
     tests: int = 0
     eol: bool = False
-    padmap: str = ""
+    dut_present: bool = False
 
 
 @dataclass

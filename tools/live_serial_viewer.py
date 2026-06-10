@@ -35,22 +35,14 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QThread, Signal, QObject
 
 # Human-readable adapter model names from firmware enum
-ADAPTER_MODEL_NAMES = {
+ADAPTER_HW_NAMES = {
     "1": "Mezzanine70",
-    "2": "Mezzanine70x5",
 }
 
-# Human-readable pad map names (from firmware src/test/pad_map_registry.cpp)
 PADMAP_NAMES = {
     "1": "1x1 v1",
     "2": "1x1 v2",
     "3": "1x0p5",
-}
-
-# Map active padmap name prefix to DieShape
-PADMAP_NAME_TO_SHAPE = {
-    "1x1": shape_1x1,
-    "1x0p5": shape_1x0p5,
 }
 
 PADMAP_SHAPES = {
@@ -60,11 +52,13 @@ PADMAP_SHAPES = {
 }
 
 
+
+
 class SerialReader(QThread):
     line_received = Signal(str)
     connection_lost = Signal()
-    hello_received = Signal(str, str, str)  # name, build, uid
-    adapter_received = Signal(str, str, str, str, int, int, bool, list)  # padmap, model_name, ver_str, uid, ins, tests, eol, supported_padmaps
+    hello_received = Signal(str)  # raw HELLO kv string
+    adapter_received = Signal(str)  # raw ADAPTER kv string
 
     def __init__(self, port, baud, parent=None):
         super().__init__(parent)
@@ -75,7 +69,6 @@ class SerialReader(QThread):
 
     def run(self):
         try:
-            # Short timeout so we don't block for a full second waiting for data
             self._ser = serial.Serial(self.port, self.baud, timeout=0.05)
         except Exception as e:
             self.line_received.emit(f"__ERROR__ {e}")
@@ -96,36 +89,9 @@ class SerialReader(QThread):
                 if not text:
                     continue
                 if text.startswith("HELLO "):
-                    parts = {}
-                    for kv in text[6:].split():
-                        k, _, v = kv.partition('=')
-                        if v:
-                            parts[k] = v
-                    name = parts.get('name', '')
-                    build = parts.get('build', '')
-                    uid = parts.get('uid', '')
-                    self.hello_received.emit(name, build, uid)
+                    self.hello_received.emit(text[6:])
                 elif text.startswith("ADAPTER "):
-                    parts = {}
-                    for kv in text[8:].split():
-                        k, _, v = kv.partition('=')
-                        if v:
-                            parts[k] = v
-                    padmap = parts.get('padmap', '')
-                    model_raw = parts.get('model', '')
-                    model_name = ADAPTER_MODEL_NAMES.get(model_raw, f"Model {model_raw}")
-                    ver_str = f"r{parts.get('ver', '?')}"
-                    uid = parts.get('uid', '')
-                    ins = int(parts.get('ins', '0'))
-                    tests = int(parts.get('tests', '0'))
-                    eol = parts.get('eol', '0') == '1'
-                    supported = []
-                    i = 0
-                    while f'padmap{i}' in parts:
-                        pm = parts[f'padmap{i}']
-                        supported.append(PADMAP_NAMES.get(pm, pm))
-                        i += 1
-                    self.adapter_received.emit(padmap, model_name, ver_str, uid, ins, tests, eol, supported)
+                    self.adapter_received.emit(text)
                 else:
                     self.line_received.emit(text)
             except serial.SerialException:
@@ -169,14 +135,15 @@ class LiveViewer(QMainWindow):
         self._tester_name = ""
         self._tester_build = ""
         self._tester_uid = ""
-        self._adapter_padmap = ""
-        self._adapter_model_name = ""
-        self._adapter_ver_str = ""
+        self._adapter_padmap_id = ""
+        self._adapter_hw_name = ""
         self._adapter_uid = ""
         self._adapter_ins = 0
         self._adapter_tests = 0
         self._adapter_eol = False
         self._adapter_supported = []
+        self._adapter_supported_ids = []
+        self._adapter_dut_present = False
 
         self.shape = shape or shape_1x1
         self.setWindowTitle(f"BondTest72 — {self.shape.name} — Live Viewer")
@@ -292,29 +259,27 @@ class LiveViewer(QMainWindow):
             if "DUT_INSERTED" in line:
                 self.reader.request_adapter()
             elif "ADAPTER_REMOVED" in line:
-                self._adapter_padmap = ""
-                self._adapter_model_name = ""
-                self._adapter_ver_str = ""
+                self._adapter_padmap_id = ""
+                self._adapter_hw_name = ""
                 self._adapter_uid = ""
                 self._adapter_ins = 0
                 self._adapter_tests = 0
                 self._adapter_eol = False
                 self._adapter_supported = []
+                self._adapter_supported_ids = []
+                self._adapter_dut_present = False
                 self._update_top_bar()
         elif line.startswith("__ERROR__ "):
             self.status_bar.showMessage(f"Error: {line[10:]}")
         elif line.startswith("ERROR "):
             self.status_bar.showMessage(line)
 
-    def _active_padmap_display_name(self) -> str:
-        active = self._adapter_padmap
-        if not active or active == "none":
-            return "none"
-        # If supported list has a versioned match (e.g. "1x1" -> "1x1 v2"), use it
-        for name in self._adapter_supported:
-            if name.startswith(active):
-                return name
-        return active
+    def _padmap_display(self) -> str:
+        if self._adapter_supported:
+            return self._adapter_supported[0]
+        if self.shape:
+            return f"{self.shape.name} (default)"
+        return "unknown"
 
     def _short_uid(self, uid: str) -> str:
         """Show last 6 hex digits of UID, or full string if shorter."""
@@ -335,22 +300,22 @@ class LiveViewer(QMainWindow):
             self._tester_detail_lbl.setText("")
 
         # Adapter side
-        if self._adapter_padmap or self._adapter_uid:
+        if self._adapter_padmap_id or self._adapter_hw_name or self._adapter_uid:
             if self._adapter_eol:
                 self._adapter_name_lbl.setStyleSheet(
                     "color: #F44336; font-size: 13px; font-weight: bold; text-decoration: none;"
                 )
-                name_text = f"{self._active_padmap_display_name()}  (EOL)"
+                name_text = f"{self._padmap_display()}  (EOL)"
             else:
                 self._adapter_name_lbl.setStyleSheet(
                     "color: #4fc3f7; font-size: 13px; font-weight: bold; text-decoration: none;"
                 )
-                name_text = self._active_padmap_display_name()
+                name_text = self._padmap_display()
             self._adapter_name_lbl.setText(name_text)
 
             details = []
-            if self._adapter_model_name:
-                details.append(f"{self._adapter_model_name}  {self._adapter_ver_str}")
+            if self._adapter_hw_name:
+                details.append(self._adapter_hw_name)
             if self._adapter_uid:
                 details.append(f"UID: {self._short_uid(self._adapter_uid)}")
             if self._adapter_ins:
@@ -362,20 +327,20 @@ class LiveViewer(QMainWindow):
             self._adapter_name_lbl.setText("")
             self._adapter_detail_lbl.setText("")
 
-    def _on_hello(self, name, build, uid):
-        self._tester_name = name
-        self._tester_build = build
-        self._tester_uid = uid
+    def _on_hello(self, kv_str):
+        parts = {}
+        for kv in kv_str.split():
+            k, _, v = kv.partition('=')
+            if v:
+                parts[k] = v
+        self._tester_name = parts.get('name', '')
+        self._tester_build = parts.get('build', '')
+        self._tester_uid = parts.get('uid', '')
         self._update_top_bar()
         self.reader.request_adapter()
 
-    def _set_shape_from_padmap(self, padmap_name: str):
-        """Switch die shape when the adapter reports a different active padmap."""
-        new_shape = None
-        for prefix, shp in PADMAP_NAME_TO_SHAPE.items():
-            if padmap_name.startswith(prefix):
-                new_shape = shp
-                break
+    def _set_shape_from_padmap(self, padmap_id: str):
+        new_shape = PADMAP_SHAPES.get(int(padmap_id)) if padmap_id else None
         if new_shape and new_shape != self.shape:
             self.shape = new_shape
             self.results_by_die_pad = {}
@@ -418,17 +383,29 @@ class LiveViewer(QMainWindow):
         self.die_map = new_die_map
         self.table = new_table
 
-    def _on_adapter(self, padmap, model_name, ver_str, uid, ins, tests, eol, supported):
-        self._adapter_padmap = padmap
-        self._adapter_model_name = model_name
-        self._adapter_ver_str = ver_str
-        self._adapter_uid = uid
-        self._adapter_ins = ins
-        self._adapter_tests = tests
-        self._adapter_eol = eol
-        self._adapter_supported = supported
+    def _on_adapter(self, raw_line):
+        kv_str = raw_line
+        if kv_str.startswith("ADAPTER "):
+            kv_str = kv_str[8:]
+        parts = {}
+        for kv in kv_str.split():
+            k, _, v = kv.partition('=')
+            if v:
+                parts[k] = v
+
+        supported_ids = [s for s in parts.get('pm', '').split(',') if s]
+        hw_raw = parts.get('hw', '')
+        self._adapter_padmap_id = supported_ids[0] if supported_ids else ''
+        self._adapter_hw_name = ADAPTER_HW_NAMES.get(hw_raw, f"hw {hw_raw}")
+        self._adapter_uid = parts.get('uid', '') or ''
+        self._adapter_ins = int(parts.get('ins', '0') or '0')
+        self._adapter_tests = int(parts.get('tests', '0') or '0')
+        self._adapter_eol = (parts.get('eol', '0') or '0') == '1'
+        self._adapter_supported = [PADMAP_NAMES.get(pm, pm) for pm in supported_ids]
+        self._adapter_supported_ids = supported_ids
+        self._adapter_dut_present = (parts.get('dut', '0') or '0') == '1'
         self._update_top_bar()
-        self._set_shape_from_padmap(padmap)
+        self._set_shape_from_padmap(self._adapter_padmap_id)
 
     def _handle_pad(self, line):
         from die_visualizer.log_parser import _detect_format, _parse_pad_kv, _parse_pad_positional
@@ -502,14 +479,15 @@ class LiveViewer(QMainWindow):
         self._tester_name = ""
         self._tester_build = ""
         self._tester_uid = ""
-        self._adapter_padmap = ""
-        self._adapter_model_name = ""
-        self._adapter_ver_str = ""
+        self._adapter_padmap_id = ""
+        self._adapter_hw_name = ""
         self._adapter_uid = ""
         self._adapter_ins = 0
         self._adapter_tests = 0
         self._adapter_eol = False
         self._adapter_supported = []
+        self._adapter_supported_ids = []
+        self._adapter_dut_present = False
         self._update_top_bar()
 
     def closeEvent(self, event):

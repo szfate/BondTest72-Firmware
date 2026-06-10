@@ -33,15 +33,15 @@ public:
 
     void setUid(const char* uid16);
 
-    void sendAdapterInfo(uint8_t model, uint8_t version, const uint8_t* padmapIds,
-                         uint32_t lifespan, uint32_t dateOfManufacture,
-                         uint32_t insertions, uint32_t tests, bool eol,
-                         const char* padMapName);
-    void sendAdapterDetected(uint8_t model, uint8_t version, const uint8_t* padmapIds);
+void sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
+                     uint32_t lifespan, uint32_t dateOfManufacture,
+                     uint32_t insertions, uint32_t tests, bool eol,
+                     bool dutPresent);
+    void sendAdapterDetected(uint8_t hwId, const uint8_t* padmapIds);
     void sendAdapterRemoved();
     void sendDutInserted();
     void sendDutRemoved();
-    void sendTestStart(uint8_t model, uint8_t version, const uint8_t* padmapIds);
+    void sendTestStart(uint8_t hwId, const uint8_t* padmapIds);
     void sendEolWarning(uint32_t insertionCount);
     void sendWrongOrientation();
     void sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad, const PadResult& r);

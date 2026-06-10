@@ -48,7 +48,7 @@ void StateMachine::begin() {
             LOG_W("adapter: EOL — rejecting");
             _state = State::EOL_ADAPTER;
         } else {
-            if (ok) _dutDetector.poll();  // prime detector state — no event fired, no counter increment
+            if (ok) _dutDetector.prime();
             _state = ok ? State::ADAPTER_DETECTED : State::FAULT;
             if (!ok) _hostProtocol.sendFault("ADAPTER_INIT_FAILED");
         }
@@ -140,8 +140,7 @@ void StateMachine::transition(State next) {
     // knows the model before the DUT is inserted and can validate the pad map selection.
     if (next == State::ADAPTER_DETECTED && _adapter) {
         _hostProtocol.sendAdapterDetected(
-            (uint8_t)_adapter->getAdapterModel(),
-            _adapter->getAdapterVersion(),
+            (uint8_t)_adapter->getAdapterHardware(),
             _adapter->getSupportedPadmapIds());
     }
 
@@ -222,15 +221,14 @@ void StateMachine::handleCommand(HostCommand cmd) {
                 _hostProtocol.sendError(ErrorCode::NO_ADAPTER, "NO_ADAPTER");
             } else {
                 _hostProtocol.sendAdapterInfo(
-                    (uint8_t)_eepromData.adapterModel,
-                    _eepromData.adapterVersion,
+                    (uint8_t)_eepromData.adapterHardware,
                     _eepromData.supportedPadmapIds,
                     _eepromData.designedLifespan,
                     _eepromData.dateOfManufacture,
                     _eepromData.insertionCount,
                     _eepromData.testCount,
                     _eepromData.eolReached == EepromData::EOL_REACHED,
-                    _padMap ? _padMap->name : nullptr);
+                    _dutDetector.dutPresent());
             }
             break;
         case HostCommand::HELLO:
@@ -245,8 +243,8 @@ void StateMachine::handleCommand(HostCommand cmd) {
 
 bool StateMachine::provisionEeprom(uint8_t padmapId, uint32_t mfgDate) {
     EepromData d = {};
-    d.adapterModel            = AdapterModel::Mezzanine70;
-    d.adapterVersion          = 1;
+    d.adapterHardware          = AdapterHardware::Mezzanine70;
+    d.rfu        = 0xFF;
     d.supportedPadmapIds[0]   = padmapId;
     d.supportedPadmapIds[1]   = EepromData::PADMAP_UNSET;
     d.supportedPadmapIds[2]   = EepromData::PADMAP_UNSET;
@@ -276,8 +274,8 @@ bool StateMachine::tryInitAdapter() {
         return false;
     }
 
-    LOG_I("adapter: model=%u ver=%u padmaps=[%u,%u,%u,%u] dom=%lu lifespan=%lu ins=%lu tests=%lu eol=%s",
-          (uint8_t)_eepromData.adapterModel, _eepromData.adapterVersion,
+    LOG_I("adapter: hw=%u padmaps=[%u,%u,%u,%u] dom=%lu lifespan=%lu ins=%lu tests=%lu eol=%s",
+          (uint8_t)_eepromData.adapterHardware,
           _eepromData.supportedPadmapIds[0], _eepromData.supportedPadmapIds[1],
           _eepromData.supportedPadmapIds[2], _eepromData.supportedPadmapIds[3],
           _eepromData.dateOfManufacture,
@@ -285,7 +283,7 @@ bool StateMachine::tryInitAdapter() {
           _eepromData.eolReached == EepromData::EOL_REACHED ? "YES" : "no");
 
     _adapter = AdapterRegistry::create(_eepromData);
-    if (!_adapter) { LOG_E("adapter: unknown model %u", (uint8_t)_eepromData.adapterModel); return false; }
+    if (!_adapter) { LOG_E("adapter: unknown hw %u", (uint8_t)_eepromData.adapterHardware); return false; }
 
     // UID is a unique 64-bit serial burned into the AT21CS01; fall back to all-zeros if the read fails
     // so the host always receives a valid-length UID string rather than garbage.
@@ -323,7 +321,7 @@ void StateMachine::selectPadMap() {
 
 void StateMachine::flushEeprom() {
     // Only mutable fields are ever modified: insertionCount, testCount, eolReached.
-    // Read-only fields (model, version, padmapId, lifespan, dateOfManufacture) are
+    // Read-only fields (hwId, padmapId, lifespan, dateOfManufacture) are
     // loaded once in tryInitAdapter() and never changed, so a full write is safe.
     if (_eepromData.insertionCount >= _eepromData.designedLifespan &&
         _eepromData.eolReached != EepromData::EOL_REACHED) {
@@ -356,8 +354,7 @@ void StateMachine::startTest() {
     LOG_I("test start: slots=%u pads=%u", _adapter->getDutCount(), _padMap->caseCount);
 
     _hostProtocol.sendTestStart(
-        (uint8_t)_adapter->getAdapterModel(),
-        _adapter->getAdapterVersion(),
+        (uint8_t)_adapter->getAdapterHardware(),
         _adapter->getSupportedPadmapIds());
 
     transition(State::TESTING);

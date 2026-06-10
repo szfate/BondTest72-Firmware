@@ -1,6 +1,6 @@
 # Adapter — Mezzanine70
 
-**Model:** Mezzanine70 (adapter_model = 0x01)
+**Hardware:** Mezzanine70 (hw = 0x01)
 
 The Mezzanine70 adapter connects a 70-pin DUT PCB connector to the BondTest72
 tester. It does not contain active components or isolation switches.

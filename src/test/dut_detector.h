@@ -6,6 +6,7 @@
 #include "adapter/adapter_base.h"
 
 constexpr uint32_t DUT_POLL_INTERVAL_MS = 250;
+constexpr uint8_t  DUT_CONFIRM_COUNT    = 2;
 
 enum class DutEvent : uint8_t {
     NONE,
@@ -21,6 +22,8 @@ public:
     void     setAdapter(const AdapterBase* adapter);
     void     setPadMap(const PadMap* padMap);
     DutEvent poll();
+    void     prime();
+    bool     dutPresent() const;
 
     bool checkNow();
 
@@ -32,4 +35,6 @@ private:
 
     enum class DutState : uint8_t { ABSENT, PRESENT, WRONG_ORIENTATION };
     DutState _state = DutState::ABSENT;
+    DutState _pendingState = DutState::ABSENT;
+    uint8_t  _confirmCount = 0;
 };

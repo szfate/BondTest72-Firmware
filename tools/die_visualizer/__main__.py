@@ -51,12 +51,10 @@ def main():
             f"Tester: {result.tester.name}  (build: {result.tester.build}, uid: {result.tester.uid})"
         )
     if result.adapter.uid:
-        adapter_label = f"Adapter: {result.adapter.padmap or 'unknown'}"
+        adapter_label = f"Adapter: hw {result.adapter.hw}"
+        if result.adapter.padmaps:
+            adapter_label += f"  pm={','.join(result.adapter.padmaps)}"
         details = []
-        if result.adapter.model:
-            details.append(f"model={result.adapter.model}")
-        if result.adapter.ver:
-            details.append(f"ver={result.adapter.ver}")
         if result.adapter.uid:
             details.append(f"uid={result.adapter.uid}")
         if result.adapter.ins:

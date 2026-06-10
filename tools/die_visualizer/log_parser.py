@@ -40,22 +40,17 @@ def _parse_adapter(parts: list[str]) -> AdapterInfo | None:
     d = _parse_kv(parts[1:])
     if 'uid' not in d:
         return None
-    padmaps = []
-    i = 0
-    while f'padmap{i}' in d:
-        padmaps.append(d[f'padmap{i}'])
-        i += 1
+    padmaps = [s for s in d.get('pm', '').split(',') if s]
     return AdapterInfo(
         uid=d.get('uid', ''),
-        model=d.get('model', ''),
-        ver=d.get('ver', ''),
+        hw=d.get('hw', ''),
         padmaps=padmaps,
         lifespan=int(d.get('lifespan', '0')),
         mfg_date=d.get('mfg_date', ''),
         ins=int(d.get('ins', '0')),
         tests=int(d.get('tests', '0')),
         eol=d.get('eol', '0') == '1',
-        padmap=d.get('padmap', ''),
+        dut_present=d.get('dut', '0') == '1',
     )
 
 

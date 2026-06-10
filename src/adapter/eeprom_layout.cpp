@@ -33,8 +33,8 @@ static uint32_t unpack32(const uint8_t* buf) {
 void eepromSerialize(const EepromData& d, uint8_t buf[EepromData::WIRE_BYTES]) {
     buf[0] = MAGIC[0];
     buf[1] = MAGIC[1];
-    buf[2] = static_cast<uint8_t>(d.adapterModel);
-    buf[3] = d.adapterVersion;
+    buf[2] = static_cast<uint8_t>(d.adapterHardware);
+    buf[3] = d.rfu;
     buf[4] = d.supportedPadmapIds[0];
     buf[5] = d.supportedPadmapIds[1];
     buf[6] = d.supportedPadmapIds[2];
@@ -54,8 +54,8 @@ bool eepromDeserialize(const uint8_t buf[EepromData::WIRE_BYTES], EepromData& ou
     if (crc32(buf, HEADER_BYTES) != unpack32(buf + 32))
         return false;
 
-    out.adapterModel          = static_cast<AdapterModel>(buf[2]);
-    out.adapterVersion        = buf[3];
+    out.adapterHardware         = static_cast<AdapterHardware>(buf[2]);
+    out.rfu       = buf[3];
     out.supportedPadmapIds[0] = buf[4];
     out.supportedPadmapIds[1] = buf[5];
     out.supportedPadmapIds[2] = buf[6];

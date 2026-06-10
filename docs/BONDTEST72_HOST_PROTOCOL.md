@@ -47,21 +47,20 @@ Retrieve adapter information. Requires an adapter to be connected.
 
 **Response (success):**
 ```
-ADAPTER uid=<uid> model=<model> ver=<ver> padmap0=<pm0> [padmap1=<pm1>...] lifespan=<n> mfg_date=<n> ins=<n> tests=<n> eol=<0|1> padmap=<name>
+ADAPTER uid=<uid> hw=<hw> pm=<uint>[,<uint>...] lifespan=<n> mfg_date=<n> ins=<n> tests=<n> eol=<0|1> dut=<0|1>
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `uid` | string | 16-char adapter EEPROM serial UID |
-| `model` | uint8 | Adapter model enum value |
-| `ver` | uint8 | Adapter hardware version |
-| `padmap0..padmapN` | uint8 | Supported pad map IDs (up to 4, absent if 0xFF) |
+| `hw` | uint8 | Hardware ID (complete adapter identifier) |
+| `pm` | uint8[] | Supported pad map IDs, comma-separated (absent if none) |
 | `lifespan` | uint32 | Designed lifespan (number of insertions) |
 | `mfg_date` | uint32 | Manufacturing date as YYYYMMDD |
 | `ins` | uint32 | Current insertion count |
 | `tests` | uint32 | Current test count |
 | `eol` | 0 or 1 | End-of-life reached |
-| `padmap` | string | Active pad map name, or `none` |
+| `dut` | 0 or 1 | DUT currently present on adapter |
 
 **Response (error):** `ERROR code=1 msg=NO_ADAPTER`
 
@@ -136,7 +135,7 @@ These lines are sent by the tester without a corresponding command, in response 
 Sent when an adapter PCB is plugged in.
 
 ```
-EVENT ADAPTER_DETECTED uid=<uid> model=<model> ver=<ver> [pm=<pm0>] [pm=<pm1>]
+EVENT ADAPTER_DETECTED uid=<uid> hw=<hw> pm=<uint>[,<uint>...]
 ```
 
 ---
@@ -176,7 +175,7 @@ EVENT DUT_REMOVED
 Sent when a test begins (after `RUN` command or button press).
 
 ```
-EVENT TEST_START uid=<uid> model=<model> ver=<ver> [pm=<pm0>] [pm=<pm1>]
+EVENT TEST_START uid=<uid> hw=<hw> pm=<uint>[,<uint>...]
 ```
 
 ---
@@ -333,14 +332,14 @@ DSCAN DONE
 ← HELLO name=BondTest72 build=2026-06-03-74fb8fd uid=A1B2C3D4E5F60718
 
 # Adapter plugged in (asynchronous)
-← EVENT ADAPTER_DETECTED uid=0123456789ABCDEF model=1 ver=1 pm=2
+← EVENT ADAPTER_DETECTED uid=0123456789ABCDEF hw=1 pm=2
 
 # DUT inserted (asynchronous)
 ← EVENT DUT_INSERTED
 
 # Host starts test
 → RUN
-← EVENT TEST_START uid=0123456789ABCDEF model=1 ver=1 pm=2
+← EVENT TEST_START uid=0123456789ABCDEF hw=1 pm=2
 ← PAD slot=0 apin=1 dp=0 result=GOOD ps=0 ns=0 sv=0.650 pv=1.600 nv=1.580
 ← PAD slot=0 apin=2 dp=1 result=GOOD ps=0 ns=0 sv=0.620 pv=1.610 nv=1.590
   ... (one PAD line per die pad)
