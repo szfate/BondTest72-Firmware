@@ -203,7 +203,8 @@ void StateMachine::handleCommand(HostCommand cmd) {
         case HostCommand::PROVISION:
             if (!_eepromMgr.isPresent()) {
                 _hostProtocol.sendError(ErrorCode::NO_ADAPTER, "NO_ADAPTER");
-            } else if (!provisionEeprom(_hostProtocol.provisionPadmapId(),
+            } else if (!provisionEeprom(_hostProtocol.provisionHwId(),
+                                        _hostProtocol.provisionPadmapIds(),
                                         _hostProtocol.provisionMfgDate())) {
                 _hostProtocol.sendError(ErrorCode::PROVISION_FAILED, "PROVISION_FAILED");
             } else {
@@ -247,14 +248,11 @@ void StateMachine::handleCommand(HostCommand cmd) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
-bool StateMachine::provisionEeprom(uint8_t padmapId, uint32_t mfgDate) {
+bool StateMachine::provisionEeprom(uint8_t hwId, const uint8_t padmapIds[4], uint32_t mfgDate) {
     EepromData d = {};
-    d.adapterHardware          = AdapterHardware::Mezzanine70;
+    d.adapterHardware          = (AdapterHardware)hwId;
     d.rfu        = 0xFF;
-    d.supportedPadmapIds[0]   = padmapId;
-    d.supportedPadmapIds[1]   = EepromData::PADMAP_UNSET;
-    d.supportedPadmapIds[2]   = EepromData::PADMAP_UNSET;
-    d.supportedPadmapIds[3]   = EepromData::PADMAP_UNSET;
+    for (uint8_t i = 0; i < 4; i++) d.supportedPadmapIds[i] = padmapIds[i];
     d.designedLifespan        = 100;
     d.dateOfManufacture       = mfgDate;
     d.insertionCount          = 0;

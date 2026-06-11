@@ -28,7 +28,8 @@ public:
     HostCommand poll();
     uint8_t     setPadmapId() const { return _setPadmapId; }
 
-    uint8_t     provisionPadmapId()   const { return _provisionPadmapId; }
+    const uint8_t* provisionPadmapIds() const { return _provisionPadmapIds; }
+    uint8_t     provisionHwId()       const { return _provisionHwId; }
     uint32_t    provisionMfgDate()    const { return _provisionMfgDate; }
 
     void setUid(const char* uid16);
@@ -56,12 +57,14 @@ void sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
 private:
     HostCommand processLine(const char* line);
     static bool parseKvUint(const char* kv, const char* key, uint32_t& out);
+    static bool parseKvUintList(const char* kv, const char* key, uint8_t* out, uint8_t maxCount);
 
     char     _lineBuf[256];
     uint16_t _lineLen           = 0;
     bool     _overflowWarned    = false;
     uint8_t  _setPadmapId       = 0;
-    uint8_t  _provisionPadmapId = 0xFF;
+    uint8_t  _provisionPadmapIds[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+    uint8_t  _provisionHwId     = 0xFF;
     uint32_t _provisionMfgDate = 0;
     char     _uid[17]           = {};
 };

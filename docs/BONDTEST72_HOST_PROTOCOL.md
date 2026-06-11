@@ -86,11 +86,12 @@ Select the active pad map. Valid in any state with an adapter present.
 
 Write initial values to a blank adapter EEPROM. Requires an adapter to be physically connected.
 
-**Request:** `PROVISION padmap=<id> [date=<YYYYMMDD>]`
+**Request:** `PROVISION hw=<id> padmap=<id>[,<id>...] [date=<YYYYMMDD>]`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `padmap` | uint8 | Pad map ID to provision |
+| `hw` | uint8 | Hardware ID (adapter board identifier). Required. |
+| `padmap` | uint8[] | Pad map IDs to provision, comma-separated (1–4 IDs). |
 | `date` | uint32 | Optional. Manufacturing date as YYYYMMDD. Defaults to 0 if omitted. |
 
 **Response (success):** `OK PROVISION`

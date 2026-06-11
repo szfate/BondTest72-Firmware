@@ -74,17 +74,18 @@ uv run tools/discovery_scan.py --port COM3 --out my_scan --cell 8
 
 ## provision.py
 
-Writes the adapter EEPROM: sets pad map ID and manufacture date. Queries the current adapter state first and asks for confirmation before writing.
+Writes the adapter EEPROM: sets hardware ID, pad map ID, and manufacture date. Queries the current adapter state first and asks for confirmation before writing.
 
 ```sh
-uv run tools/provision.py --port /dev/tty.usbmodem1101 --padmap 2
-uv run tools/provision.py --port COM3 --padmap 1 --date 20260601 --yes
+uv run tools/provision.py --port /dev/tty.usbmodem1101 --hw 1 --padmap 2
+uv run tools/provision.py --port COM3 --hw 1 --padmap 3 --date 20260601 --yes
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--port` | *(required)* | Serial port |
 | `--baud` | `115200` | Baud rate |
-| `--padmap` | *(required)* | Pad map ID to write (1 = Mezzanine70 COB v1, 2 = Mezzanine70 COB v2) |
+| `--hw` | *(required)* | Hardware ID (1 = Mezzanine70) |
+| `--padmap` | *(required)* | Pad map IDs, comma-separated (1 = Mezzanine70 COB v1, 2 = Mezzanine70 COB v2, 3 = Mezzanine70 COB v1 1×0.5) |
 | `--date` | today | Manufacture date in `YYYYMMDD` format |
 | `--yes` / `-y` | `false` | Skip confirmation prompt |

@@ -161,7 +161,7 @@ Line-oriented text over USB CDC, 115200 baud. All messages with arguments use `k
 | `GET_RESULTS` | Re-send the last result set |
 | `GET_ADAPTER` | Query current adapter info |
 | `SET_PADMAP id=<uint>` | Override pad map selection |
-| `PROVISION padmap=<uint> [date=<YYYYMMDD>]` | Write adapter EEPROM (factory use) |
+| `PROVISION hw=<uint> padmap=<uint>[,<uint>...] [date=<YYYYMMDD>]` | Write adapter EEPROM (factory use) |
 | `DISCOVERY_SCAN` | Sweep all 70×70 pad pairs, stream sense voltages |
 
 ### Responses (tester → host)

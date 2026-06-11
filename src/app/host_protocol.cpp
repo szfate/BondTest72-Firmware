@@ -51,16 +51,18 @@ HostCommand HostProtocol::processLine(const char* line) {
 
     if (strncmp(line, "PROVISION ", 10) == 0) {
         _provisionMfgDate = 0;
-        uint32_t pm;
-        if (parseKvUint(line + 10, "padmap", pm)) {
-            _provisionPadmapId = (uint8_t)pm;
+        _provisionHwId    = 0xFF;
+        for (uint8_t i = 0; i < 4; i++) _provisionPadmapIds[i] = 0xFF;
+        uint32_t hw;
+        bool hasHw = parseKvUint(line + 10, "hw", hw);
+        if (hasHw) _provisionHwId = (uint8_t)hw;
+        if (parseKvUintList(line + 10, "padmap", _provisionPadmapIds, 4)) {
             uint32_t dt;
             if (parseKvUint(line + 10, "date", dt)) {
                 _provisionMfgDate = dt;
             }
             return HostCommand::PROVISION;
         }
-        _provisionPadmapId = 0xFF;
         return HostCommand::NONE;
     }
 
@@ -73,6 +75,29 @@ bool HostProtocol::parseKvUint(const char* kv, const char* key, uint32_t& out) {
     while (*p) {
         if (strncmp(p, key, klen) == 0 && p[klen] == '=') {
             out = (uint32_t)atol(p + klen + 1);
+            return true;
+        }
+        while (*p && *p != ' ') p++;
+        if (*p == ' ') p++;
+    }
+    return false;
+}
+
+bool HostProtocol::parseKvUintList(const char* kv, const char* key, uint8_t* out, uint8_t maxCount) {
+    uint8_t klen = strlen(key);
+    const char* p = kv;
+    while (*p) {
+        if (strncmp(p, key, klen) == 0 && p[klen] == '=') {
+            const char* val = p + klen + 1;
+            uint8_t count = 0;
+            while (count < maxCount) {
+                out[count] = (uint8_t)atol(val);
+                count++;
+                while (*val && *val != ',' && *val != ' ') val++;
+                if (*val == ',') { val++; continue; }
+                break;
+            }
+            while (count < maxCount) out[count++] = 0xFF;
             return true;
         }
         while (*p && *p != ' ') p++;

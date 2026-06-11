@@ -8,11 +8,12 @@
 """
 provision.py — write adapter EEPROM on BondTest72
 
-Queries the current adapter state, then writes padmap ID and manufacture date.
+Queries the current adapter state, then writes hardware ID, padmap IDs, and manufacture date.
 
 Usage:
-    uv run tools/provision.py --port /dev/tty.usbmodem11101 --padmap 1
-    uv run tools/provision.py --port COM3 --padmap 2 --date 20260101 --yes
+    uv run tools/provision.py --port /dev/tty.usbmodem11101 --hw 1 --padmap 1
+    uv run tools/provision.py --port COM3 --hw 1 --padmap 2 --date 20260101 --yes
+    uv run tools/provision.py --port /dev/tty.usbmodem1101 --hw 1 --padmap 2,3
 """
 
 import argparse
@@ -30,10 +31,11 @@ except ImportError:
 PAD_MAPS = {
     1: "Mezzanine70 v1  (63 cases — die44 unconnected)",
     2: "Mezzanine70 v2  (64 cases — die44 connected)",
+    3: "Mezzanine70 v1 1x0p5  (64 cases — 1×0.5 die)",
 }
 
 ADAPTER_HW_NAMES = {
-    "1": "Mezzanine70",
+    1: "Mezzanine70",
 }
 
 
@@ -79,9 +81,10 @@ def query_adapter(ser: "serial.Serial", timeout: int = 5) -> dict | None:
     return None
 
 
-def send_provision(ser: "serial.Serial", padmap_id: int, mfg_date: str, timeout: int = 5) -> bool:
+def send_provision(ser: "serial.Serial", hw_id: int, padmap_ids: list[int], mfg_date: str, timeout: int = 5) -> bool:
     ser.reset_input_buffer()
-    cmd = f"PROVISION padmap={padmap_id} date={mfg_date}\n"
+    pm_str = ','.join(str(p) for p in padmap_ids)
+    cmd = f"PROVISION hw={hw_id} padmap={pm_str} date={mfg_date}\n"
     ser.write(cmd.encode())
     ser.flush()
     start = time.time()
@@ -118,7 +121,7 @@ def print_adapter_info(info: dict):
 
     padmap_ids = [s for s in pm.split(',') if s] if pm else []
 
-    hw_name = ADAPTER_HW_NAMES.get(hw, f"hw {hw}")
+    hw_name = ADAPTER_HW_NAMES.get(int(hw), f"hw {hw}") if hw != "?" else f"hw {hw}"
     pm_display = ', '.join(PAD_MAPS.get(int(p), f"pm {p}") for p in padmap_ids) if padmap_ids else 'none'
     print(f"  UID        : {uid}")
     print(f"  Hardware   : {hw_name} (hw {hw})")
@@ -134,8 +137,10 @@ def main():
     ap = argparse.ArgumentParser(description="Provision BondTest72 adapter EEPROM")
     ap.add_argument("--port",    required=True,  help="Serial port")
     ap.add_argument("--baud",    type=int, default=115200)
-    ap.add_argument("--padmap",  type=int, required=True,
-                    help=f"Pad map ID ({', '.join(f'{k}={v.split()[0]}' for k, v in PAD_MAPS.items())})")
+    ap.add_argument("--hw",      type=int, required=True,
+                    help=f"Hardware ID ({', '.join(f'{k}={v}' for k, v in ADAPTER_HW_NAMES.items())})")
+    ap.add_argument("--padmap",  required=True,
+                    help=f"Pad map IDs, comma-separated ({', '.join(f'{k}={v.split()[0]}' for k, v in PAD_MAPS.items())})")
     ap.add_argument("--date",    default=None,
                     help="Manufacture date YYYYMMDD (default: today)")
     ap.add_argument("--yes", "-y", action="store_true",
@@ -144,13 +149,29 @@ def main():
 
     mfg_date = args.date or date.today().strftime("%Y%m%d")
 
+    # Parse and validate padmap IDs
+    try:
+        padmap_ids = [int(p) for p in args.padmap.split(',')]
+    except ValueError:
+        print(f"ERROR: --padmap must be comma-separated integers, got '{args.padmap}'")
+        sys.exit(1)
+
+    if len(padmap_ids) > 4:
+        print(f"ERROR: too many padmap IDs (max 4), got {len(padmap_ids)}")
+        sys.exit(1)
+
+    for p in padmap_ids:
+        if p not in PAD_MAPS:
+            print(f"ERROR: unknown padmap {p}. Known: {list(PAD_MAPS.keys())}")
+            sys.exit(1)
+
     # Validate date format
     if len(mfg_date) != 8 or not mfg_date.isdigit():
         print(f"ERROR: --date must be YYYYMMDD, got '{mfg_date}'")
         sys.exit(1)
 
-    if args.padmap not in PAD_MAPS:
-        print(f"ERROR: unknown padmap {args.padmap}. Known: {list(PAD_MAPS.keys())}")
+    if args.hw not in ADAPTER_HW_NAMES:
+        print(f"ERROR: unknown hw {args.hw}. Known: {list(ADAPTER_HW_NAMES.keys())}")
         sys.exit(1)
 
     print(f"Opening {args.port} at {args.baud} baud …")
@@ -166,8 +187,10 @@ def main():
         print("  (no adapter detected or not responding)")
 
     # Show what will be written
+    pm_display = ', '.join(f'{p} — {PAD_MAPS[p]}' for p in padmap_ids)
     print(f"\nProvision with:")
-    print(f"  Pad map  : {args.padmap} — {PAD_MAPS[args.padmap]}")
+    print(f"  Hardware : {args.hw} — {ADAPTER_HW_NAMES[args.hw]}")
+    print(f"  Pad maps : {pm_display}")
     print(f"  Mfg date : {fmt_date(mfg_date)}")
 
     if not args.yes:
@@ -183,7 +206,7 @@ def main():
             sys.exit(0)
 
     print("\nProvisioning …")
-    if not send_provision(ser, args.padmap, mfg_date):
+    if not send_provision(ser, args.hw, padmap_ids, mfg_date):
         ser.close()
         sys.exit(1)
 
