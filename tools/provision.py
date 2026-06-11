@@ -143,8 +143,8 @@ def main():
                     help=f"Pad map IDs, comma-separated ({', '.join(f'{k}={v.split()[0]}' for k, v in PAD_MAPS.items())})")
     ap.add_argument("--date",    default=None,
                     help="Manufacture date YYYYMMDD (default: today)")
-    ap.add_argument("--lifespan", type=int, default=100,
-                    help="Designed lifespan — max insertions before EOL (default: 100)")
+    ap.add_argument("--lifespan", type=int, default=250,
+                    help="Designed lifespan — max insertions before EOL (default: 250)")
     ap.add_argument("--yes", "-y", action="store_true",
                     help="Skip confirmation prompt")
     args = ap.parse_args()
