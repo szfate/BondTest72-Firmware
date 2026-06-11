@@ -52,7 +52,7 @@ def _pwr(dp: int) -> PadInfo:
 
 
 def _bus(dp: int) -> PadInfo:
-    return PadInfo(die_pad=dp, role=PadRole.GND_BUS_ONLY)
+    return PadInfo(die_pad=dp, role=PadRole.GND)
 
 
 # aspect_ratio = die width / die height.

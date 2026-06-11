@@ -321,7 +321,7 @@ RUN                              trigger test (same as button press)
 GET_ADAPTER                      query adapter info
 GET_RESULTS                      re-send last result set
 SET_PADMAP id=<uint>             select active pad map by project ID
-PROVISION hw=<uint> padmap=<uint>[,<uint>...] [date=<YYYYMMDD>]  write adapter EEPROM (factory use)
+PROVISION hw=<uint> padmap=<uint>[,<uint>...] lifespan=<uint> date=<YYYYMMDD>  write adapter EEPROM (factory use)
 DISCOVERY_SCAN                   sweep all pad pairs, stream sense voltages
 ```
 

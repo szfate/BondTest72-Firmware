@@ -86,17 +86,18 @@ Select the active pad map. Valid in any state with an adapter present.
 
 Write initial values to a blank adapter EEPROM. Requires an adapter to be physically connected.
 
-**Request:** `PROVISION hw=<id> padmap=<id>[,<id>...] [date=<YYYYMMDD>]`
+**Request:** `PROVISION hw=<id> padmap=<id>[,<id>...] lifespan=<n> date=<YYYYMMDD>`
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `hw` | uint8 | Hardware ID (adapter board identifier). Required. |
-| `padmap` | uint8[] | Pad map IDs to provision, comma-separated (1–4 IDs). |
-| `date` | uint32 | Optional. Manufacturing date as YYYYMMDD. Defaults to 0 if omitted. |
+| `padmap` | uint8[] | Pad map IDs to provision, comma-separated (1–4 IDs). Required. |
+| `lifespan` | uint32 | Designed lifespan — max insertions before EOL. Required. |
+| `date` | uint32 | Manufacturing date as YYYYMMDD. Required. |
 
 **Response (success):** `OK PROVISION`
 
-**Response (error):** `ERROR code=1 msg=NO_ADAPTER` or `ERROR code=4 msg=PROVISION_FAILED`
+**Response (error):** `ERROR code=1 msg=NO_ADAPTER`, `ERROR code=6 msg=MISSING_<FIELD>`, or `ERROR code=4 msg=PROVISION_FAILED`
 
 After successful provisioning, the tester reinitializes the adapter and transitions to `ADAPTER_DETECTED` (or `FAULT` on failure).
 
@@ -275,6 +276,7 @@ ERROR code=<code> msg=<message>
 | 3 | `UNKNOWN_PADMAP` | The requested pad map ID is not available |
 | 4 | `PROVISION_FAILED` | EEPROM provisioning failed |
 | 5 | `NOT_IMPLEMENTED` | Feature not yet implemented |
+| 6 | `MISSING_FIELD` | Required PROVISION field omitted (msg=MISSING_HW, MISSING_PADMAP, MISSING_LIFESPAN, or MISSING_DATE) |
 
 ---
 

@@ -14,7 +14,6 @@ class PadRole(Enum):
     VDD_CORE = "VDD_CORE"
     PWR_AUX = "PWR_AUX"
     GND = "GND"
-    GND_BUS_ONLY = "GND_BUS_ONLY"
     NC = "NC"
 
 

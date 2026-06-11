@@ -87,5 +87,6 @@ uv run tools/provision.py --port COM3 --hw 1 --padmap 3 --date 20260601 --yes
 | `--baud` | `115200` | Baud rate |
 | `--hw` | *(required)* | Hardware ID (1 = Mezzanine70) |
 | `--padmap` | *(required)* | Pad map IDs, comma-separated (1 = Mezzanine70 COB v1, 2 = Mezzanine70 COB v2, 3 = Mezzanine70 COB v1 1×0.5) |
+| `--lifespan` | `100` | Max insertions before EOL |
 | `--date` | today | Manufacture date in `YYYYMMDD` format |
 | `--yes` / `-y` | `false` | Skip confirmation prompt |

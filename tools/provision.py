@@ -8,12 +8,12 @@
 """
 provision.py — write adapter EEPROM on BondTest72
 
-Queries the current adapter state, then writes hardware ID, padmap IDs, and manufacture date.
+Queries the current adapter state, then writes hardware ID, padmap IDs, lifespan, and manufacture date.
 
 Usage:
     uv run tools/provision.py --port /dev/tty.usbmodem11101 --hw 1 --padmap 1
     uv run tools/provision.py --port COM3 --hw 1 --padmap 2 --date 20260101 --yes
-    uv run tools/provision.py --port /dev/tty.usbmodem1101 --hw 1 --padmap 2,3
+    uv run tools/provision.py --port /dev/tty.usbmodem1101 --hw 1 --padmap 2,3 --lifespan 500
 """
 
 import argparse
@@ -81,10 +81,10 @@ def query_adapter(ser: "serial.Serial", timeout: int = 5) -> dict | None:
     return None
 
 
-def send_provision(ser: "serial.Serial", hw_id: int, padmap_ids: list[int], mfg_date: str, timeout: int = 5) -> bool:
+def send_provision(ser: "serial.Serial", hw_id: int, padmap_ids: list[int], lifespan: int, mfg_date: str, timeout: int = 5) -> bool:
     ser.reset_input_buffer()
     pm_str = ','.join(str(p) for p in padmap_ids)
-    cmd = f"PROVISION hw={hw_id} padmap={pm_str} date={mfg_date}\n"
+    cmd = f"PROVISION hw={hw_id} padmap={pm_str} lifespan={lifespan} date={mfg_date}\n"
     ser.write(cmd.encode())
     ser.flush()
     start = time.time()
@@ -143,6 +143,8 @@ def main():
                     help=f"Pad map IDs, comma-separated ({', '.join(f'{k}={v.split()[0]}' for k, v in PAD_MAPS.items())})")
     ap.add_argument("--date",    default=None,
                     help="Manufacture date YYYYMMDD (default: today)")
+    ap.add_argument("--lifespan", type=int, default=100,
+                    help="Designed lifespan — max insertions before EOL (default: 100)")
     ap.add_argument("--yes", "-y", action="store_true",
                     help="Skip confirmation prompt")
     args = ap.parse_args()
@@ -191,6 +193,7 @@ def main():
     print(f"\nProvision with:")
     print(f"  Hardware : {args.hw} — {ADAPTER_HW_NAMES[args.hw]}")
     print(f"  Pad maps : {pm_display}")
+    print(f"  Lifespan : {args.lifespan} insertions")
     print(f"  Mfg date : {fmt_date(mfg_date)}")
 
     if not args.yes:
@@ -206,7 +209,7 @@ def main():
             sys.exit(0)
 
     print("\nProvisioning …")
-    if not send_provision(ser, args.hw, padmap_ids, mfg_date):
+    if not send_provision(ser, args.hw, padmap_ids, args.lifespan, mfg_date):
         ser.close()
         sys.exit(1)
 

@@ -50,12 +50,15 @@ HostCommand HostProtocol::processLine(const char* line) {
     }
 
     if (strncmp(line, "PROVISION ", 10) == 0) {
-        _provisionMfgDate = 0;
-        _provisionHwId    = 0xFF;
+        _provisionMfgDate  = 0xFFFFFFFF;
+        _provisionHwId     = 0xFF;
+        _provisionLifespan = 0xFFFFFFFF;
         for (uint8_t i = 0; i < 4; i++) _provisionPadmapIds[i] = 0xFF;
         uint32_t hw;
         bool hasHw = parseKvUint(line + 10, "hw", hw);
         if (hasHw) _provisionHwId = (uint8_t)hw;
+        uint32_t ls;
+        if (parseKvUint(line + 10, "lifespan", ls)) _provisionLifespan = ls;
         if (parseKvUintList(line + 10, "padmap", _provisionPadmapIds, 4)) {
             uint32_t dt;
             if (parseKvUint(line + 10, "date", dt)) {

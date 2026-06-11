@@ -9,6 +9,7 @@ enum class ErrorCode : uint8_t {
     UNKNOWN_PADMAP   = 3,
     PROVISION_FAILED = 4,
     NOT_IMPLEMENTED  = 5,
+    MISSING_FIELD    = 6,
 };
 
 enum class HostCommand : uint8_t {
@@ -30,6 +31,7 @@ public:
 
     const uint8_t* provisionPadmapIds() const { return _provisionPadmapIds; }
     uint8_t     provisionHwId()       const { return _provisionHwId; }
+    uint32_t    provisionLifespan()   const { return _provisionLifespan; }
     uint32_t    provisionMfgDate()    const { return _provisionMfgDate; }
 
     void setUid(const char* uid16);
@@ -65,6 +67,7 @@ private:
     uint8_t  _setPadmapId       = 0;
     uint8_t  _provisionPadmapIds[4] = {0xFF, 0xFF, 0xFF, 0xFF};
     uint8_t  _provisionHwId     = 0xFF;
-    uint32_t _provisionMfgDate = 0;
+    uint32_t _provisionLifespan = 0xFFFFFFFF;
+    uint32_t _provisionMfgDate = 0xFFFFFFFF;
     char     _uid[17]           = {};
 };

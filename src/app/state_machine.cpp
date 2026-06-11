@@ -203,12 +203,20 @@ void StateMachine::handleCommand(HostCommand cmd) {
         case HostCommand::PROVISION:
             if (!_eepromMgr.isPresent()) {
                 _hostProtocol.sendError(ErrorCode::NO_ADAPTER, "NO_ADAPTER");
+            } else if (_hostProtocol.provisionHwId() == 0xFF) {
+                _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_HW");
+            } else if (_hostProtocol.provisionPadmapIds()[0] == 0xFF) {
+                _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_PADMAP");
+            } else if (_hostProtocol.provisionLifespan() == 0xFFFFFFFF) {
+                _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_LIFESPAN");
+            } else if (_hostProtocol.provisionMfgDate() == 0xFFFFFFFF) {
+                _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_DATE");
             } else if (!provisionEeprom(_hostProtocol.provisionHwId(),
                                         _hostProtocol.provisionPadmapIds(),
+                                        _hostProtocol.provisionLifespan(),
                                         _hostProtocol.provisionMfgDate())) {
                 _hostProtocol.sendError(ErrorCode::PROVISION_FAILED, "PROVISION_FAILED");
             } else {
-                // Null out stale pointers before re-init so no code can touch the old adapter mid-transition
                 _adapter = nullptr; _padMap = nullptr;
                 transition(tryInitAdapter() ? State::ADAPTER_DETECTED : State::FAULT);
                 Serial.println("OK PROVISION");
@@ -248,12 +256,12 @@ void StateMachine::handleCommand(HostCommand cmd) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
-bool StateMachine::provisionEeprom(uint8_t hwId, const uint8_t padmapIds[4], uint32_t mfgDate) {
+bool StateMachine::provisionEeprom(uint8_t hwId, const uint8_t padmapIds[4], uint32_t lifespan, uint32_t mfgDate) {
     EepromData d = {};
     d.adapterHardware          = (AdapterHardware)hwId;
     d.rfu        = 0xFF;
     for (uint8_t i = 0; i < 4; i++) d.supportedPadmapIds[i] = padmapIds[i];
-    d.designedLifespan        = 100;
+    d.designedLifespan        = lifespan;
     d.dateOfManufacture       = mfgDate;
     d.insertionCount          = 0;
     d.testCount               = 0;

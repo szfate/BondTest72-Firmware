@@ -25,7 +25,6 @@ COLOR_MAP = {
 
 NEIGHBOUR_SHORT_COLOR = QColor("#F44336")
 UNTESTED_COLOR = QColor("#E0E0E0")
-GND_BUS_ONLY_COLOR = QColor("#616161")
 NC_COLOR = QColor("#424242")
 
 MARGIN = 15
@@ -36,8 +35,6 @@ GAP = 3
 
 
 def _pad_color(pad_info, result):
-    if pad_info.role == PadRole.GND_BUS_ONLY:
-        return GND_BUS_ONLY_COLOR
     if pad_info.role == PadRole.NC:
         return NC_COLOR
     if result is None:
@@ -54,7 +51,7 @@ def _bond_short(bond: BondResult) -> str:
 def _role_short(role: PadRole) -> str:
     return {
         "IO": "IO", "VDDIO": "VDD", "VDD_CORE": "VCORE",
-        "PWR_AUX": "PWR", "GND": "GND", "GND_BUS_ONLY": "GBUS", "NC": "NC",
+        "PWR_AUX": "PWR", "GND": "GND", "NC": "NC",
     }.get(role.value, role.value)
 
 
@@ -346,11 +343,7 @@ def build_results_table(shape: DieShape, results: dict) -> QTableWidget:
 
     for i, pad_info in enumerate(shape.ring):
         result = results.get(pad_info.die_pad)
-        if pad_info.role == PadRole.GND_BUS_ONLY:
-            bond_str = "—"
-            sv = pv = nv = "—"
-            flags = "bus-only"
-        elif result is None:
+        if result is None:
             bond_str = "—"
             sv = pv = nv = "—"
             flags = "untested"
