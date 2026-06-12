@@ -36,7 +36,8 @@ private:
     void handleDutEvent(DutEvent ev);
     void handleCommand(HostCommand cmd);
     bool tryInitAdapter();
-    bool provisionEeprom(uint8_t hwId, const uint8_t padmapIds[4], uint32_t lifespan, uint32_t mfgDate);
+    bool provisionEeprom(uint8_t hwId, const uint8_t padmapIds[4], uint32_t lifespan, uint32_t mfgDate,
+                         uint32_t ins, uint32_t tests, uint32_t eol);
     void selectPadMap();
     bool checkAdapterAlive();  // returns false and transitions to NO_ADAPTER if adapter gone
     void startTest();

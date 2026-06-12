@@ -33,6 +33,9 @@ public:
     uint8_t     provisionHwId()       const { return _provisionHwId; }
     uint32_t    provisionLifespan()   const { return _provisionLifespan; }
     uint32_t    provisionMfgDate()    const { return _provisionMfgDate; }
+    uint32_t    provisionIns()    const { return _provisionIns; }
+    uint32_t    provisionTests()  const { return _provisionTests; }
+    uint32_t    provisionEol()    const { return _provisionEol; }
 
     void setUid(const char* uid16);
 
@@ -69,5 +72,8 @@ private:
     uint8_t  _provisionHwId     = 0xFF;
     uint32_t _provisionLifespan = 0xFFFFFFFF;
     uint32_t _provisionMfgDate = 0xFFFFFFFF;
+    uint32_t _provisionIns    = 0xFFFFFFFF;
+    uint32_t _provisionTests  = 0xFFFFFFFF;
+    uint32_t _provisionEol    = 0xFFFFFFFF;
     char     _uid[17]           = {};
 };

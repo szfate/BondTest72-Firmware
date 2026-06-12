@@ -51,6 +51,9 @@ HostCommand HostProtocol::processLine(const char* line) {
 
     if (strncmp(line, "PROVISION ", 10) == 0) {
         _provisionMfgDate  = 0xFFFFFFFF;
+        _provisionIns    = 0xFFFFFFFF;
+        _provisionTests  = 0xFFFFFFFF;
+        _provisionEol    = 0xFFFFFFFF;
         _provisionHwId     = 0xFF;
         _provisionLifespan = 0xFFFFFFFF;
         for (uint8_t i = 0; i < 4; i++) _provisionPadmapIds[i] = 0xFF;
@@ -64,6 +67,12 @@ HostCommand HostProtocol::processLine(const char* line) {
             if (parseKvUint(line + 10, "date", dt)) {
                 _provisionMfgDate = dt;
             }
+            uint32_t ins;
+            if (parseKvUint(line + 10, "ins", ins)) _provisionIns = ins;
+            uint32_t tests;
+            if (parseKvUint(line + 10, "tests", tests)) _provisionTests = tests;
+            uint32_t eol;
+            if (parseKvUint(line + 10, "eol", eol)) _provisionEol = eol;
             return HostCommand::PROVISION;
         }
         return HostCommand::NONE;

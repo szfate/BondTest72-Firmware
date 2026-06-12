@@ -84,16 +84,19 @@ Select the active pad map. Valid in any state with an adapter present.
 
 ### `PROVISION`
 
-Write initial values to a blank adapter EEPROM. Requires an adapter to be physically connected.
+Write configuration values to an adapter EEPROM. Requires an adapter to be physically connected. Counter values (`ins`, `tests`, `eol`) are optional — if omitted, they default to 0 (suitable for provisioning a blank adapter). To preserve existing counter values when re-provisioning, pass the current values read from `GET_ADAPTER`.
 
-**Request:** `PROVISION hw=<id> padmap=<id>[,<id>...] lifespan=<n> date=<YYYYMMDD>`
+**Request:** `PROVISION hw=<id> padmap=<id>[,<id>...] lifespan=<n> date=<YYYYMMDD> [ins=<n>] [tests=<n>] [eol=<0|1>]`
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `hw` | uint8 | Hardware ID (adapter board identifier). Required. |
-| `padmap` | uint8[] | Pad map IDs to provision, comma-separated (1–4 IDs). Required. |
-| `lifespan` | uint32 | Designed lifespan — max insertions before EOL. Required. |
-| `date` | uint32 | Manufacturing date as YYYYMMDD. Required. |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `hw` | uint8 | Yes | Hardware ID (adapter board identifier). |
+| `padmap` | uint8[] | Yes | Pad map IDs to provision, comma-separated (1–4 IDs). |
+| `lifespan` | uint32 | Yes | Designed lifespan — max insertions before EOL. |
+| `date` | uint32 | Yes | Manufacturing date as YYYYMMDD. |
+| `ins` | uint32 | No | Insertion count to write. Default: 0. |
+| `tests` | uint32 | No | Test count to write. Default: 0. |
+| `eol` | uint32 | No | EOL flag (0=ok, 1=end-of-life). Default: 0. |
 
 **Response (success):** `OK PROVISION`
 

@@ -29,9 +29,9 @@ except ImportError:
 
 # Known pad maps (mirrors pad_map_registry.cpp)
 PAD_MAPS = {
-    1: "Mezzanine70 v1  (63 cases — die44 unconnected)",
-    2: "Mezzanine70 v2  (64 cases — die44 connected)",
-    3: "Mezzanine70 v1 1x0p5  (64 cases — 1×0.5 die)",
+    1: "1x1 v1 COB (63 cases — die44 unconnected)",
+    2: "1x1 v2 COB (64 cases — die44 connected)",
+    3: "1x0.5  (64 cases — 1×0.5 die)",
 }
 
 ADAPTER_HW_NAMES = {
@@ -81,10 +81,19 @@ def query_adapter(ser: "serial.Serial", timeout: int = 5) -> dict | None:
     return None
 
 
-def send_provision(ser: "serial.Serial", hw_id: int, padmap_ids: list[int], lifespan: int, mfg_date: str, timeout: int = 5) -> bool:
+def send_provision(ser: "serial.Serial", hw_id: int, padmap_ids: list[int], lifespan: int, mfg_date: str,
+                   ins: int | None = None, tests: int | None = None, eol: int | None = None,
+                   timeout: int = 5) -> bool:
     ser.reset_input_buffer()
     pm_str = ','.join(str(p) for p in padmap_ids)
-    cmd = f"PROVISION hw={hw_id} padmap={pm_str} lifespan={lifespan} date={mfg_date}\n"
+    cmd = f"PROVISION hw={hw_id} padmap={pm_str} lifespan={lifespan} date={mfg_date}"
+    if ins is not None:
+        cmd += f" ins={ins}"
+    if tests is not None:
+        cmd += f" tests={tests}"
+    if eol is not None:
+        cmd += f" eol={eol}"
+    cmd += "\n"
     ser.write(cmd.encode())
     ser.flush()
     start = time.time()
@@ -147,6 +156,8 @@ def main():
                     help="Designed lifespan — max insertions before EOL (default: 250)")
     ap.add_argument("--yes", "-y", action="store_true",
                     help="Skip confirmation prompt")
+    ap.add_argument("--override", action="store_true",
+                    help="Reset insertion/test counters and EOL flag to 0 instead of preserving existing values")
     args = ap.parse_args()
 
     mfg_date = args.date or date.today().strftime("%Y%m%d")
@@ -188,6 +199,19 @@ def main():
     else:
         print("  (no adapter detected or not responding)")
 
+    if args.override:
+        counter_ins = None
+        counter_tests = None
+        counter_eol = None
+    elif info:
+        counter_ins = int(info.get("ins", "0"))
+        counter_tests = int(info.get("tests", "0"))
+        counter_eol = 1 if info.get("eol", "0") == "1" else 0
+    else:
+        counter_ins = None
+        counter_tests = None
+        counter_eol = None
+
     # Show what will be written
     pm_display = ', '.join(f'{p} — {PAD_MAPS[p]}' for p in padmap_ids)
     print(f"\nProvision with:")
@@ -195,6 +219,13 @@ def main():
     print(f"  Pad maps : {pm_display}")
     print(f"  Lifespan : {args.lifespan} insertions")
     print(f"  Mfg date : {fmt_date(mfg_date)}")
+    if args.override:
+        print("  Counters  : resetting to 0 (--override)")
+    elif counter_ins is not None:
+        eol_str = "yes" if counter_eol else "no"
+        print(f"  Counters  : preserving (ins={counter_ins}, tests={counter_tests}, eol={eol_str})")
+    else:
+        print("  Counters  : defaulting to 0 (no current adapter data)")
 
     if not args.yes:
         try:
@@ -209,7 +240,8 @@ def main():
             sys.exit(0)
 
     print("\nProvisioning …")
-    if not send_provision(ser, args.hw, padmap_ids, args.lifespan, mfg_date):
+    if not send_provision(ser, args.hw, padmap_ids, args.lifespan, mfg_date,
+                          ins=counter_ins, tests=counter_tests, eol=counter_eol):
         ser.close()
         sys.exit(1)
 

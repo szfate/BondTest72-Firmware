@@ -214,7 +214,10 @@ void StateMachine::handleCommand(HostCommand cmd) {
             } else if (!provisionEeprom(_hostProtocol.provisionHwId(),
                                         _hostProtocol.provisionPadmapIds(),
                                         _hostProtocol.provisionLifespan(),
-                                        _hostProtocol.provisionMfgDate())) {
+                                        _hostProtocol.provisionMfgDate(),
+                                        _hostProtocol.provisionIns(),
+                                        _hostProtocol.provisionTests(),
+                                        _hostProtocol.provisionEol())) {
                 _hostProtocol.sendError(ErrorCode::PROVISION_FAILED, "PROVISION_FAILED");
             } else {
                 _adapter = nullptr; _padMap = nullptr;
@@ -256,16 +259,17 @@ void StateMachine::handleCommand(HostCommand cmd) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
-bool StateMachine::provisionEeprom(uint8_t hwId, const uint8_t padmapIds[4], uint32_t lifespan, uint32_t mfgDate) {
+bool StateMachine::provisionEeprom(uint8_t hwId, const uint8_t padmapIds[4], uint32_t lifespan, uint32_t mfgDate,
+                                   uint32_t ins, uint32_t tests, uint32_t eol) {
     EepromData d = {};
     d.adapterHardware          = (AdapterHardware)hwId;
     d.rfu        = 0xFF;
     for (uint8_t i = 0; i < 4; i++) d.supportedPadmapIds[i] = padmapIds[i];
     d.designedLifespan        = lifespan;
     d.dateOfManufacture       = mfgDate;
-    d.insertionCount          = 0;
-    d.testCount               = 0;
-    d.eolReached              = 0x00;
+    d.insertionCount          = (ins    == 0xFFFFFFFF) ? 0 : ins;
+    d.testCount               = (tests  == 0xFFFFFFFF) ? 0 : tests;
+    d.eolReached              = (eol == 0xFFFFFFFF) ? 0u : (eol ? EepromData::EOL_REACHED : 0u);
 
     if (!_eepromMgr.write(d)) { LOG_E("adapter: eeprom provision write failed"); return false; }
     LOG_I("adapter: eeprom provisioned (Mezzanine70 v1)");
