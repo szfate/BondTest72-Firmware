@@ -14,6 +14,7 @@ DiscoveryScanner::DiscoveryScanner(MuxController& mux, AdcDriver& adc, HostProto
 
 void DiscoveryScanner::run() {
     LOG_I("=== discovery scan start ===");
+    // Scans all mez pins 
     for (uint8_t src = 1; src <= 70; src++) {
         for (uint8_t snk = 1; snk <= 70; snk++) {
             if (src == snk) continue;

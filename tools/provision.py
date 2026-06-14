@@ -35,7 +35,7 @@ PAD_MAPS = {
 }
 
 ADAPTER_HW_NAMES = {
-    1: "Mezzanine70",
+    1: "Mezzanine70 r1",
 }
 
 
