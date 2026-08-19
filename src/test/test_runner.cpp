@@ -20,10 +20,10 @@ PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc) {
         // while 3.3k gives τ≈3.3ms. tc.settleUs is the total elapsed time
         // for the last sample (~6τ for the real DUT cap value — set per pad
         // map, NOT the short STANDARD default). Instead of one point-in-time
-        // reading, measureKelvinCurve takes PULLUP_LEVEL_COUNT samples
+        // reading, measureKelvinCurve takes CAP_SENSE_SAMPLE_COUNT samples
         // spread across that window without releasing the connection in
         // between, so the readings[] array holds a visible charging curve
-        // (still rising vs already plateaued) rather than 3 discrete current
+        // (still rising vs already plateaued) rather than discrete current
         // levels — see result.h and measureKelvinCurve's doc comment.
         const float maxOhms = tc.thresholds->maxBondResistanceOhms;
         uint8_t adapterCh = adapter.channelForPin(tc.adapterPin);
@@ -35,11 +35,11 @@ PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc) {
 
         // reverse: gndPin driven + Kelvin-sensed, adapterPin sinks
         measureKelvinCurve(_mux, _adc, gndCh, adapterCh, lvl.bus, lvl.ohms, tc.settleUs, maxOhms,
-                            &pr.readings[PULLUP_LEVEL_COUNT]);
+                            &pr.readings[CAP_SENSE_SAMPLE_COUNT]);
 
         // Classify on the last (most-settled) sample of each direction — the earlier samples are curve-shape only.
-        bool fwdConducted = pr.readings[PULLUP_LEVEL_COUNT - 1].conducted;
-        bool revConducted = pr.readings[2 * PULLUP_LEVEL_COUNT - 1].conducted;
+        bool fwdConducted = pr.readings[CAP_SENSE_SAMPLE_COUNT - 1].conducted;
+        bool revConducted = pr.readings[2 * CAP_SENSE_SAMPLE_COUNT - 1].conducted;
         pr.bond = (fwdConducted || revConducted) ? BondResult::GOOD : BondResult::OPEN;
         return pr;
     }

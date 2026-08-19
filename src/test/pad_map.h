@@ -9,6 +9,13 @@
 // hardware pullup networks to actually drive the extra currents.
 constexpr uint8_t PULLUP_LEVEL_COUNT = 3;
 
+// Number of voltage samples measureKelvinCurve takes across a single
+// CAP_SENSE charging event (see hal/kelvin.cpp's curveSampleTimesUs for the
+// actual time schedule). Independent of PULLUP_LEVEL_COUNT — CAP_SENSE
+// samples one continuous charge at a fixed pullup, not different pullups —
+// so this can be tuned purely for curve-shape resolution.
+constexpr uint8_t CAP_SENSE_SAMPLE_COUNT = 5;
+
 // A reading counts as "activity" if its apparent bond resistance (computed
 // from the Kelvin voltage and the pullup value — see measureKelvin) is
 // below this ceiling. We don't try to judge bond quality — dies vary too

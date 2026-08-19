@@ -14,10 +14,12 @@ float pullupCurrentUA(float pullupOhms) {
 }
 
 void curveSampleTimesUs(uint16_t totalSettleUs, uint16_t* out) {
-    static_assert(PULLUP_LEVEL_COUNT == 3, "curveSampleTimesUs's schedule is hardcoded for 3 points");
-    out[0] = totalSettleUs / 8;
-    out[1] = totalSettleUs / 2;
-    out[2] = totalSettleUs;
+    static_assert(CAP_SENSE_SAMPLE_COUNT == 5, "curveSampleTimesUs's schedule is hardcoded for 5 points");
+    out[0] = totalSettleUs / 16;
+    out[1] = totalSettleUs / 8;
+    out[2] = totalSettleUs / 2;
+    out[3] = totalSettleUs * 3 / 4;
+    out[4] = totalSettleUs;
 }
 
 static PadReading classifyVoltage(float v, float pullupOhms, float maxResistanceOhms) {
@@ -89,11 +91,11 @@ void measureKelvinCurve(MuxController& mux, AdcDriver& adc,
     mux.setChannel(forceCh, pullupBus);
     mux.setChannel(forceCh, Bus::A);
 
-    uint16_t times[PULLUP_LEVEL_COUNT];
+    uint16_t times[CAP_SENSE_SAMPLE_COUNT];
     curveSampleTimesUs(totalSettleUs, times);
 
     uint16_t elapsed = 0;
-    for (uint8_t i = 0; i < PULLUP_LEVEL_COUNT; i++) {
+    for (uint8_t i = 0; i < CAP_SENSE_SAMPLE_COUNT; i++) {
         delayMicroseconds(times[i] - elapsed);
         elapsed = times[i];
         out[i] = classifyVoltage(adc.readVoltage(1), pullupOhms, maxResistanceOhms);

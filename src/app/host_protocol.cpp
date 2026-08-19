@@ -201,7 +201,7 @@ void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const P
     // Order matches PULLUP_LEVELS / rf,rr,vf,vr in PAD lines, low-current-first.
     // Fixed for the life of the firmware build, so sent once here rather than
     // repeated on every SLOT/PAD line.
-    Serial.print(" current_list=");
+    Serial.print(" current_list_ua=");
     for (uint8_t i = 0; i < PULLUP_LEVEL_COUNT; i++) {
         if (i > 0) Serial.print(',');
         Serial.print(pullupCurrentUA(PULLUP_LEVELS[i].ohms), 0);
@@ -220,10 +220,10 @@ void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const P
             }
         }
         if (capCase) {
-            uint16_t times[PULLUP_LEVEL_COUNT];
+            uint16_t times[CAP_SENSE_SAMPLE_COUNT];
             curveSampleTimesUs(capCase->settleUs, times);
-            Serial.print(" cap_time_list=");
-            for (uint8_t i = 0; i < PULLUP_LEVEL_COUNT; i++) {
+            Serial.print(" cap_time_list_us=");
+            for (uint8_t i = 0; i < CAP_SENSE_SAMPLE_COUNT; i++) {
                 if (i > 0) Serial.print(',');
                 Serial.print(times[i]);
             }
@@ -242,12 +242,13 @@ void HostProtocol::sendWrongOrientation() {
     Serial.println("EVENT WRONG_ORIENTATION");
 }
 
-// Prints PULLUP_LEVEL_COUNT comma-separated values from a contiguous group
-// of readings (either the forward or reverse half of PadResult.readings),
-// one value per pullup level, lowest-current-first (see PULLUP_LEVELS in
-// hal/kelvin.cpp). Used for both STD (rf/rr/vf/vr) and CAP_SENSE (vfs/vrs).
-static void printReadingGroupCsv(const PadReading* group, bool resistance) {
-    for (uint8_t k = 0; k < PULLUP_LEVEL_COUNT; k++) {
+// Prints `count` comma-separated values from a contiguous group of readings
+// (either the forward or reverse half of PadResult.readings). For STD, count
+// is PULLUP_LEVEL_COUNT and each slot is a pullup level, lowest-current-first
+// (see PULLUP_LEVELS in hal/kelvin.cpp); for CAP_SENSE, count is
+// CAP_SENSE_SAMPLE_COUNT and each slot is a curve timepoint, earliest-first.
+static void printReadingGroupCsv(const PadReading* group, uint8_t count, bool resistance) {
+    for (uint8_t k = 0; k < count; k++) {
         if (k > 0) Serial.print(',');
         if (resistance) Serial.print(group[k].resistanceOhms, 0);
         else            Serial.print(group[k].voltageV, 3);
@@ -276,17 +277,17 @@ void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePa
         // enough for that transform to matter, and that's already reflected
         // in `result` via the classification.
         const PadReading* fwd = &r.readings[0];
-        const PadReading* rev = &r.readings[PULLUP_LEVEL_COUNT];
-        Serial.print(" vfs="); printReadingGroupCsv(fwd, false);
-        Serial.print(" vrs="); printReadingGroupCsv(rev, false);
+        const PadReading* rev = &r.readings[CAP_SENSE_SAMPLE_COUNT];
+        Serial.print(" vfs="); printReadingGroupCsv(fwd, CAP_SENSE_SAMPLE_COUNT, false);
+        Serial.print(" vrs="); printReadingGroupCsv(rev, CAP_SENSE_SAMPLE_COUNT, false);
     } else {
         const PadReading* fwd = &r.readings[0];
         const PadReading* rev = &r.readings[PULLUP_LEVEL_COUNT];
 
-        Serial.print(" rf="); printReadingGroupCsv(fwd, true);
-        Serial.print(" rr="); printReadingGroupCsv(rev, true);
-        Serial.print(" vf="); printReadingGroupCsv(fwd, false);
-        Serial.print(" vr="); printReadingGroupCsv(rev, false);
+        Serial.print(" rf="); printReadingGroupCsv(fwd, PULLUP_LEVEL_COUNT, true);
+        Serial.print(" rr="); printReadingGroupCsv(rev, PULLUP_LEVEL_COUNT, true);
+        Serial.print(" vf="); printReadingGroupCsv(fwd, PULLUP_LEVEL_COUNT, false);
+        Serial.print(" vr="); printReadingGroupCsv(rev, PULLUP_LEVEL_COUNT, false);
     }
     Serial.println();
 }

@@ -22,7 +22,7 @@ float pullupCurrentUA(float pullupOhms);
 // The timepoints (elapsed since drive start, in µs) that measureKelvinCurve
 // samples at for a given totalSettleUs. Exposed so the host protocol can
 // report the same schedule it actually used, instead of re-deriving it.
-void curveSampleTimesUs(uint16_t totalSettleUs, uint16_t* out /* [PULLUP_LEVEL_COUNT] */);
+void curveSampleTimesUs(uint16_t totalSettleUs, uint16_t* out /* [CAP_SENSE_SAMPLE_COUNT] */);
 
 // Drives forceCh through pullupBus while also Kelvin-tapping it on Bus::A
 // (same channel, two Y buses closed at once); sinks the other end on Bus::B.
@@ -44,17 +44,17 @@ bool kelvinAnyLevelBelow(MuxController& mux, AdcDriver& adc,
                           uint8_t forceCh, uint8_t sinkCh, float thresholdV, uint16_t settleUs);
 
 // Discharges, then drives forceCh through pullupBus (Kelvin-sensed on
-// Bus::A), sinkCh sunk to Bus::B, and takes exactly PULLUP_LEVEL_COUNT
-// voltage samples at totalSettleUs/8, totalSettleUs/2, and totalSettleUs
-// after the drive starts — WITHOUT releasing the connection between
-// samples, so this is one continuous charging event, not independent
-// settled readings. Used by CAP_SENSE to make the charging curve itself
-// visible (still rising vs already plateaued) instead of only reporting a
-// single final value. Each sample's `conducted` reflects only that
-// timepoint's resistance vs maxResistanceOhms; classification should use
-// out[PULLUP_LEVEL_COUNT-1] (the last/most-settled sample) — the earlier
-// ones are for curve-shape visibility, not decision-making.
+// Bus::A), sinkCh sunk to Bus::B, and takes exactly CAP_SENSE_SAMPLE_COUNT
+// voltage samples at the schedule from curveSampleTimesUs — WITHOUT
+// releasing the connection between samples, so this is one continuous
+// charging event, not independent settled readings. Used by CAP_SENSE to
+// make the charging curve itself visible (still rising vs already
+// plateaued) instead of only reporting a single final value. Each sample's
+// `conducted` reflects only that timepoint's resistance vs
+// maxResistanceOhms; classification should use
+// out[CAP_SENSE_SAMPLE_COUNT-1] (the last/most-settled sample) — the
+// earlier ones are for curve-shape visibility, not decision-making.
 void measureKelvinCurve(MuxController& mux, AdcDriver& adc,
                          uint8_t forceCh, uint8_t sinkCh, Bus pullupBus, float pullupOhms,
                          uint16_t totalSettleUs, float maxResistanceOhms,
-                         PadReading* out /* [PULLUP_LEVEL_COUNT] */);
+                         PadReading* out /* [CAP_SENSE_SAMPLE_COUNT] */);
