@@ -21,6 +21,8 @@ void AdcDriver::begin() {
 
 float AdcDriver::readVoltage(uint8_t channel) {
     if (channel >= ADC_CHANNEL_COUNT) { LOG_E("adc: invalid channel %u", channel); return 0.0f; }
+    // discard first sample
+    //(void)analogRead(ADC_PINS[channel]);
     return static_cast<float>(analogRead(ADC_PINS[channel])) * ADC_SCALE;
 }
 

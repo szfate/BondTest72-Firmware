@@ -1,6 +1,7 @@
 #include "host_protocol.h"
 #include "build_info.h"
 #include "debug/log.h"
+#include "hal/kelvin.h"
 #include <Arduino.h>
 #include <pico/unique_id.h>
 #include <string.h>
@@ -183,7 +184,7 @@ void HostProtocol::sendDutRemoved() {
     Serial.println("EVENT DUT_REMOVED");
 }
 
-void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds) {
+void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const PadMap* padMap) {
     Serial.print("EVENT TEST_START ");
     Serial.print("uid=");     Serial.print(_uid);
     Serial.print(" hw=");      Serial.print(hwId);
@@ -196,6 +197,39 @@ void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds) {
             Serial.print(padmapIds[i]);
         }
     }
+
+    // Order matches PULLUP_LEVELS / rf,rr,vf,vr in PAD lines, low-current-first.
+    // Fixed for the life of the firmware build, so sent once here rather than
+    // repeated on every SLOT/PAD line.
+    Serial.print(" current_list=");
+    for (uint8_t i = 0; i < PULLUP_LEVEL_COUNT; i++) {
+        if (i > 0) Serial.print(',');
+        Serial.print(pullupCurrentUA(PULLUP_LEVELS[i].ohms), 0);
+    }
+
+    // settleUs is per-TestCase (pad_map.h), not a firmware-wide constant like
+    // PULLUP_LEVELS, so this is only valid as a single list because every
+    // CAP_SENSE case in a padmap currently shares one settleUs. Taken from
+    // the first CAP_SENSE case found; omitted if the padmap has none.
+    if (padMap) {
+        const TestCase* capCase = nullptr;
+        for (uint8_t i = 0; i < padMap->caseCount; i++) {
+            if (padMap->cases[i].strategy == TestStrategy::CAP_SENSE) {
+                capCase = &padMap->cases[i];
+                break;
+            }
+        }
+        if (capCase) {
+            uint16_t times[PULLUP_LEVEL_COUNT];
+            curveSampleTimesUs(capCase->settleUs, times);
+            Serial.print(" cap_time_list=");
+            for (uint8_t i = 0; i < PULLUP_LEVEL_COUNT; i++) {
+                if (i > 0) Serial.print(',');
+                Serial.print(times[i]);
+            }
+        }
+    }
+
     Serial.println();
 }
 
@@ -208,22 +242,53 @@ void HostProtocol::sendWrongOrientation() {
     Serial.println("EVENT WRONG_ORIENTATION");
 }
 
-void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad, const PadResult& r) {
+// Prints PULLUP_LEVEL_COUNT comma-separated values from a contiguous group
+// of readings (either the forward or reverse half of PadResult.readings),
+// one value per pullup level, lowest-current-first (see PULLUP_LEVELS in
+// hal/kelvin.cpp). Used for both STD (rf/rr/vf/vr) and CAP_SENSE (vfs/vrs).
+static void printReadingGroupCsv(const PadReading* group, bool resistance) {
+    for (uint8_t k = 0; k < PULLUP_LEVEL_COUNT; k++) {
+        if (k > 0) Serial.print(',');
+        if (resistance) Serial.print(group[k].resistanceOhms, 0);
+        else            Serial.print(group[k].voltageV, 3);
+    }
+}
+
+void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad,
+                                 TestStrategy strategy, const PadResult& r) {
     Serial.print("PAD ");
     Serial.print("slot=");   Serial.print(slot);
     Serial.print(" apin=");    Serial.print(adapterPin);
     Serial.print(" dp=");     Serial.print(diePad);
+    Serial.print(" method="); Serial.print(strategy == TestStrategy::CAP_SENSE ? "CAP" : "STD");
     Serial.print(" result=");
-    switch (r.bond) {
-        case BondResult::GOOD:      Serial.print("GOOD");      break;
-        case BondResult::OPEN:      Serial.print("OPEN");      break;
-        case BondResult::SHORT_GND: Serial.print("SHORT");      break;
+    Serial.print(r.bond == BondResult::GOOD ? "GOOD" : "OPEN");
+
+    if (strategy == TestStrategy::CAP_SENSE) {
+        // Raw voltage samples from the charging curve, forward and reverse
+        // under separate keywords — they're two independent discharge-then-
+        // charge cycles (see measureKelvinCurve), not one continuous curve,
+        // so they don't belong in the same array. No resistance shown: R =
+        // Rpu·V/(VCC−V) only means something at steady state — applied to a
+        // still-rising mid-charge voltage it explodes nonlinearly as V
+        // approaches VCC and doesn't represent anything physical. Only the
+        // final (most-settled) sample in each direction is steady-state
+        // enough for that transform to matter, and that's already reflected
+        // in `result` via the classification.
+        const PadReading* fwd = &r.readings[0];
+        const PadReading* rev = &r.readings[PULLUP_LEVEL_COUNT];
+        Serial.print(" vfs="); printReadingGroupCsv(fwd, false);
+        Serial.print(" vrs="); printReadingGroupCsv(rev, false);
+    } else {
+        const PadReading* fwd = &r.readings[0];
+        const PadReading* rev = &r.readings[PULLUP_LEVEL_COUNT];
+
+        Serial.print(" rf="); printReadingGroupCsv(fwd, true);
+        Serial.print(" rr="); printReadingGroupCsv(rev, true);
+        Serial.print(" vf="); printReadingGroupCsv(fwd, false);
+        Serial.print(" vr="); printReadingGroupCsv(rev, false);
     }
-    Serial.print(" ps=");     Serial.print(r.prevShort ? 1 : 0);
-    Serial.print(" ns=");     Serial.print(r.nextShort ? 1 : 0);
-    Serial.print(" sv=");     Serial.print(r.senseV, 3);
-    Serial.print(" pv=");     Serial.print(r.prevV,  3);
-    Serial.print(" nv=");     Serial.println(r.nextV, 3);
+    Serial.println();
 }
 
 void HostProtocol::sendSlotStatus(uint8_t slot, bool present, bool tested) {

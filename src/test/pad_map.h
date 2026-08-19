@@ -1,22 +1,48 @@
 #pragma once
 #include <stdint.h>
 
-static constexpr uint8_t NO_NEIGHBOUR = 0xFF;
+// Number of pullup drive strengths swept per pad (330k/33k/3.3k today).
+// Single source of truth — result.h derives READING_COUNT from this, and
+// test_runner.cpp's PULLUP_LEVELS array must have exactly this many entries.
+// Bumping this requires: more entries in PULLUP_LEVELS (test_runner.cpp),
+// and — since only COM_C/D/E are wired as pullup buses today — additional
+// hardware pullup networks to actually drive the extra currents.
+constexpr uint8_t PULLUP_LEVEL_COUNT = 3;
 
+// A reading counts as "activity" if its apparent bond resistance (computed
+// from the Kelvin voltage and the pullup value — see measureKelvin) is
+// below this ceiling. We don't try to judge bond quality — dies vary too
+// much for a single fixed criterion — we just ask "did anything happen at
+// all?". No activity across all 6 readings ⇒ OPEN.
+//
+// A resistance ceiling (not a voltage margin) is deliberate: a fixed
+// voltage margin applied at every pullup level makes the weakest pullup
+// (330k) far more sensitive to stray leakage/coupling than the strongest
+// (3.3k) — a multi-MΩ parasitic path can dip a 330k reading by more than a
+// small voltage margin while never being anywhere near a real bond's
+// resistance. A resistance ceiling normalizes across pullup levels instead.
+// Confirmed real bonds (incl. weak ESD-diode-mediated ones) conduct at the
+// 33k/3.3k levels up to ~9.2kΩ/~1.6kΩ (the 330k level alone can read up to
+// ~81kΩ for a real bond, but that's fine since only one of the 6 readings
+// needs to pass). Confirmed-unbonded pads have never dropped below ~256kΩ
+// at any of the 6 readings — see kThresh in pad_map_registry.cpp for the
+// current value and full rationale.
 struct TestThresholds {
-    float senseGoodMin;      // COM_D: below → SHORT_GND
-    float senseGoodMax;      // COM_D: above → OPEN
-    float neighbourGoodMin;  // COM_A/C: below → short
-    float neighbourGoodMax;  // COM_A/C: above → out of range
+    float maxBondResistanceOhms;
 };
 
 enum class TestStrategy : uint8_t {
-    STANDARD,    // sense + neighbours
-    SKIP_SENSE,  // capacitive pad: neighbours only, bond sense not checked
-    DISCHARGE,   // nop: short adapterPin+gndPin to Bus::B for settleMs; discharges cap, no result
-    PRECHARGE,   // nop: adapterPin→Bus::D, gndPin→Bus::B for settleMs; charges cap, no result
-    CAP_SENSE,   // cap charging test: 3 readings spaced settleMs apart (adapterPin→Bus::D, gndPin→Bus::B);
-                 // pass if final reading ≥ senseGoodMin — confirms bond conducted to charge the cap
+    STANDARD,    // 6-point Kelvin resistance sweep: {330k,33k,3.3k} x {fwd,rev}
+    DISCHARGE,   // nop: short adapterPin+gndPin to Bus::B for settleUs; discharges cap, no result
+    PRECHARGE,   // nop: adapterPin→Bus::D, gndPin→Bus::B for settleUs; charges cap, no result
+    CAP_SENSE,   // For pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX) where
+                 // STANDARD's 330k/33k levels can never settle in practical time (τ = R·C —
+                 // at 1µF, 330k gives τ≈330ms, 33k gives τ≈33ms, impractical per-pad). Uses
+                 // only the 3.3k level (τ≈3.3ms for 1µF — the only level fast enough to fully
+                 // settle in a few tens of ms), fwd + rev. `settleUs` here is the post-discharge
+                 // settle time (want ~5τ for the real DUT cap value, not the short STANDARD
+                 // default) — see measureKelvin's built-in discharge step for how the cap gets
+                 // to a known baseline before each reading.
 };
 
 enum class PadType : uint8_t {
@@ -27,34 +53,20 @@ enum class PadType : uint8_t {
     GND,
 };
 
-// One measurement step: which pad to test, which is GND, which are neighbours,
-// how to measure it, and what values are acceptable.
-// All pin indices are adapter pins (1-indexed).
+// One measurement step: which pad to test, which is GND/reference, how to
+// measure it, and what counts as conducting. All pin indices are adapter
+// pins (1-indexed).
 //
-// Use NO_NEIGHBOUR when a physical neighbour is a GND pad. GND pads are the
-// current injection point (BUS_D), so routing one to BUS_A or BUS_C would read
-// ~0 V and falsely flag as a short.
-//
-// DISCHARGE steps use gndPin for both BUS_B and BUS_D to short the cap to GND;
+// DISCHARGE steps short both adapterPin and gndPin to Bus::B to drain the cap;
 // no result is recorded. thresholds may be nullptr for DISCHARGE.
 struct TestCase {
-    uint8_t               adapterPin;  // adapter pin under test (BUS_B return path)
-    uint8_t               gndPin;      // adapter GND pin — injection/reference (BUS_D sense)
-    uint8_t               prevPin;     // adapter pin of previous neighbour (BUS_A, die N-1), NO_NEIGHBOUR if GND pad
-    uint8_t               nextPin;     // adapter pin of next neighbour (BUS_C, die N+1), NO_NEIGHBOUR if GND pad
+    uint8_t               adapterPin;  // adapter pin under test
+    uint8_t               gndPin;      // adapter GND pin — reference/return for the sweep
     uint8_t               diePad;      // die pad number (for logging; 0 for DISCHARGE steps)
     TestStrategy          strategy;
     PadType               padType;
-    uint8_t               groupId;     // 0 = must pass individually; >0 = belongs to a PadGroup
-    uint16_t              settleMs;
+    uint16_t              settleUs;
     const TestThresholds* thresholds;  // nullptr valid only for DISCHARGE
-};
-
-// A group of pads that collectively need minPass members to pass.
-struct PadGroup {
-    uint8_t     id;
-    uint8_t     minPass;
-    const char* name;
 };
 
 struct PadMap {
@@ -62,15 +74,7 @@ struct PadMap {
     const char*      name;
     const TestCase*  cases;
     uint8_t          caseCount;
-    uint8_t          presencePadA;        // adapter GND pin → Bus::D (27K pull-up, sense)
+    uint8_t          presencePadA;        // adapter GND pin → Bus::D (33K pull-up) + Bus::A (Kelvin sense)
     uint8_t          presencePadB;        // adapter GND pin → Bus::B (GND return)
-    float            presenceThresholdV;  // COM_D below this → DUT present
-    const PadGroup*  padGroups;
-    uint8_t          padGroupCount;
+    float            presenceThresholdV;  // COM_A below this → DUT present
 };
-
-// Helper for simple ring-layout dies: populates out[count] from an ordered
-// ring of pads sharing one GND. Neighbours wrap around at ring ends.
-// Caller owns the output array (typically a static local in pad_map_registry.cpp).
-void buildRingCases(TestCase* out, const uint8_t* adapterPins, const uint8_t* diePads, uint8_t count, uint8_t gnd,
-                    const TestThresholds* thresholds, TestStrategy strategy = TestStrategy::STANDARD, uint16_t settleMs = 2);

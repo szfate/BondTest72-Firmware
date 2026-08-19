@@ -19,8 +19,8 @@ void DiscoveryScanner::run() {
         for (uint8_t snk = 1; snk <= 70; snk++) {
             if (src == snk) continue;
             _mux.clearAll();
+            _mux.setChannel(snk - 1, Bus::B);  // ground reference first — see groundAndDischarge in hal/kelvin.cpp
             _mux.setChannel(src - 1, Bus::D);
-            _mux.setChannel(snk - 1, Bus::B);
             delay(1);
             float v = _adc.readVoltage(0);
             _host.sendDiscoveryScanPoint(src, snk, v);

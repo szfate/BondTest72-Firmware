@@ -60,6 +60,7 @@ private:
     TestResult    _lastResult      = {};
     EepromData    _eepromData;
     char          _adapterUid[17]  = {};
+    EepromManager::ReadResult _lastEepromResult = EepromManager::ReadResult::Blank;
 
     uint32_t      _lastAdapterPoll  = 0;
     uint32_t      _lastDutPoll      = 0;

@@ -91,9 +91,9 @@ void StateMachine::update() {
     }
 
     bool startReq = _buttons.startPressed();
-    if (_state == State::READY && startReq)
+    if (_state == State::READY && startReq) {
         startTest();
-    else if ((_state == State::PASS || _state == State::FAIL) && startReq) {
+    } else if ((_state == State::PASS || _state == State::FAIL) && startReq) {
         // DUT may have been removed while result was displayed; re-check before starting another run
         if (_dutDetector.checkNow())
             startTest();
@@ -236,7 +236,10 @@ void StateMachine::handleCommand(HostCommand cmd) {
             break;
         case HostCommand::GET_ADAPTER:
             if (!_adapter) {
-                _hostProtocol.sendError(ErrorCode::NO_ADAPTER, "NO_ADAPTER");
+                if (_eepromMgr.isPresent() && _lastEepromResult == EepromManager::ReadResult::Blank)
+                    _hostProtocol.sendError(ErrorCode::ADAPTER_NOT_PROVISIONED, "ADAPTER_NOT_PROVISIONED");
+                else
+                    _hostProtocol.sendError(ErrorCode::NO_ADAPTER, "NO_ADAPTER");
             } else {
                 _hostProtocol.sendAdapterInfo(
                     (uint8_t)_eepromData.adapterHardware,
@@ -278,6 +281,7 @@ bool StateMachine::provisionEeprom(uint8_t hwId, const uint8_t padmapIds[4], uin
 
 bool StateMachine::tryInitAdapter() {
     auto result = _eepromMgr.read(_eepromData);
+    _lastEepromResult = result;
 
     if (result == EepromManager::ReadResult::Blank) {
         LOG_E("adapter: eeprom blank — adapter must be provisioned before use");
@@ -371,7 +375,8 @@ void StateMachine::startTest() {
 
     _hostProtocol.sendTestStart(
         (uint8_t)_adapter->getAdapterHardware(),
-        _adapter->getSupportedPadmapIds());
+        _adapter->getSupportedPadmapIds(),
+        _padMap);
 
     transition(State::TESTING);
     _ledManager.update(_state);
@@ -404,7 +409,7 @@ void StateMachine::sendResults() {
             if (tc.strategy == TestStrategy::DISCHARGE ||
                 tc.strategy == TestStrategy::PRECHARGE) continue;
             uint8_t channel = _adapter->channelForPin(tc.adapterPin);
-            _hostProtocol.sendPadResult(slot, tc.adapterPin, tc.diePad, sr.byChannel[channel]);
+            _hostProtocol.sendPadResult(slot, tc.adapterPin, tc.diePad, tc.strategy, sr.byChannel[channel]);
         }
     }
     _hostProtocol.sendSummary(_lastResult);

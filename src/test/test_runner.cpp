@@ -1,4 +1,5 @@
 #include "test_runner.h"
+#include "hal/kelvin.h"
 #include "debug/log.h"
 #include <Arduino.h>
 
@@ -9,30 +10,60 @@ TestRunner::TestRunner(MuxController& mux, AdcDriver& adc, DutDetector& dutDetec
 {
 }
 
-PadResult TestRunner::classify(const AdcReadings& r, const TestCase& tc) {
-    const TestThresholds& th = *tc.thresholds;
-    PadResult pr;
+PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc) {
+    PadResult pr = {};
 
-    if (tc.strategy == TestStrategy::SKIP_SENSE) {
-        pr.bond = BondResult::GOOD;
-    } else {
-        if      (r.sense < th.senseGoodMin) pr.bond = BondResult::SHORT_GND;
-        else if (r.sense > th.senseGoodMax) pr.bond = BondResult::OPEN;
-        else                                pr.bond = BondResult::GOOD;
+    if (tc.strategy == TestStrategy::CAP_SENSE) {
+        // Only the strongest (3.3k) pullup is fast enough to fully settle a
+        // real DUT bypass cap in practical time — τ = R·C, so at 1µF the
+        // 330k/33k levels would need hundreds of ms, impractical per-pad,
+        // while 3.3k gives τ≈3.3ms. tc.settleUs is the total elapsed time
+        // for the last sample (~6τ for the real DUT cap value — set per pad
+        // map, NOT the short STANDARD default). Instead of one point-in-time
+        // reading, measureKelvinCurve takes PULLUP_LEVEL_COUNT samples
+        // spread across that window without releasing the connection in
+        // between, so the readings[] array holds a visible charging curve
+        // (still rising vs already plateaued) rather than 3 discrete current
+        // levels — see result.h and measureKelvinCurve's doc comment.
+        const float maxOhms = tc.thresholds->maxBondResistanceOhms;
+        uint8_t adapterCh = adapter.channelForPin(tc.adapterPin);
+        uint8_t gndCh     = adapter.channelForPin(tc.gndPin);
+        const PullupLevel& lvl = PULLUP_LEVELS[PULLUP_LEVEL_COUNT - 1];  // 3.3k — weakest R, strongest current
+
+        // forward: adapterPin driven + Kelvin-sensed, gndPin sinks
+        measureKelvinCurve(_mux, _adc, adapterCh, gndCh, lvl.bus, lvl.ohms, tc.settleUs, maxOhms, &pr.readings[0]);
+
+        // reverse: gndPin driven + Kelvin-sensed, adapterPin sinks
+        measureKelvinCurve(_mux, _adc, gndCh, adapterCh, lvl.bus, lvl.ohms, tc.settleUs, maxOhms,
+                            &pr.readings[PULLUP_LEVEL_COUNT]);
+
+        // Classify on the last (most-settled) sample of each direction — the earlier samples are curve-shape only.
+        bool fwdConducted = pr.readings[PULLUP_LEVEL_COUNT - 1].conducted;
+        bool revConducted = pr.readings[2 * PULLUP_LEVEL_COUNT - 1].conducted;
+        pr.bond = (fwdConducted || revConducted) ? BondResult::GOOD : BondResult::OPEN;
+        return pr;
     }
 
-    pr.prevShort = (tc.prevPin != NO_NEIGHBOUR) &&
-                   (r.prevNeighbour < th.neighbourGoodMin ||
-                    r.prevNeighbour > th.neighbourGoodMax);
+    const float maxOhms = tc.thresholds->maxBondResistanceOhms;
+    uint8_t adapterCh = adapter.channelForPin(tc.adapterPin);
+    uint8_t gndCh     = adapter.channelForPin(tc.gndPin);
 
-    pr.nextShort = (tc.nextPin != NO_NEIGHBOUR) &&
-                   (r.nextNeighbour < th.neighbourGoodMin ||
-                    r.nextNeighbour > th.neighbourGoodMax);
+    bool anyConducted = false;
+    for (uint8_t i = 0; i < PULLUP_LEVEL_COUNT; i++) {
+        // forward: adapterPin driven + Kelvin-sensed, gndPin sinks
+        PadReading fwd = measureKelvin(_mux, _adc, adapterCh, gndCh,
+                                        PULLUP_LEVELS[i].bus, PULLUP_LEVELS[i].ohms, tc.settleUs, maxOhms);
+        pr.readings[i] = fwd;
+        anyConducted |= fwd.conducted;
 
-    pr.senseV = r.sense;
-    pr.prevV  = r.prevNeighbour;
-    pr.nextV  = r.nextNeighbour;
+        // reverse: gndPin driven + Kelvin-sensed, adapterPin sinks
+        PadReading rev = measureKelvin(_mux, _adc, gndCh, adapterCh,
+                                        PULLUP_LEVELS[i].bus, PULLUP_LEVELS[i].ohms, tc.settleUs, maxOhms);
+        pr.readings[PULLUP_LEVEL_COUNT + i] = rev;
+        anyConducted |= rev.conducted;
+    }
 
+    pr.bond = anyConducted ? BondResult::GOOD : BondResult::OPEN;
     return pr;
 }
 
@@ -62,76 +93,32 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
 
             _mux.clearAll();
             if (tc.strategy == TestStrategy::DISCHARGE) {
-                // Short both cap terminals to tester GND — do not engage the Bus::D current source.
+                // Short both cap terminals to tester GND — do not engage a current source.
                 _mux.setChannel(adapter.channelForPin(tc.gndPin), Bus::B);
                 _mux.setChannel(adapter.channelForPin(tc.adapterPin), Bus::B);
-                delay(tc.settleMs);
+                delayMicroseconds(tc.settleUs);
                 _mux.clearAll();
                 continue;
             }
             if (tc.strategy == TestStrategy::PRECHARGE) {
                 // Charge cap through the bond: inject at adapterPin, return at gndPin.
-                _mux.setChannel(adapter.channelForPin(tc.adapterPin), Bus::D);
+                // Ground reference first — see groundAndDischarge in hal/kelvin.cpp.
                 _mux.setChannel(adapter.channelForPin(tc.gndPin), Bus::B);
-                delay(tc.settleMs);
+                _mux.setChannel(adapter.channelForPin(tc.adapterPin), Bus::D);
+                delayMicroseconds(tc.settleUs);
                 _mux.clearAll();
                 continue;
             }
 
-            // Phase 1: neighbour short detection
-            // DUT pad pre-grounded (no injection) so neighbours read clean mid-rail;
-            // any short to DUT pulls them toward 0 V without injection crosstalk.
-            _mux.clearAll();
-            _mux.setChannel(adapter.channelForPin(tc.adapterPin), Bus::B);
-            if (tc.prevPin != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.prevPin), Bus::A);
-            if (tc.nextPin != NO_NEIGHBOUR) _mux.setChannel(adapter.channelForPin(tc.nextPin), Bus::C);
-            delay(tc.settleMs);
-            AdcReadings r = {};
-            if (tc.prevPin != NO_NEIGHBOUR) r.prevNeighbour = _adc.readVoltage(1);
-            if (tc.nextPin != NO_NEIGHBOUR) r.nextNeighbour = _adc.readVoltage(2);
+            PadResult pr = sweepPad(adapter, tc);
 
-            // Phase 2: bond sense
-            _mux.clearAll();
-            if (tc.strategy == TestStrategy::CAP_SENSE) {
-                // Inject at adapterPin (charges cap through bond); 3 readings spaced settleMs apart.
-                // Rising voltage confirms current flowed through the bond to charge the cap.
-                // An open bond leaves Bus::D unloaded (reads high); a short reads near 0 V.
-                _mux.setChannel(adapter.channelForPin(tc.adapterPin), Bus::D);
-                _mux.setChannel(adapter.channelForPin(tc.gndPin), Bus::B);
-                float v0, v1;
-                delay(tc.settleMs); v0 = _adc.readVoltage(0);
-                delay(tc.settleMs); v1 = _adc.readVoltage(0);
-                delay(tc.settleMs); r.sense = _adc.readVoltage(0);
-                LOG_I("slot%u apin%u die%u cap-charge: %.3f→%.3f→%.3f",
-                      slot, tc.adapterPin, tc.diePad, v0, v1, r.sense);
-            } else {    
-                // STANDARD / SKIP_SENSE: inject at gndPin, return at adapterPin.
-                _mux.setChannel(adapter.channelForPin(tc.adapterPin), Bus::B);
-                _mux.setChannel(adapter.channelForPin(tc.gndPin), Bus::D);
-                delay(tc.settleMs);
-                r.sense = _adc.readVoltage(0);
-            }
-            _mux.clearAll();
-
-            PadResult   pr = classify(r, tc);
-
-            LOG_I("slot%u apin%u die%u: sense=%.3f prev=%.3f next=%.3f",
-                  slot, tc.adapterPin, tc.diePad, r.sense, r.prevNeighbour, r.nextNeighbour);
-
-            bool ok = pr.bond == BondResult::GOOD && !pr.prevShort && !pr.nextShort;
-            if (!ok) {
-                LOG_I("slot%u apin%u die%u FAIL: result=%s%s%s sense=%.3f prev=%.3f next=%.3f",
-                      slot, tc.adapterPin, tc.diePad,
-                      pr.bond == BondResult::SHORT_GND ? "SHORT"      :
-                      pr.bond == BondResult::OPEN      ? "OPEN"      : "GOOD",
-                      pr.prevShort ? " +PREV_SHORT" : "",
-                      pr.nextShort ? " +NEXT_SHORT" : "",
-                      r.sense, r.prevNeighbour, r.nextNeighbour);
-            }
+            // Full per-reading detail goes out via sendPadResult (rf=/rr=/vf=/vr=); keep this to a summary.
+            LOG_I("slot%u apin%u die%u: result=%s", slot, tc.adapterPin, tc.diePad,
+                  pr.bond == BondResult::GOOD ? "GOOD" : "OPEN");
 
             sr.byChannel[adapter.channelForPin(tc.adapterPin)] = pr;
             sr.testedCount++;
-            if (ok) sr.goodCount++;
+            if (pr.bond == BondResult::GOOD) sr.goodCount++;
         }
 
         if (!_dutDetector.checkNow()) {
@@ -151,31 +138,12 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
             const SlotResult& sr = result.slots[slot];
             if (!sr.tested) continue;
 
-            // Ungrouped pads: every one must pass.
+            // Every pad must pass individually.
             for (uint8_t i = 0; i < padMap.caseCount && result.outcome == TestOutcome::PASS; i++) {
                 const TestCase& tc = padMap.cases[i];
-                if (tc.strategy == TestStrategy::DISCHARGE ||
-                    tc.strategy == TestStrategy::PRECHARGE || tc.groupId != 0) continue;
+                if (tc.strategy == TestStrategy::DISCHARGE || tc.strategy == TestStrategy::PRECHARGE) continue;
                 const PadResult& pr = sr.byChannel[adapter.channelForPin(tc.adapterPin)];
-                if (pr.bond != BondResult::GOOD || pr.prevShort || pr.nextShort)
-                    result.outcome = TestOutcome::FAIL;
-            }
-
-            // Grouped pads: each group needs at least minPass members passing.
-            for (uint8_t g = 0; g < padMap.padGroupCount && result.outcome == TestOutcome::PASS; g++) {
-                const PadGroup& grp = padMap.padGroups[g];
-                uint8_t passCount = 0, totalCount = 0;
-                for (uint8_t i = 0; i < padMap.caseCount; i++) {
-                    const TestCase& tc = padMap.cases[i];
-                    if (tc.groupId != grp.id) continue;
-                    totalCount++;
-                    const PadResult& pr = sr.byChannel[adapter.channelForPin(tc.adapterPin)];
-                    if (pr.bond == BondResult::GOOD && !pr.prevShort && !pr.nextShort) passCount++;
-                }
-                LOG_I("slot%u group %s: %u/%u pass (need %u) -> %s",
-                      slot, grp.name, passCount, totalCount, grp.minPass,
-                      passCount >= grp.minPass ? "PASS" : "FAIL");
-                if (passCount < grp.minPass)
+                if (pr.bond != BondResult::GOOD)
                     result.outcome = TestOutcome::FAIL;
             }
         }

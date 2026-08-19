@@ -1,6 +1,7 @@
 #include "mezzanine70.h"
 #include "hal/mux.h"
 #include "hal/adc.h"
+#include "hal/kelvin.h"
 #include "test/pad_map.h"
 #include "debug/log.h"
 #include <Arduino.h>
@@ -23,13 +24,10 @@ bool Mezzanine70::connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
     bool ok = true;
     for (uint8_t i = 0; i < padMap.caseCount; i++) {
         const TestCase& tc = padMap.cases[i];
-        mux.clearAll();
-        mux.setChannel(channelForPin(tc.gndPin), Bus::D);
-        mux.setChannel(channelForPin(tc.adapterPin), Bus::B);
-        delay(1);
-        float v = adc.readVoltage(0);  // COM_D
-        if (v < ISOLATION_SHORT_THRESHOLD_V) {
-            LOG_W("connector isolation: apin%u sense=%.3fV SHORT?", tc.adapterPin, v);
+        PadReading r = measureKelvin(mux, adc, channelForPin(tc.gndPin), channelForPin(tc.adapterPin),
+                                      PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, 200, 0.0f);
+        if (r.voltageV < ISOLATION_SHORT_THRESHOLD_V) {
+            LOG_W("connector isolation: apin%u sense=%.3fV SHORT?", tc.adapterPin, r.voltageV);
             ok = false;
         }
     }
@@ -56,45 +54,38 @@ static constexpr float   DIODE_FWD_MAX = 1.0f;
 static constexpr float   DIODE_REV_MIN = 2.5f;
 
 bool Mezzanine70::selfTest(MuxController& mux, AdcDriver& adc) const {
-    mux.clearAll();
-    mux.setChannel(DIODE_ANODE,   Bus::D);
-    mux.setChannel(DIODE_CATHODE, Bus::B);
-    delay(1);
-    float fwd = adc.readVoltage(0);  // COM_D = anode = Vf
+    PadReading fwd = measureKelvin(mux, adc, DIODE_ANODE, DIODE_CATHODE,
+                                    PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, 200, 0.0f);  // anode = Vf
+    PadReading rev = measureKelvin(mux, adc, DIODE_CATHODE, DIODE_ANODE,
+                                    PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, 200, 0.0f);  // cathode ≈ 3.3V (blocking)
 
-    mux.clearAll();
-    mux.setChannel(DIODE_CATHODE, Bus::D);
-    mux.setChannel(DIODE_ANODE,   Bus::B);
-    delay(1);
-    float rev = adc.readVoltage(0);  // COM_D = cathode ≈ 3.3V (blocking)
-
-    mux.clearAll();
-    LOG_I("adapter self-test: fwd=%.3fV rev=%.3fV", fwd, rev);
-    return fwd > DIODE_FWD_MIN && fwd < DIODE_FWD_MAX && rev > DIODE_REV_MIN;
+    LOG_I("adapter self-test: fwd=%.3fV rev=%.3fV", fwd.voltageV, rev.voltageV);
+    return fwd.voltageV > DIODE_FWD_MIN && fwd.voltageV < DIODE_FWD_MAX && rev.voltageV > DIODE_REV_MIN;
 }
 
+// Sweeps all pullup levels and requires only ONE to show a connection —
+// same "any signal at all" philosophy as pad bond detection. A single fixed
+// drive strength isn't reliable here: the GND-plane bond path between these
+// two "equivalent" pins goes through actual bond wires on the die, and can
+// sit above what one drive strength alone can detect even when genuinely
+// connected (mirrors why pad bond tests sweep multiple levels too).
 bool Mezzanine70::senseDutPresent(MuxController& mux, AdcDriver& adc,
                                     const PadMap& padMap) const {
-    mux.clearAll();
-    mux.setChannel(channelForPin(padMap.presencePadA), Bus::D);
-    mux.setChannel(channelForPin(padMap.presencePadB), Bus::B);
-    float v = adc.readVoltage(0);  // COM_D
-    mux.clearAll();
-    LOG_D("dut present: apin%u→D apin%u→B: %.3fV", padMap.presencePadA, padMap.presencePadB, v);
-    return v < padMap.presenceThresholdV;
+    bool present = kelvinAnyLevelBelow(mux, adc, channelForPin(padMap.presencePadA),
+                                        channelForPin(padMap.presencePadB), padMap.presenceThresholdV, 200);
+    LOG_D("dut present: apin%u<->apin%u: %s", padMap.presencePadA, padMap.presencePadB,
+          present ? "yes" : "no");
+    return present;
 }
 
 bool Mezzanine70::senseDutFlipped(MuxController& mux, AdcDriver& adc,
                                     const PadMap& padMap) const {
     uint8_t flippedA = ADAPTER_PIN_COUNT_PLUS_1 - padMap.presencePadA;
     uint8_t flippedB = ADAPTER_PIN_COUNT_PLUS_1 - padMap.presencePadB;
-    mux.clearAll();
-    mux.setChannel(channelForPin(flippedA), Bus::D);
-    mux.setChannel(channelForPin(flippedB), Bus::B);
-    float v = adc.readVoltage(0);  // COM_D
-    mux.clearAll();
-    LOG_D("dut flipped: apin%u→D apin%u→B: %.3fV", flippedA, flippedB, v);
-    return v < padMap.presenceThresholdV;
+    bool flipped = kelvinAnyLevelBelow(mux, adc, channelForPin(flippedA),
+                                        channelForPin(flippedB), padMap.presenceThresholdV, 200);
+    LOG_D("dut flipped: apin%u<->apin%u: %s", flippedA, flippedB, flipped ? "yes" : "no");
+    return flipped;
 }
 
 bool Mezzanine70::checkDutNow(MuxController& mux, AdcDriver& adc,

@@ -4,12 +4,13 @@
 #include "test/pad_map.h"
 
 enum class ErrorCode : uint8_t {
-    NO_ADAPTER       = 1,
-    BUSY             = 2,
-    UNKNOWN_PADMAP   = 3,
-    PROVISION_FAILED = 4,
-    NOT_IMPLEMENTED  = 5,
-    MISSING_FIELD    = 6,
+    NO_ADAPTER            = 1,
+    BUSY                  = 2,
+    UNKNOWN_PADMAP        = 3,
+    PROVISION_FAILED      = 4,
+    NOT_IMPLEMENTED       = 5,
+    MISSING_FIELD         = 6,
+    ADAPTER_NOT_PROVISIONED = 7,  // EEPROM chip present but blank — needs PROVISION before use
 };
 
 enum class HostCommand : uint8_t {
@@ -47,10 +48,10 @@ void sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
     void sendAdapterRemoved();
     void sendDutInserted();
     void sendDutRemoved();
-    void sendTestStart(uint8_t hwId, const uint8_t* padmapIds);
+    void sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const PadMap* padMap);
     void sendEolWarning(uint32_t insertionCount);
     void sendWrongOrientation();
-    void sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad, const PadResult& r);
+    void sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad, TestStrategy strategy, const PadResult& r);
     void sendSlotStatus(uint8_t slot, bool present, bool tested);
     void sendSummary(const TestResult& result);
     void sendError(ErrorCode code, const char* msg);

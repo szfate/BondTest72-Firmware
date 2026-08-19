@@ -6,11 +6,14 @@
 # ]
 # ///
 """
-provision.py — write adapter EEPROM on BondTest72
+provision.py — read/write adapter EEPROM on BondTest72
 
-Queries the current adapter state, then writes hardware ID, padmap IDs, lifespan, and manufacture date.
+Queries the current adapter state, then (if --hw/--padmap given) writes hardware ID,
+padmap IDs, lifespan, and manufacture date. With just --port, only reads and displays
+the current EEPROM contents — no write.
 
 Usage:
+    uv run tools/provision.py --port /dev/tty.usbmodem11101              # read-only
     uv run tools/provision.py --port /dev/tty.usbmodem11101 --hw 1 --padmap 1
     uv run tools/provision.py --port COM3 --hw 1 --padmap 2 --date 20260101 --yes
     uv run tools/provision.py --port /dev/tty.usbmodem1101 --hw 1 --padmap 2,3 --lifespan 500
@@ -66,7 +69,10 @@ def parse_error_line(line: str) -> str:
     return line
 
 
-def query_adapter(ser: "serial.Serial", timeout: int = 5) -> dict | None:
+def query_adapter(ser: "serial.Serial", timeout: int = 5) -> tuple[dict | None, str | None]:
+    """Returns (info, error_line). error_line is the raw 'ERROR ...' line (for
+    the caller to classify, e.g. ADAPTER_NOT_PROVISIONED vs NO_ADAPTER), or
+    None on success/timeout."""
     ser.reset_input_buffer()
     ser.write(b"GET_ADAPTER\n")
     ser.flush()
@@ -74,11 +80,10 @@ def query_adapter(ser: "serial.Serial", timeout: int = 5) -> dict | None:
     while time.time() - start < timeout:
         line = ser.readline().decode("ascii", errors="replace").strip()
         if line.startswith("ADAPTER "):
-            return parse_adapter_line(line[8:])
+            return parse_adapter_line(line[8:]), None
         if line.startswith("ERROR"):
-            print(f"  Error: {parse_error_line(line)}")
-            return None
-    return None
+            return None, line
+    return None, None
 
 
 def send_provision(ser: "serial.Serial", hw_id: int, padmap_ids: list[int], lifespan: int, mfg_date: str,
@@ -146,9 +151,10 @@ def main():
     ap = argparse.ArgumentParser(description="Provision BondTest72 adapter EEPROM")
     ap.add_argument("--port",    required=True,  help="Serial port")
     ap.add_argument("--baud",    type=int, default=115200)
-    ap.add_argument("--hw",      type=int, required=True,
-                    help=f"Hardware ID ({', '.join(f'{k}={v}' for k, v in ADAPTER_HW_NAMES.items())})")
-    ap.add_argument("--padmap",  required=True,
+    ap.add_argument("--hw",      type=int, default=None,
+                    help=f"Hardware ID ({', '.join(f'{k}={v}' for k, v in ADAPTER_HW_NAMES.items())}). "
+                         "Omit along with --padmap to just read and display current EEPROM contents.")
+    ap.add_argument("--padmap",  default=None,
                     help=f"Pad map IDs, comma-separated ({', '.join(f'{k}={v.split()[0]}' for k, v in PAD_MAPS.items())})")
     ap.add_argument("--date",    default=None,
                     help="Manufacture date YYYYMMDD (default: today)")
@@ -160,32 +166,38 @@ def main():
                     help="Reset insertion/test counters and EOL flag to 0 instead of preserving existing values")
     args = ap.parse_args()
 
-    mfg_date = args.date or date.today().strftime("%Y%m%d")
-
-    # Parse and validate padmap IDs
-    try:
-        padmap_ids = [int(p) for p in args.padmap.split(',')]
-    except ValueError:
-        print(f"ERROR: --padmap must be comma-separated integers, got '{args.padmap}'")
+    read_only = args.hw is None and args.padmap is None
+    if not read_only and (args.hw is None or args.padmap is None):
+        print("ERROR: --hw and --padmap must be given together (or both omitted for a read-only query).")
         sys.exit(1)
 
-    if len(padmap_ids) > 4:
-        print(f"ERROR: too many padmap IDs (max 4), got {len(padmap_ids)}")
-        sys.exit(1)
+    if not read_only:
+        mfg_date = args.date or date.today().strftime("%Y%m%d")
 
-    for p in padmap_ids:
-        if p not in PAD_MAPS:
-            print(f"ERROR: unknown padmap {p}. Known: {list(PAD_MAPS.keys())}")
+        # Parse and validate padmap IDs
+        try:
+            padmap_ids = [int(p) for p in args.padmap.split(',')]
+        except ValueError:
+            print(f"ERROR: --padmap must be comma-separated integers, got '{args.padmap}'")
             sys.exit(1)
 
-    # Validate date format
-    if len(mfg_date) != 8 or not mfg_date.isdigit():
-        print(f"ERROR: --date must be YYYYMMDD, got '{mfg_date}'")
-        sys.exit(1)
+        if len(padmap_ids) > 4:
+            print(f"ERROR: too many padmap IDs (max 4), got {len(padmap_ids)}")
+            sys.exit(1)
 
-    if args.hw not in ADAPTER_HW_NAMES:
-        print(f"ERROR: unknown hw {args.hw}. Known: {list(ADAPTER_HW_NAMES.keys())}")
-        sys.exit(1)
+        for p in padmap_ids:
+            if p not in PAD_MAPS:
+                print(f"ERROR: unknown padmap {p}. Known: {list(PAD_MAPS.keys())}")
+                sys.exit(1)
+
+        # Validate date format
+        if len(mfg_date) != 8 or not mfg_date.isdigit():
+            print(f"ERROR: --date must be YYYYMMDD, got '{mfg_date}'")
+            sys.exit(1)
+
+        if args.hw not in ADAPTER_HW_NAMES:
+            print(f"ERROR: unknown hw {args.hw}. Known: {list(ADAPTER_HW_NAMES.keys())}")
+            sys.exit(1)
 
     print(f"Opening {args.port} at {args.baud} baud …")
     ser = serial.Serial(args.port, args.baud, timeout=2)
@@ -193,11 +205,21 @@ def main():
 
     # Query current state
     print("\nCurrent adapter:")
-    info = query_adapter(ser)
+    info, err = query_adapter(ser)
     if info:
         print_adapter_info(info)
+    elif err and "ADAPTER_NOT_PROVISIONED" in err:
+        print("  Adapter present but not provisioned (blank EEPROM).")
+        if read_only:
+            print("  Run again with --hw and --padmap to provision it.")
+    elif err:
+        print(f"  Error: {parse_error_line(err)}")
     else:
         print("  (no adapter detected or not responding)")
+
+    if read_only:
+        ser.close()
+        sys.exit(0 if info else 1)
 
     if args.override:
         counter_ins = None
@@ -207,6 +229,8 @@ def main():
         counter_ins = int(info.get("ins", "0"))
         counter_tests = int(info.get("tests", "0"))
         counter_eol = 1 if info.get("eol", "0") == "1" else 0
+        if args.lifespan > counter_ins:
+            counter_eol = 0
     else:
         counter_ins = None
         counter_tests = None
@@ -249,7 +273,7 @@ def main():
 
     # Read back to confirm
     print("\nAdapter after provisioning:")
-    info = query_adapter(ser)
+    info, err = query_adapter(ser)
     if info:
         print_adapter_info(info)
     else:
