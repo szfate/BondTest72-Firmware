@@ -169,11 +169,12 @@ Line-oriented text over USB CDC, 115200 baud. All messages with arguments use `k
 ```
 HELLO name=<string> build=<string> uid=<hex16>
 
-ADAPTER aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1>
+ADAPTER aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> dut=<0|1>
 
-PAD slot=<uint> apin=<uint> dp=<uint> result=<GOOD|OPEN|SHORT> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
+SLOT slot=<uint> present=<0|1> tested=<0|1>          # sent before that slot's PAD lines
 
-SLOT slot=<uint> present=<0|1> tested=<0|1>
+PAD slot=<uint> apin=<uint> dp=<uint> method=STD result=<GOOD|OPEN> rf=<f,f,f> rr=<f,f,f> vf=<f,f,f> vr=<f,f,f>
+PAD slot=<uint> apin=<uint> dp=<uint> method=CAP result=<GOOD|OPEN> vfs=<f,f,f,f,f> vrs=<f,f,f,f,f>
 
 SUMMARY outcome=<PASS|FAIL> good=<uint> tested=<uint> [fail_reason=DUT_REMOVED]
 
@@ -181,7 +182,7 @@ EVENT ADAPTER_DETECTED aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...]
 EVENT ADAPTER_REMOVED
 EVENT DUT_INSERTED
 EVENT DUT_REMOVED
-EVENT TEST_START aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...]
+EVENT TEST_START aid=<hex16> ahw=<uint> ins=<uint> tests=<uint> pm=<uint>[,<uint>...] current_list_ua=<f,f,f> [max_bond_r_ohms=<float>] [cap_time_list_us=<uint,...>]
 EVENT EOL_WARNING ins=<uint>
 EVENT WRONG_ORIENTATION
 EVENT FAULT msg=<string>
@@ -203,6 +204,8 @@ ERROR code=<uint> msg=<string>
 | 3 | UNKNOWN_PADMAP | Pad map ID not found |
 | 4 | PROVISION_FAILED | EEPROM write failed |
 | 5 | NOT_IMPLEMENTED | Command not implemented |
+| 6 | MISSING_FIELD | Required PROVISION field omitted |
+| 7 | ADAPTER_NOT_PROVISIONED | Adapter EEPROM present but blank |
 
 ---
 

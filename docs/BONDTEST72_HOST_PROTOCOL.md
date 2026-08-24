@@ -35,7 +35,7 @@ Start a bond test. Valid in `READY`, `PASS`, or `FAIL` state. In `PASS`/`FAIL` s
 
 **Request:** `RUN`
 
-**Response:** `EVENT TEST_START ...` followed by `PAD` lines and a `SUMMARY` line. Ignored in other states.
+**Response:** `EVENT TEST_START ...` followed by, for each slot: a `SLOT` line then that slot's `PAD` lines, and finally one `SUMMARY` line. Ignored in other states.
 
 ---
 
@@ -52,8 +52,8 @@ ADAPTER aid=<uid> ahw=<hw> pm=<uint>[,<uint>...] lifespan=<n> mfg_date=<n> ins=<
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `uid` | string | 16-char adapter EEPROM serial UID |
-| `hw` | uint8 | Hardware ID (complete adapter identifier) |
+| `aid` | string | 16-char adapter EEPROM serial UID |
+| `ahw` | uint8 | Hardware ID (complete adapter identifier) |
 | `pm` | uint8[] | Supported pad map IDs, comma-separated (absent if none) |
 | `lifespan` | uint32 | Designed lifespan (number of insertions) |
 | `mfg_date` | uint32 | Manufacturing date as YYYYMMDD |
@@ -62,7 +62,7 @@ ADAPTER aid=<uid> ahw=<hw> pm=<uint>[,<uint>...] lifespan=<n> mfg_date=<n> ins=<
 | `eol` | 0 or 1 | End-of-life reached |
 | `dut` | 0 or 1 | DUT currently present on adapter |
 
-**Response (error):** `ERROR code=1 msg=NO_ADAPTER`
+**Response (error):** `ERROR code=1 msg=NO_ADAPTER`, or `ERROR code=7 msg=ADAPTER_NOT_PROVISIONED` if the EEPROM is present but blank
 
 ---
 
@@ -112,7 +112,7 @@ Resend the most recent test results.
 
 **Request:** `GET_RESULTS`
 
-**Response:** Re-sends all `PAD` lines, `SLOT` lines, and the `SUMMARY` line from the last test. If no test has been run, no response is sent.
+**Response:** Re-sends the `SLOT`/`PAD` lines and the `SUMMARY` line from the last test, in the same order as the original `RUN` response (no `EVENT TEST_START` line is repeated).
 
 ---
 
@@ -180,8 +180,19 @@ EVENT DUT_REMOVED
 Sent when a test begins (after `RUN` command or button press).
 
 ```
-EVENT TEST_START aid=<uid> ahw=<hw> pm=<uint>[,<uint>...]
+EVENT TEST_START aid=<uid> ahw=<hw> ins=<uint> tests=<uint> pm=<uint>[,<uint>...] current_list_ua=<uint>[,<uint>...] [max_bond_r_ohms=<float>] [cap_time_list_us=<uint>[,<uint>...]]
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `aid` | string | 16-char adapter EEPROM serial UID |
+| `ahw` | uint8 | Hardware ID |
+| `ins` | uint32 | Adapter insertion count as of this test (excludes the test currently starting) |
+| `tests` | uint32 | Adapter test count as of this test (excludes the test currently starting — incremented only after it completes) |
+| `pm` | uint8[] | Supported pad map IDs, comma-separated |
+| `current_list_ua` | float[] | Drive current in µA for each pullup level, low-current-first — same order as `rf`/`rr`/`vf`/`vr` on `PAD` lines |
+| `max_bond_r_ohms` | float | Resistance ceiling used to classify GOOD/OPEN (see `PAD` below). Omitted if the active pad map has no case with thresholds set |
+| `cap_time_list_us` | uint16[] | Elapsed-time schedule (µs) for the 5 CAP_SENSE curve samples — same order as `vfs`/`vrs` on CAP `PAD` lines. Omitted if the active pad map has no CAP_SENSE case |
 
 ---
 
@@ -219,10 +230,13 @@ EVENT FAULT msg=<message>
 
 ### `PAD`
 
-One line per tested die pad, sent during a test run.
+One line per tested die pad, sent during a test run. Format depends on `method`:
+- `STD` — most IO pads. A 6-point Kelvin resistance sweep: 3 pullup levels (330k/33k/3.3k) × forward/reverse.
+- `CAP` — pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX), which can't settle fast enough at 330k/33k. Instead of resistance, reports raw voltage samples across the 3.3k-only charging curve.
 
 ```
-PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> result=<result> ps=<prev_short> ns=<next_short> sv=<sense_V> pv=<prev_V> nv=<next_V>
+PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> method=STD result=<GOOD|OPEN> rf=<f,f,f> rr=<f,f,f> vf=<f,f,f> vr=<f,f,f>
+PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> method=CAP result=<GOOD|OPEN> vfs=<f,f,f,f,f> vrs=<f,f,f,f,f>
 ```
 
 | Field | Type | Description |
@@ -230,18 +244,17 @@ PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> result=<result> ps=<prev_short> 
 | `slot` | uint8 | DUT slot number (0 for single-DUT adapters) |
 | `apin` | uint8 | Adapter pin number |
 | `dp` | uint8 | Die pad number (0-indexed) |
-| `result` | string | `GOOD`, `OPEN`, or `SHORT` |
-| `ps` | 0 or 1 | Previous-neighbour short detected |
-| `ns` | 0 or 1 | Next-neighbour short detected |
-| `sv` | float | Sense voltage (COM_D), 3 decimal places |
-| `pv` | float | Previous-neighbour voltage (COM_A), 3 decimal places |
-| `nv` | float | Next-neighbour voltage (COM_C), 3 decimal places |
+| `method` | string | `STD` or `CAP` — see above |
+| `result` | string | `GOOD` or `OPEN` |
+| `rf` / `rr` | float[3] | STD only. Forward/reverse apparent bond resistance (Ω) at each pullup level, low-current-first (330k, 33k, 3.3k — see `current_list_ua` on `EVENT TEST_START`). GOOD if any of the 6 readings is below `max_bond_r_ohms`. |
+| `vf` / `vr` | float[3] | STD only. The underlying Kelvin voltages behind `rf`/`rr`, same order, 3 decimal places. |
+| `vfs` / `vrs` | float[5] | CAP only. Raw voltage samples across the charging curve, earliest-first (see `cap_time_list_us` on `EVENT TEST_START`), 3 decimal places. No resistance is reported — mid-charge resistance isn't physically meaningful; classification uses only the final (most-settled) sample. |
 
 ---
 
 ### `SLOT`
 
-Sent after all pads in a slot have been tested.
+Sent before that slot's `PAD` lines (one `SLOT` line per slot, immediately followed by its pads). If `tested=0`, no `PAD` lines follow for that slot.
 
 ```
 SLOT slot=<slot> present=<0|1> tested=<0|1>
@@ -280,6 +293,7 @@ ERROR code=<code> msg=<message>
 | 4 | `PROVISION_FAILED` | EEPROM provisioning failed |
 | 5 | `NOT_IMPLEMENTED` | Feature not yet implemented |
 | 6 | `MISSING_FIELD` | Required PROVISION field omitted (msg=MISSING_HW, MISSING_PADMAP, MISSING_LIFESPAN, or MISSING_DATE) |
+| 7 | `ADAPTER_NOT_PROVISIONED` | Adapter EEPROM chip present but blank — needs PROVISION before use |
 
 ---
 
@@ -345,17 +359,18 @@ DSCAN DONE
 
 # Host starts test
 → RUN
-← EVENT TEST_START aid=0123456789ABCDEF ahw=1 pm=2
-← PAD slot=0 apin=1 dp=0 result=GOOD ps=0 ns=0 sv=0.650 pv=1.600 nv=1.580
-← PAD slot=0 apin=2 dp=1 result=GOOD ps=0 ns=0 sv=0.620 pv=1.610 nv=1.590
-  ... (one PAD line per die pad)
+← EVENT TEST_START aid=0123456789ABCDEF ahw=1 ins=237 tests=263 pm=2 current_list_ua=10,100,1000 max_bond_r_ohms=60000 cap_time_list_us=1250,2500,10000,15000,20000
 ← SLOT slot=0 present=1 tested=1
-← SUMMARY outcome=PASS good=62 tested=64
+← PAD slot=0 apin=63 dp=0 method=STD result=GOOD rf=49273,6113,897 rr=53579,6734,1097 vf=0.429,0.516,0.705 vr=0.461,0.559,0.824
+← PAD slot=0 apin=64 dp=1 method=STD result=GOOD rf=46735,6000,911 rr=56431,6957,1105 vf=0.409,0.508,0.714 vr=0.482,0.575,0.828
+  ... (one PAD line per die pad; CAP_SENSE pads use vfs=/vrs= instead of rf=/rr=/vf=/vr=)
+← SUMMARY outcome=PASS good=64 tested=64
 
 # Host requests results again
 → GET_RESULTS
-← PAD slot=0 apin=1 dp=0 result=GOOD ps=0 ns=0 sv=0.650 pv=1.600 nv=1.580
-  ... (all PAD/SLOT/SUMMARY lines repeated)
+← SLOT slot=0 present=1 tested=1
+← PAD slot=0 apin=63 dp=0 method=STD result=GOOD rf=49273,6113,897 rr=53579,6734,1097 vf=0.429,0.516,0.705 vr=0.461,0.559,0.824
+  ... (all SLOT/PAD/SUMMARY lines repeated; no EVENT TEST_START)
 ```
 
 ---

@@ -13,7 +13,7 @@
 | LEDs | 3× SK6812 addressable RGB, single GPIO, series chain |
 | Buttons | 2× start, 1× reset |
 | EEPROM | AT21CS01 (Microchip Single-Wire Interface — **not** Dallas/Maxim 1-Wire) |
-| ADC | Internal RP2350 ADC; reads COM_D (ADC0/GP26), COM_A (ADC1/GP27), COM_C (ADC2/GP28) |
+| ADC | Internal RP2350 ADC; reads COM_D (ADC0/GP26), COM_A (ADC1/GP27), COM_C (ADC2/GP28) — only COM_A (Kelvin sense) is used by the production bond-test path; COM_D/COM_C are debug-only |
 | USB | CDC serial to host PC |
 | Adapter connector | 2×41 pin (82 pins): 72 measurement channels + 7 adapter-control GPIOs + power/GND |
 
@@ -26,17 +26,17 @@ The last pin of CON6 (adapter header) is dedicated to the AT21CS01 SWI data line
 ```
 ┌──────────────────────────────────────────────────────────┐
 │                    Application Layer                     │
-│     StateMachine  ·  HostProtocol  ·  AdapterMonitor    │
+│     StateMachine  ·  HostProtocol  ·  LedManager         │
 ├──────────────────────────┬───────────────────────────────┤
 │       Test Engine        │       Adapter Layer           │
 │  TestRunner  PadMap      │  AdapterBase (interface)      │
-│  PadMapRegistry          │  Mezzanine70                  │
-│  DutDetector  Discovery  │  Mezzanine70x5 (future)       │
-│  ResultStore             │  AdapterRegistry              │
+│  PadMapRegistry          │  Mezzanine70 / Mezzanine70r2  │
+│  DutDetector             │  AdapterRegistry               │
+│  DiscoveryScanner        │  EepromManager                 │
 ├──────────────────────────┴───────────────────────────────┤
 │               Hardware Abstraction Layer (HAL)           │
-│   MuxController · ADC · SK6812Controller                 │
-│   Buttons · AT21CS01Driver · UsbSerial                   │
+│   MuxController · AdcDriver · Kelvin (measurement)        │
+│   SK6812Controller · Buttons · AT21CS01Driver             │
 ├──────────────────────────────────────────────────────────┤
 │                    RP2350 / Arduino                     │
 └──────────────────────────────────────────────────────────┘
@@ -52,31 +52,33 @@ src/
 │
 ├── hal/
 │   ├── mux.h / mux.cpp              # 3× CH446X bit-bang serial driver: setChannel(logicalPad, bus), clearAll()
-│   ├── mux_map.h                    # MUX_MAP[72]: logical pad → (chip, channel); filled from schematic
+│   ├── mux_map.h / mux_map.cpp      # MUX_MAP[72]: logical pad → (chip, channel); filled from schematic
 │   ├── adc.h / adc.cpp              # ADC wrapper: readVoltage()
+│   ├── kelvin.h / kelvin.cpp        # Kelvin resistance-sweep primitives (measureKelvin, measureKelvinCurve)
 │   ├── sk6812.h / sk6812.cpp        # addressable LED driver, 3 pixels, single GPIO
 │   ├── buttons.h / buttons.cpp      # debounced start button input
-│   ├── at21cs01.h / at21cs01.cpp    # Microchip SWI EEPROM driver (NOT Dallas 1-Wire)
-│   └── usb_serial.h / usb_serial.cpp
+│   └── at21cs01.h / at21cs01.cpp    # Microchip SWI EEPROM driver (NOT Dallas 1-Wire)
 │
 ├── adapter/
 │   ├── adapter_base.h               # pure abstract interface
-│   ├── eeprom_layout.h              # EepromData struct + serialize/deserialize
-│   ├── mezzanine70.h / .cpp         # 1-DUT adapter, no isolation switches
-│   ├── mezzanine70x5.h / .cpp       # 5-DUT adapter, drives isolation GPIOs (future)
+│   ├── eeprom_layout.h / .cpp       # EepromData struct + serialize/deserialize
+│   ├── eeprom_manager.h / .cpp      # presence check, CRC-checked read/write, serial UID read
+│   ├── mezzanine70.h / .cpp         # 1-DUT adapter (Mezzanine70 r1/r2 — r2 overrides only selfTest())
 │   └── adapter_registry.h / .cpp   # (hwId) → AdapterBase* factory
 │
 ├── test/
-│   ├── pad_map.h / pad_map.cpp             # pad roles + presence detection recipe
-│   ├── pad_map_registry.h / .cpp           # 4 hardcoded PadMap instances
-│   ├── dut_detector.h / dut_detector.cpp  # continuity polling via PadMap recipe
-│   ├── test_runner.h / test_runner.cpp     # test orchestration, adapter-agnostic
-│   ├── discovery.h / discovery.cpp         # discovery scan (unknown pad map)
-│   └── result.h                            # result structs (per-pad, per-DUT)
+│   ├── pad_map.h                            # TestCase/PadMap structs, TestStrategy/PadType enums
+│   ├── pad_map_registry.h / .cpp            # hardcoded PadMap instances (see PadMapRegistry below)
+│   ├── dut_detector.h / dut_detector.cpp   # debounced presence/orientation polling via PadMap recipe
+│   ├── test_runner.h / test_runner.cpp      # test orchestration, adapter-agnostic
+│   ├── discovery_scanner.h / .cpp           # 70×70 pad-to-pad voltage sweep (unknown pad map)
+│   └── result.h                             # result structs (per-pad, per-slot, per-run)
 │
 └── app/
-    ├── state_machine.h / .cpp       # top-level states, drives LEDs, handles buttons
-    ├── adapter_monitor.h / .cpp     # periodic EEPROM ping for hot-removal detection
+    ├── state.h                      # State enum
+    ├── state_machine.h / .cpp       # top-level states, drives LEDs/buttons; also owns adapter-liveness
+    │                                # and DUT polling (no separate AdapterMonitor class)
+    ├── led_manager.h / .cpp         # State → LED pattern mapping
     └── host_protocol.h / .cpp      # USB command/response protocol
 ```
 
@@ -87,41 +89,52 @@ src/
 Define these as named constants — they are expected to need tuning:
 
 ```cpp
-// adapter_monitor.h
-constexpr uint32_t ADAPTER_POLL_INTERVAL_MS = 2000;
+// state_machine.h
+constexpr uint32_t ADAPTER_POLL_INTERVAL_MS      = 1500;  // adapter-present liveness poll
+constexpr uint32_t ADAPTER_POLL_INTERVAL_FAST_MS = 100;   // faster poll while watching for an adapter to appear
+constexpr uint32_t DUT_INSERT_SETTLE_MS          = 1000;  // suppress DUT polling right after insertion (connector bounce)
 
 // dut_detector.h
 constexpr uint32_t DUT_POLL_INTERVAL_MS = 250;
+constexpr uint8_t  DUT_CONFIRM_COUNT    = 2;   // consecutive polls required before an insert/remove/flip event fires
 ```
 
 ---
 
-## AT21CS01 EEPROM Layout (128 bytes)
+## AT21CS01 EEPROM Layout (36 bytes on the wire: 32-byte header + 4-byte CRC-32)
+
+Packed/unpacked by `eepromSerialize`/`eepromDeserialize` (`src/adapter/eeprom_layout.h/.cpp`):
 
 ```
 Offset  Size  Field
 ──────  ────  ──────────────────────────────────────────────────
-0       2     magic: { 0xB7, 0x72 }  — "BT72" sentinel
-2       1     adapter_hardware      (enum: 0x01 = Mezzanine70, ...)
+0       2     magic sentinel
+2       1     hwId  (AdapterHardware enum: 0x01=Mezzanine70, 0x02=Mezzanine70r2)
 3       1     rfu    (reserved, 0xFF)
-4       1     supported_padmap_id  (0xFF = unset → auto-detect)
-5       1     reserved
-6       2     designed_lifespan  (uint16, max insertions before EOL — set at manufacture)
-8       4     date_of_manufacture  (YYYYMMDD)
-12      4     insertion_count  (physical DUT insertions — wear metric)
-16      4     test_count       (completed test runs)
-20      1     eol_reached                (0x00 = ok, 0xFF = EOL)
-21      1     reserved
-22      2     CRC-16 over bytes 0–21
+4       4     supported_padmap_ids[4]  (0xFF-terminated list; first match against
+                                        PadMapRegistry wins — see PadMap Selection Priority)
+8       4     reserved
+12      4     designed_lifespan   (uint32, max insertions before EOL — set at manufacture)
+16      4     date_of_manufacture (uint32, YYYYMMDD)
+20      4     insertion_count     (uint32, physical DUT insertions — wear metric)
+24      4     test_count          (uint32, completed test runs)
+28      4     eol_reached         (uint32: 0 = ok, 0xFFFFFFFF = EOL)
 ──────────────────────────────────────────────────────────────
-24–127  104   reserved / future use
+32      4     CRC-32 over bytes 0–31
 ```
 
+Also read separately (not part of this struct): a factory-burned 64-bit serial
+number from the AT21CS01's security register (`AT21CS01Driver::readSerial()`),
+exposed as the adapter's `aid=` on `ADAPTER`/`EVENT ADAPTER_DETECTED`/`EVENT TEST_START`.
+
 - `insertion_count` — incremented on DUT **absent → present** transition
-- `test_count` — incremented on each completed test run
-- `eol_reached` — written by firmware when `insertion_count` exceeds the
-  service limit for the adapter model; drives the ID LED on the adapter board
-- If CRC check fails on read → treat as FAULT (bad EEPROM or no adapter)
+- `test_count` — incremented on each completed test run (after it completes)
+- `eol_reached` — written by firmware when `insertion_count` reaches
+  `designed_lifespan`; drives the ID LED on the adapter board and blocks
+  further testing (state → `EOL_ADAPTER`)
+- If the CRC check fails on read → treat as `CrcError`; a blank (all-0xFF)
+  EEPROM is distinguished as `Blank` (`EepromManager::ReadResult`) and reported
+  to the host as `ERROR code=7 msg=ADAPTER_NOT_PROVISIONED`, not a generic fault
 
 ---
 
@@ -130,142 +143,205 @@ Offset  Size  Field
 ### AdapterBase Interface
 
 ```
-getDutCount()          → number of DUT slots (1 or 5)
-selectDut(index)       → activate one slot (drives isolation GPIOs; no-op for single-DUT)
-getPadCount()          → pads per DUT slot
-getAdapterHardware()   → hardware ID enum (replaces former model+version pair)
-getSupportedPadmapId() → padmap hint from EEPROM (or 0xFF)
+getDutCount()             → number of DUT slots
+selectDut(index)          → activate one slot (no-op for single-DUT adapters)
+getPadCount()             → pads per DUT slot
+getAdapterHardware()      → hardware ID enum
+getSupportedPadmapIds()   → 0xFF-terminated padmap-ID list from EEPROM
+channelForPin(adapterPin) → adapter pin (1-indexed) → mux logical channel
+selfTest(mux, adc)        → onboard reference-component sanity check, run once per adapter insertion
+connectorIsolationSweep(mux, adc, padMap)  → checks for cross-pad shorts on the connector (default: no-op, true)
+senseDutPresent(mux, adc, padMap)          → Kelvin sweep on presencePadA/B vs presenceThresholdV
+senseDutFlipped(mux, adc, padMap)          → same sweep, mirrored pin pair (adapterPin → 71-adapterPin)
+checkDutNow(mux, adc, padMap)              → one-shot presence check (used for the mid/post-test recheck)
+setEolLed(bool) / tickEolLed()             → adapter-board EOL indicator (default: no-op)
 ```
 
 ### AdapterRegistry
 
-Maps hardware ID to the correct subclass. DUT count is encoded in the subclass,
-not stored in EEPROM.
+Maps hardware ID to the correct subclass, instantiated in a static placement-new
+buffer (no heap allocation).
 
 ```
-(0x01)  → Mezzanine70     // 1 DUT, no isolation switches
-(0x02)  → Mezzanine70x5   // 5 DUTs, drives isolation GPIOs (future)
+(0x01)  → Mezzanine70    // 1 DUT; onboard diode used for selfTest()
+(0x02)  → Mezzanine70r2  // same board; onboard diode replaced with a 1k precision
+                          // resistor, so selfTest() is overridden to check measured
+                          // resistance against 1kΩ instead of diode fwd/rev asymmetry
 default → nullptr → FAULT (unknown adapter)
 ```
+
+Everything else about r1/r2 (pad count, channel mapping, presence detection, EOL LED)
+is identical — `Mezzanine70r2` subclasses `Mezzanine70` and overrides only
+`getAdapterHardware()` and `selfTest()`.
 
 ---
 
 ## PadMap
 
-Each PadMap describes one die project and includes a presence detection recipe:
+Each PadMap describes one die project as a flat list of per-pad test cases —
+there is no neighbour-relationship or pad-ring concept; every pad is tested
+independently against its own reference pin (`pad_map.h`):
 
 ```cpp
+struct TestCase {
+    uint8_t               adapterPin;  // adapter pin under test (1-indexed)
+    uint8_t               gndPin;      // adapter GND pin — reference/return for the sweep
+    uint8_t               diePad;      // die pad number (for logging; 0 for DISCHARGE steps)
+    TestStrategy          strategy;    // STANDARD | DISCHARGE | PRECHARGE | CAP_SENSE
+    PadType                padType;     // IO | VDDIO | VDD_CORE | PWR_AUX | GND
+    uint16_t              settleUs;    // per-case settle time before sampling
+    const TestThresholds* thresholds;  // resistance ceiling for GOOD/OPEN (nullptr only valid for DISCHARGE)
+};
+
 struct PadMap {
-    ProjectId   id;
-    const char* name;
-    PadRole     roles[72];              // IO, GND, VCC, NC per pad index
-    uint8_t     gndPad;                 // current injection pad (COM_A)
-    uint8_t     ioPadsInRingOrder[72];  // IO pads in physical pad-ring order; defines neighbour relationships
-    uint8_t     ioPadCount;             // number of entries in ioPadsInRingOrder
-    uint8_t     presencePadA;           // } two pads shorted through
-    uint8_t     presencePadB;           // } the DUT PCB — continuity = DUT present
-    float       presenceThresholdV;     // COM_A reading below this → DUT present (e.g. 0.3 V)
+    uint8_t         id;
+    const char*     name;
+    const TestCase* cases;
+    uint8_t         caseCount;
+    uint8_t         presencePadA;        // adapter pin pair used for DUT presence/orientation sensing
+    uint8_t         presencePadB;        // (Kelvin-swept, not a simple continuity check)
+    float           presenceThresholdV;  // sensed voltage below this, at any pullup level → DUT present
 };
 ```
 
-Four pad maps are hardcoded in `PadMapRegistry` to start. Can be extended to receive
-maps from host via `SET_PADMAP` command later.
+`STANDARD` pads get a 6-point Kelvin resistance sweep (330k/33k/3.3k pullup ×
+forward/reverse). `CAP_SENSE` pads (VDDIO/VDD_CORE/PWR_AUX — real bypass caps
+that can't settle fast enough at 330k/33k) instead sample a charging curve at
+one fixed 3.3k pullup. `DISCHARGE`/`PRECHARGE` are prep steps around CAP_SENSE
+pads with no result recorded. See `TestRunner` below and `EVENT TEST_START`'s
+`max_bond_r_ohms`/`current_list_ua`/`cap_time_list_us` in the host protocol doc
+for exactly what's compared against what.
+
+Three pad maps are hardcoded in `PadMapRegistry` today (ids 1–3, all for the
+Mezzanine70 board family). Can be extended to receive maps from host via
+`SET_PADMAP` later.
 
 ### PadMap Selection Priority
 
-1. Host sends `SET_PADMAP <id>` command → use that
-2. Adapter EEPROM `supported_padmap_id` is set (≠ 0xFF) → look up in registry
-3. Neither → auto-detect: try each PadMap's presence recipe until one shows continuity
+1. Host sends `SET_PADMAP id=<n>` command → overrides `_padMap` immediately, any time
+2. At adapter init (`StateMachine::selectPadMap`): try each ID in the adapter
+   EEPROM's `supported_padmap_ids` list, in order, against `PadMapRegistry::find()`
+3. If none match → fall back to `PadMapRegistry::all()`, which returns the
+   first registered map (today: id 1) as a default — this is a static
+   fallback, not a continuity-based auto-detect
 
 ---
 
 ## DUT Detector
 
-`DutDetector::poll()` runs every `DUT_POLL_INTERVAL_MS` in all states **except TESTING**.
+`DutDetector::poll()` (`src/test/dut_detector.cpp`) runs every `DUT_POLL_INTERVAL_MS`
+(250 ms) in all states **except TESTING, NO_ADAPTER, EOL_ADAPTER, FAULT** — driven
+from `StateMachine::update()`, not a standalone ticker.
 
-For each poll:
-- Routes `presencePadA` to BUS_C, `presencePadB` to BUS_D (separate from test buses)
-- Injects small current; reads ADC
-- `voltage < presenceThresholdV` → DUT present
+For each poll, delegates to the active `AdapterBase`:
+- `senseDutPresent()` — Kelvin sweep (all 3 pullup levels) between `presencePadA`/`presencePadB`;
+  present if any level reads below `presenceThresholdV`
+- if not present, `senseDutFlipped()` — same sweep on the mirrored pin pair
+  (`71 - presencePadA` / `71 - presencePadB`, for a 70-pad Mezzanine board), to
+  distinguish "no DUT" from "DUT inserted backwards"
 
-On **absent → present** transition:
-1. Increment `insertion_count`, write EEPROM
-2. Notify StateMachine: `DUT_INSERTED`
+Transitions are debounced: a candidate state (PRESENT / WRONG_ORIENTATION / ABSENT)
+must be seen on `DUT_CONFIRM_COUNT` (2) consecutive polls before an event fires,
+to absorb connector bounce. `StateMachine` also holds off polling for
+`DUT_INSERT_SETTLE_MS` right after an insertion event.
 
-On **present → absent** transition during PASS/FAIL state:
-- No state change — result LED stays lit
-- Notify StateMachine: `DUT_REMOVED` (used for logging only in these states)
+On **absent → present** (`DutEvent::INSERTED`):
+1. Increment `insertion_count`, write EEPROM (`flushEeprom()` — also sets `eol_reached` if the limit is hit)
+2. Transition to `READY` (or straight to `EOL_ADAPTER` if the limit was just hit)
 
-New DUT detection (absent → present) in PASS/FAIL state:
-- Clear result LEDs
-- Transition to READY
+On **present → absent** (`DutEvent::REMOVED`):
+- If not in PASS/FAIL, transition to `ADAPTER_DETECTED`
+- In PASS/FAIL: no state change — result LEDs stay lit; a later `RUN` or button
+  press re-checks presence via `checkDutNow()` before starting another test
+- Either way, runs `connectorIsolationSweep()` afterward to catch cross-pad shorts
+
+On flipped-pin detection (`DutEvent::WRONG_ORIENTATION`): transition to `WRONG_ORIENTATION` state.
 
 ---
 
-## Adapter Monitor
+## Adapter Liveness
 
-`AdapterMonitor::tick()` fires every `ADAPTER_POLL_INTERVAL_MS` (2000 ms).
-Also fires immediately on START button press (belt-and-suspenders check before test).
+There is no separate `AdapterMonitor` class — this is folded into
+`StateMachine::update()`/`checkAdapterAlive()`, called every
+`ADAPTER_POLL_INTERVAL_MS` (1500 ms) in any state except `NO_ADAPTER`:
 
 ```
-ping EEPROM:
-    fail  → StateMachine: ADAPTER_REMOVED → NO_ADAPTER state, inhibit button
-    ok    → if previously in NO_ADAPTER: read full EEPROM, instantiate adapter,
-             StateMachine: ADAPTER_DETECTED
+checkAdapterAlive():
+    if eepromMgr.isPresent(): return true
+    // adapter physically removed
+    clear adapter's EOL LED, send EVENT ADAPTER_REMOVED, drop _adapter/_padMap
+    transition → NO_ADAPTER
+    return false
 ```
 
-Ping = minimal SWI transaction that returns success/fail without modifying EEPROM state.
+`isPresent()` is a minimal SWI transaction that returns success/fail without
+modifying EEPROM state. In `NO_ADAPTER` state, a separate faster poll
+(`ADAPTER_POLL_INTERVAL_FAST_MS`) watches for an adapter appearing, reads its
+full EEPROM via `tryInitAdapter()`, instantiates the `AdapterBase` subclass via
+`AdapterRegistry`, runs `adapterSelfTest()`, and transitions to
+`ADAPTER_DETECTED` (or `EOL_ADAPTER` if already past its insertion limit, or
+`FAULT` on EEPROM read/CRC failure).
 
 ---
 
 ## TestRunner
 
-Adapter-agnostic. Receives an `AdapterBase*` and `PadMap*`.
+Adapter-agnostic. Receives an `AdapterBase&` and `PadMap&` (`src/test/test_runner.cpp`).
+There is no neighbour concept — every `TestCase` is measured independently
+against its own `gndPin`.
 
 ```
 run(adapter, padMap):
     for slot in 0..adapter.getDutCount()-1:
         adapter.selectDut(slot)
-        for i, ioPad in enumerate(padMap.ioPadsInRingOrder):
-            leftNeighbour  = ioPadsInRingOrder[(i - 1 + count) % count]
-            rightNeighbour = ioPadsInRingOrder[(i + 1) % count]
-            mux.setChannel(padMap.gndPad, BUS_D)   // inject current — COM_D sensed by ADC (ADC0)
-            mux.setChannel(ioPad,         BUS_B)   // return path (tester GND)
-            mux.setChannel(leftNeighbour, BUS_A)   // neighbour sense — COM_A sensed by ADC (ADC1)
-            mux.setChannel(rightNeighbour,BUS_C)   // neighbour sense — COM_C sensed by ADC (ADC2)
-            readings = adc.readAll()               // returns {comD, comA, comC}
-            results[slot][ioPad] = classify(readings)
-        presence = dutDetector.checkNow()
-        if presence == ABSENT:
-            results[slot].cause = FAIL_DUT_REMOVED
-    mux.clearAll()
-    return results
+        for tc in padMap.cases:
+            if tc.strategy == DISCHARGE:
+                short adapterPin + gndPin to Bus::B for tc.settleUs   // drain cap, no result
+                continue
+            if tc.strategy == PRECHARGE:
+                gndPin → Bus::B, adapterPin → Bus::D, for tc.settleUs // charge cap through the bond
+                continue
+            result = sweepPad(adapter, tc)                            // see below
+            record result under this slot/channel
+        if not dutDetector.checkNow():
+            outcome = FAIL_DUT_REMOVED; break                          // DUT pulled mid-test
+    // after all slots: PASS only if every tested pad's result is GOOD
+    return result
 ```
 
-### ADC Channels and Bias Circuits
+`sweepPad(adapter, tc)`:
+- **STANDARD** (most IO pads): for each of the 3 pullup levels (330k/33k/3.3k,
+  low-current-first) takes one forward reading (`adapterPin` driven +
+  Kelvin-sensed, `gndPin` sinks) and one reverse reading (roles swapped) — 6
+  readings total. `conducted` = apparent resistance below
+  `tc.thresholds->maxBondResistanceOhms` on that reading. Pad is `GOOD` if
+  *any* of the 6 conducted (see the rationale for a resistance ceiling over a
+  voltage margin in `pad_map.h`).
+- **CAP_SENSE** (VDDIO/VDD_CORE/PWR_AUX): single 3.3k pullup, forward and
+  reverse, each sampled at 5 points across the charging curve
+  (`measureKelvinCurve`) instead of one settled reading — classification uses
+  only the last (most-settled) sample of each direction.
 
-| Bus | COM pin | GPIO | ADC ch | Bias circuit | "Normal" reading | Short reading |
-|-----|---------|------|--------|-------------|-----------------|---------------|
-| BUS_D | COM_D | GP26 | ADC0 | 27 kΩ pullup to 3.3 V | 0.5–0.7 V (good bond) | ~0 V |
-| BUS_A | COM_A | GP27 | ADC1 | 1 MΩ/220 kΩ divider (3.3 V) | ~0.6 V | ~0 V |
-| BUS_C | COM_C | GP28 | ADC2 | 1 MΩ/220 kΩ divider (3.3 V) | ~0.6 V | ~0 V |
-
-COM_D carries the injection+sense bus (27 kΩ pullup). COM_A and COM_C carry the
-neighbour sense buses (1 MΩ/220 kΩ divider, ~0.6 V idle). BUS_B is tester GND — no ADC.
-BUS_E is spare. GP29 (ADC3) is internal VSYS monitor — not available on header.
+Apparent resistance: `R = Rpu · V / (VCC − V)`, from the Kelvin voltage read on
+COM_A (Bus::A) while the pad under test is driven through one of the pullup
+buses (Bus::C/D/E → 330k/33k/3.3k) and the reference pin sinks to Bus::B (tester
+GND). COM_D/COM_C are not part of this measurement (see Hardware Summary).
 
 ### Result Classification
 
-COM_D (injection+sense):
-- `0.5–0.7 V` → **GOOD** bond
-- `> ~2.5 V`  → **OPEN** bond (no return path, pulled to 3.3 V by pullup)
-- `< ~0.1 V`  → **SHORT** to GND
+There is no fixed voltage-threshold table — classification is a single
+resistance ceiling (`TestThresholds::maxBondResistanceOhms`, currently 60kΩ,
+see the calibration rationale in `pad_map.h`/`pad_map_registry.cpp`), applied
+uniformly at every pullup level via `classifyVoltage()` in `hal/kelvin.cpp`:
 
-COM_A / COM_C (neighbour sense):
-- `~0.6 V`    → no short to neighbour
-- `< ~0.2 V`  → **SHORT** between bond-under-test and this neighbour
+- Apparent resistance **below the ceiling at any of the 6 (STANDARD) or 2
+  (CAP_SENSE, final samples) readings** → `GOOD`
+- No reading below the ceiling → `OPEN`
 
-Thresholds defined per PadMap (process-dependent).
+There is no `SHORT` result — a genuine short reads as a very low resistance,
+which is just a strong `GOOD` under this scheme. Reported resistance/voltage
+values are streamed per-pad on the `PAD` line (`rf=`/`rr=`/`vf=`/`vr=` for
+STANDARD, `vfs=`/`vrs=` for CAP_SENSE) — see `docs/BONDTEST72_HOST_PROTOCOL.md`.
 
 ---
 
@@ -332,16 +408,17 @@ EVENT ADAPTER_DETECTED aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...]
 EVENT ADAPTER_REMOVED
 EVENT DUT_INSERTED
 EVENT DUT_REMOVED
-EVENT TEST_START aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...]
+EVENT TEST_START aid=<hex16> ahw=<uint> ins=<uint> tests=<uint> pm=<uint>[,<uint>...] current_list_ua=<f,f,f> [max_bond_r_ohms=<float>] [cap_time_list_us=<uint,...>]
 EVENT EOL_WARNING ins=<uint>
 EVENT WRONG_ORIENTATION
 EVENT FAULT msg=<string>
 
-ADAPTER aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1>
+ADAPTER aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> dut=<0|1>
 
-PAD slot=<uint> mez=<uint> dp=<uint> result=<GOOD|OPEN|SHORT> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
+SLOT slot=<uint> present=<0|1> tested=<0|1>          # sent before that slot's PAD lines
 
-SLOT slot=<uint> present=<0|1> tested=<0|1>
+PAD slot=<uint> apin=<uint> dp=<uint> method=STD result=<GOOD|OPEN> rf=<f,f,f> rr=<f,f,f> vf=<f,f,f> vr=<f,f,f>
+PAD slot=<uint> apin=<uint> dp=<uint> method=CAP result=<GOOD|OPEN> vfs=<f,f,f,f,f> vrs=<f,f,f,f,f>
 
 SUMMARY outcome=<PASS|FAIL> good=<uint> tested=<uint> [fail_reason=DUT_REMOVED]
 
@@ -362,6 +439,8 @@ ERROR code=<uint> msg=<string>
 | 3 | UNKNOWN_PADMAP | Pad map ID not found |
 | 4 | PROVISION_FAILED | EEPROM write failed |
 | 5 | NOT_IMPLEMENTED | Command not implemented |
+| 6 | MISSING_FIELD | Required PROVISION field omitted |
+| 7 | ADAPTER_NOT_PROVISIONED | Adapter EEPROM present but blank |
 
 ---
 
