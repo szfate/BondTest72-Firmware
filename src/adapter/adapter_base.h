@@ -7,6 +7,7 @@ struct PadMap;
 
 enum class AdapterHardware : uint8_t {
     Mezzanine70   = 0x01,
+    Mezzanine70r2 = 0x02,
 };
 
 class AdapterBase {

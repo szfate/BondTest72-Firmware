@@ -37,6 +37,7 @@ from PySide6.QtCore import Qt, QThread, Signal, QObject
 # Human-readable adapter model names from firmware enum
 ADAPTER_HW_NAMES = {
     "1": "Mezzanine70",
+    "2": "Mezzanine70 r2",
 }
 
 PADMAP_NAMES = {
@@ -394,10 +395,10 @@ class LiveViewer(QMainWindow):
                 parts[k] = v
 
         supported_ids = [s for s in parts.get('pm', '').split(',') if s]
-        hw_raw = parts.get('hw', '')
+        hw_raw = parts.get('ahw', '')
         self._adapter_padmap_id = supported_ids[0] if supported_ids else ''
         self._adapter_hw_name = ADAPTER_HW_NAMES.get(hw_raw, f"hw {hw_raw}")
-        self._adapter_uid = parts.get('uid', '') or ''
+        self._adapter_uid = parts.get('aid', '') or ''
         self._adapter_ins = int(parts.get('ins', '0') or '0')
         self._adapter_tests = int(parts.get('tests', '0') or '0')
         self._adapter_eol = (parts.get('eol', '0') or '0') == '1'

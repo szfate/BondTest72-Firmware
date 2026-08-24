@@ -47,7 +47,7 @@ Retrieve adapter information. Requires an adapter to be connected.
 
 **Response (success):**
 ```
-ADAPTER uid=<uid> hw=<hw> pm=<uint>[,<uint>...] lifespan=<n> mfg_date=<n> ins=<n> tests=<n> eol=<0|1> dut=<0|1>
+ADAPTER aid=<uid> ahw=<hw> pm=<uint>[,<uint>...] lifespan=<n> mfg_date=<n> ins=<n> tests=<n> eol=<0|1> dut=<0|1>
 ```
 
 | Field | Type | Description |
@@ -140,7 +140,7 @@ These lines are sent by the tester without a corresponding command, in response 
 Sent when an adapter PCB is plugged in.
 
 ```
-EVENT ADAPTER_DETECTED uid=<uid> hw=<hw> pm=<uint>[,<uint>...]
+EVENT ADAPTER_DETECTED aid=<uid> ahw=<hw> pm=<uint>[,<uint>...]
 ```
 
 ---
@@ -180,7 +180,7 @@ EVENT DUT_REMOVED
 Sent when a test begins (after `RUN` command or button press).
 
 ```
-EVENT TEST_START uid=<uid> hw=<hw> pm=<uint>[,<uint>...]
+EVENT TEST_START aid=<uid> ahw=<hw> pm=<uint>[,<uint>...]
 ```
 
 ---
@@ -338,14 +338,14 @@ DSCAN DONE
 ← HELLO name=BondTest72 build=2026-06-03-74fb8fd uid=A1B2C3D4E5F60718
 
 # Adapter plugged in (asynchronous)
-← EVENT ADAPTER_DETECTED uid=0123456789ABCDEF hw=1 pm=2
+← EVENT ADAPTER_DETECTED aid=0123456789ABCDEF ahw=1 pm=2
 
 # DUT inserted (asynchronous)
 ← EVENT DUT_INSERTED
 
 # Host starts test
 → RUN
-← EVENT TEST_START uid=0123456789ABCDEF hw=1 pm=2
+← EVENT TEST_START aid=0123456789ABCDEF ahw=1 pm=2
 ← PAD slot=0 apin=1 dp=0 result=GOOD ps=0 ns=0 sv=0.650 pv=1.600 nv=1.580
 ← PAD slot=0 apin=2 dp=1 result=GOOD ps=0 ns=0 sv=0.620 pv=1.610 nv=1.590
   ... (one PAD line per die pad)

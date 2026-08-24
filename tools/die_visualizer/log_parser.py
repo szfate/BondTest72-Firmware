@@ -38,12 +38,12 @@ def _parse_hello(parts: list[str]) -> TesterInfo | None:
 
 def _parse_adapter(parts: list[str]) -> AdapterInfo | None:
     d = _parse_kv(parts[1:])
-    if 'uid' not in d:
+    if 'aid' not in d:
         return None
     padmaps = [s for s in d.get('pm', '').split(',') if s]
     return AdapterInfo(
-        uid=d.get('uid', ''),
-        hw=d.get('hw', ''),
+        uid=d.get('aid', ''),
+        hw=d.get('ahw', ''),
         padmaps=padmaps,
         lifespan=int(d.get('lifespan', '0')),
         mfg_date=d.get('mfg_date', ''),

@@ -136,8 +136,8 @@ void HostProtocol::sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
                                     uint32_t insertions, uint32_t tests, bool eol,
                                     bool dutPresent) {
     Serial.print("ADAPTER");
-    Serial.print(" uid=");     Serial.print(_uid);
-    Serial.print(" hw=");      Serial.print(hwId);
+    Serial.print(" aid=");     Serial.print(_uid);
+    Serial.print(" ahw=");     Serial.print(hwId);
     uint8_t pmCount = 0;
     for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) pmCount++;
     if (pmCount > 0) {
@@ -158,8 +158,8 @@ void HostProtocol::sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
 
 void HostProtocol::sendAdapterDetected(uint8_t hwId, const uint8_t* padmapIds) {
     Serial.print("EVENT ADAPTER_DETECTED ");
-    Serial.print("uid=");     Serial.print(_uid);
-    Serial.print(" hw=");      Serial.print(hwId);
+    Serial.print("aid=");     Serial.print(_uid);
+    Serial.print(" ahw=");    Serial.print(hwId);
     uint8_t pmCount = 0;
     for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) pmCount++;
     if (pmCount > 0) {
@@ -184,10 +184,15 @@ void HostProtocol::sendDutRemoved() {
     Serial.println("EVENT DUT_REMOVED");
 }
 
-void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const PadMap* padMap) {
+void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const PadMap* padMap,
+                                  uint32_t insertions, uint32_t tests) {
     Serial.print("EVENT TEST_START ");
-    Serial.print("uid=");     Serial.print(_uid);
-    Serial.print(" hw=");      Serial.print(hwId);
+    Serial.print("aid=");     Serial.print(_uid);
+    Serial.print(" ahw=");    Serial.print(hwId);
+    // Counts as of this insertion/before this test's run — testCount excludes
+    // the test currently starting (incremented only after it completes).
+    Serial.print(" ins=");     Serial.print(insertions);
+    Serial.print(" tests=");   Serial.print(tests);
     uint8_t pmCount = 0;
     for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) pmCount++;
     if (pmCount > 0) {
@@ -205,6 +210,24 @@ void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const P
     for (uint8_t i = 0; i < PULLUP_LEVEL_COUNT; i++) {
         if (i > 0) Serial.print(',');
         Serial.print(pullupCurrentUA(PULLUP_LEVELS[i].ohms), 0);
+    }
+
+    // thresholds is per-TestCase (pad_map.h) but every case in a padmap
+    // currently shares one TestThresholds instance (see kThresh in
+    // pad_map_registry.cpp), so a single value here is valid today. Taken
+    // from the first case with non-null thresholds; omitted if none.
+    if (padMap) {
+        const TestThresholds* thresh = nullptr;
+        for (uint8_t i = 0; i < padMap->caseCount; i++) {
+            if (padMap->cases[i].thresholds != nullptr) {
+                thresh = padMap->cases[i].thresholds;
+                break;
+            }
+        }
+        if (thresh) {
+            Serial.print(" max_bond_r_ohms=");
+            Serial.print(thresh->maxBondResistanceOhms, 0);
+        }
     }
 
     // settleUs is per-TestCase (pad_map.h), not a firmware-wide constant like

@@ -27,3 +27,14 @@ public:
 private:
     uint8_t _padmapIds[4];
 };
+
+// r2: onboard diode (pins 70/71) replaced with a 1k precision resistor.
+// Everything else about the board is unchanged, so this only overrides the
+// self-test — see mezzanine70.cpp for what changed and why.
+class Mezzanine70r2 : public Mezzanine70 {
+public:
+    explicit Mezzanine70r2(const EepromData& eeprom) : Mezzanine70(eeprom) {}
+
+    AdapterHardware getAdapterHardware() const override { return AdapterHardware::Mezzanine70r2; }
+    bool            selfTest(MuxController& mux, AdcDriver& adc) const override;
+};

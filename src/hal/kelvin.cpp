@@ -4,9 +4,9 @@
 static constexpr float VCC = 3.3f;
 
 const PullupLevel PULLUP_LEVELS[PULLUP_LEVEL_COUNT] = {
-    { Bus::C, 320000.0f },
-    { Bus::D,  32850.0f },
-    { Bus::E,   3285.0f },
+    { Bus::C, 330000.0f },
+    { Bus::D,  33000.0f },
+    { Bus::E,   3300.0f },
 };
 
 float pullupCurrentUA(float pullupOhms) {

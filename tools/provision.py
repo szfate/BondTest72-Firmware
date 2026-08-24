@@ -39,11 +39,12 @@ PAD_MAPS = {
 
 ADAPTER_HW_NAMES = {
     1: "Mezzanine70 r1",
+    2: "Mezzanine70 r2",
 }
 
 
 def parse_adapter_line(line: str) -> dict:
-    """Parse 'ADAPTER hw=N pm=N[,N] ... mfg_date=N ins=N tests=N eol=N dut=N'"""
+    """Parse 'ADAPTER aid=X ahw=N pm=N[,N] ... mfg_date=N ins=N tests=N eol=N dut=N'"""
     info = {}
     for token in line.split():
         if "=" in token:
@@ -123,8 +124,8 @@ def fmt_date(d: str) -> str:
 
 
 def print_adapter_info(info: dict):
-    uid      = info.get("uid",      "?")
-    hw       = info.get("hw",       "?")
+    uid      = info.get("aid",      "?")
+    hw       = info.get("ahw",      "?")
     pm       = info.get("pm",       "")
     mfg      = fmt_date(info.get("mfg_date", "0"))
     ins      = info.get("ins",      "?")

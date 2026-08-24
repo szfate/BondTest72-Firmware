@@ -376,7 +376,9 @@ void StateMachine::startTest() {
     _hostProtocol.sendTestStart(
         (uint8_t)_adapter->getAdapterHardware(),
         _adapter->getSupportedPadmapIds(),
-        _padMap);
+        _padMap,
+        _eepromData.insertionCount,
+        _eepromData.testCount);
 
     transition(State::TESTING);
     _ledManager.update(_state);

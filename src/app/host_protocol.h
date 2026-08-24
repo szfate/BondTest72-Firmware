@@ -48,7 +48,8 @@ void sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
     void sendAdapterRemoved();
     void sendDutInserted();
     void sendDutRemoved();
-    void sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const PadMap* padMap);
+    void sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const PadMap* padMap,
+                        uint32_t insertions, uint32_t tests);
     void sendEolWarning(uint32_t insertionCount);
     void sendWrongOrientation();
     void sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad, TestStrategy strategy, const PadResult& r);

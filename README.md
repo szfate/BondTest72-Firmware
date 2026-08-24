@@ -169,7 +169,7 @@ Line-oriented text over USB CDC, 115200 baud. All messages with arguments use `k
 ```
 HELLO name=<string> build=<string> uid=<hex16>
 
-ADAPTER uid=<hex16> hw=<uint> pm=<uint>[,<uint>...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1>
+ADAPTER aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1>
 
 PAD slot=<uint> apin=<uint> dp=<uint> result=<GOOD|OPEN|SHORT> ps=<0|1> ns=<0|1> sv=<float> pv=<float> nv=<float>
 
@@ -177,11 +177,11 @@ SLOT slot=<uint> present=<0|1> tested=<0|1>
 
 SUMMARY outcome=<PASS|FAIL> good=<uint> tested=<uint> [fail_reason=DUT_REMOVED]
 
-EVENT ADAPTER_DETECTED uid=<hex16> hw=<uint> pm=<uint>[,<uint>...]
+EVENT ADAPTER_DETECTED aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...]
 EVENT ADAPTER_REMOVED
 EVENT DUT_INSERTED
 EVENT DUT_REMOVED
-EVENT TEST_START uid=<hex16> hw=<uint> pm=<uint>[,<uint>...]
+EVENT TEST_START aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...]
 EVENT EOL_WARNING ins=<uint>
 EVENT WRONG_ORIENTATION
 EVENT FAULT msg=<string>
