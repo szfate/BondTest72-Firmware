@@ -68,6 +68,25 @@ static void groundAndDischarge(MuxController& mux, uint8_t forceCh, uint8_t sink
     mux.setChannel(sinkCh, Bus::B);   // reference first again, before the caller drives forceCh
 }
 
+// Ends a measurement: drains forceCh, then opens everything. ORDER IS
+// SAFETY-CRITICAL (mirror of groundAndDischarge above): forceCh may sit at
+// ~VCC on a charged DUT cap (CAP_SENSE charges 1µF to ~VCC through 3.3k over
+// the settle window), and grounding a charged cap plate is safe ONLY while
+// its return (sinkCh) is still held on Bus::B — with the return floating, the
+// plate's step to GND drives the return to about −VCC by charge conservation
+// and fires the parasitic SCR. The 1ms (~20τ into 1µF, ~50Ω Ron) ensures no
+// residual charge crosses clearAll() into the next call: a partially charged
+// node left floating would dip its return when the next REVERSE measurement
+// grounds it as the sink, scaled by whatever charge is left. Residual =
+// V·e^(−t/RC), so caps up to ~5µF are fully drained (≤50mV); beyond that,
+// scale this delay with the padmap's largest cap or poll COM_A until drained.
+// Precondition: sinkCh→Bus::B still closed, as left by groundAndDischarge.
+static void drainAndRelease(MuxController& mux, uint8_t forceCh) {
+    mux.setChannel(forceCh, Bus::B);  // drain while the return (sinkCh) is still grounded
+    delayMicroseconds(1000);
+    mux.clearAll();
+}
+
 PadReading measureKelvin(MuxController& mux, AdcDriver& adc,
                           uint8_t forceCh, uint8_t sinkCh, Bus pullupBus, float pullupOhms,
                           uint16_t settleUs, float maxResistanceOhms) {
@@ -77,7 +96,7 @@ PadReading measureKelvin(MuxController& mux, AdcDriver& adc,
     mux.setChannel(forceCh, Bus::A);
     delayMicroseconds(settleUs);
     float v = adc.readVoltage(1);  // COM_A
-    mux.clearAll();
+    drainAndRelease(mux, forceCh);
 
     return classifyVoltage(v, pullupOhms, maxResistanceOhms);
 }
@@ -100,7 +119,7 @@ void measureKelvinCurve(MuxController& mux, AdcDriver& adc,
         elapsed = times[i];
         out[i] = classifyVoltage(adc.readVoltage(1), pullupOhms, maxResistanceOhms);
     }
-    mux.clearAll();
+    drainAndRelease(mux, forceCh);
 }
 
 bool kelvinAnyLevelBelow(MuxController& mux, AdcDriver& adc,

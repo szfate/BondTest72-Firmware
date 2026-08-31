@@ -41,7 +41,11 @@ struct TestThresholds {
 enum class TestStrategy : uint8_t {
     STANDARD,    // 6-point Kelvin resistance sweep: {330k,33k,3.3k} x {fwd,rev}
     DISCHARGE,   // nop: short adapterPin+gndPin to Bus::B for settleUs; discharges cap, no result
-    PRECHARGE,   // nop: adapterPin→Bus::D, gndPin→Bus::B for settleUs; charges cap, no result
+    PRECHARGE,   // nop: adapterPin→Bus::D, gndPin→Bus::B for settleUs; charges cap, no result.
+                 // Unused by current padmaps. NOTE if ever used: the node stays charged after
+                 // clearAll, so the next case must ground its return BEFORE grounding this pin
+                 // (DISCHARGE does) — grounding it sink-first dips the return out-of-rails; see
+                 // groundAndDischarge in hal/kelvin.cpp.
     CAP_SENSE,   // For pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX) where
                  // STANDARD's 330k/33k levels can never settle in practical time (τ = R·C —
                  // at 1µF, 330k gives τ≈330ms, 33k gives τ≈33ms, impractical per-pad). Uses
