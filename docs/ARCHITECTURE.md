@@ -187,7 +187,7 @@ struct TestCase {
     uint8_t               adapterPin;  // adapter pin under test (1-indexed)
     uint8_t               gndPin;      // adapter GND pin — reference/return for the sweep
     uint8_t               diePad;      // die pad number (for logging; 0 for DISCHARGE steps)
-    TestStrategy          strategy;    // STANDARD | DISCHARGE | PRECHARGE | CAP_SENSE
+    TestStrategy          strategy;    // STANDARD | DISCHARGE | CAP_SENSE
     PadType                padType;     // IO | VDDIO | VDD_CORE | PWR_AUX | GND
     uint16_t              settleUs;    // per-case settle time before sampling
     const TestThresholds* thresholds;  // resistance ceiling for GOOD/OPEN (nullptr only valid for DISCHARGE)
@@ -204,10 +204,12 @@ struct PadMap {
 };
 ```
 
-`STANDARD` pads get a 6-point Kelvin resistance sweep (330k/33k/3.3k pullup ×
-forward/reverse). `CAP_SENSE` pads (VDDIO/VDD_CORE/PWR_AUX — real bypass caps
+`STANDARD` pads get a Kelvin resistance sweep (330k/33k/3.3k pullup; which
+directions are measured is set by `MEASURE_DIRECTIONS` in
+`src/test/result.h` — reverse-only in the current build). `CAP_SENSE` pads
+(VDDIO/VDD_CORE/PWR_AUX — real bypass caps
 that can't settle fast enough at 330k/33k) instead sample a charging curve at
-one fixed 3.3k pullup. `DISCHARGE`/`PRECHARGE` are prep steps around CAP_SENSE
+one fixed 3.3k pullup. `DISCHARGE` is a prep step around CAP_SENSE
 pads with no result recorded. See `TestRunner` below and `EVENT TEST_START`'s
 `max_bond_r_ohms`/`current_list_ua`/`cap_time_list_us` in the host protocol doc
 for exactly what's compared against what.
@@ -298,9 +300,6 @@ run(adapter, padMap):
             if tc.strategy == DISCHARGE:
                 short adapterPin + gndPin to Bus::B for tc.settleUs   // drain cap, no result
                 continue
-            if tc.strategy == PRECHARGE:
-                gndPin → Bus::B, adapterPin → Bus::D, for tc.settleUs // charge cap through the bond
-                continue
             result = sweepPad(adapter, tc)                            // see below
             record result under this slot/channel
         if not dutDetector.checkNow():
@@ -311,15 +310,17 @@ run(adapter, padMap):
 
 `sweepPad(adapter, tc)`:
 - **STANDARD** (most IO pads): for each of the 3 pullup levels (330k/33k/3.3k,
-  low-current-first) takes one forward reading (`adapterPin` driven +
-  Kelvin-sensed, `gndPin` sinks) and one reverse reading (roles swapped) — 6
-  readings total. `conducted` = apparent resistance below
+  low-current-first) takes one reading per measured direction (forward =
+  `adapterPin` driven + Kelvin-sensed with `gndPin` sinking; reverse = roles
+  swapped). Which directions are measured is set by `MEASURE_DIRECTIONS`
+  (`src/test/result.h`) — reverse-only in the current build, so 3 readings.
+  `conducted` = apparent resistance below
   `tc.thresholds->maxBondResistanceOhms` on that reading. Pad is `GOOD` if
-  *any* of the 6 conducted (see the rationale for a resistance ceiling over a
+  *any* reading conducted (see the rationale for a resistance ceiling over a
   voltage margin in `pad_map.h`).
-- **CAP_SENSE** (VDDIO/VDD_CORE/PWR_AUX): single 3.3k pullup, forward and
-  reverse, each sampled at 5 points across the charging curve
-  (`measureKelvinCurve`) instead of one settled reading — classification uses
+- **CAP_SENSE** (VDDIO/VDD_CORE/PWR_AUX): single 3.3k pullup, one 5-point
+  charging-curve sample set (`measureKelvinCurve`) per measured direction
+  instead of one settled reading — classification uses
   only the last (most-settled) sample of each direction.
 
 Apparent resistance: `R = Rpu · V / (VCC − V)`, from the Kelvin voltage read on
@@ -334,14 +335,19 @@ resistance ceiling (`TestThresholds::maxBondResistanceOhms`, currently 60kΩ,
 see the calibration rationale in `pad_map.h`/`pad_map_registry.cpp`), applied
 uniformly at every pullup level via `classifyVoltage()` in `hal/kelvin.cpp`:
 
-- Apparent resistance **below the ceiling at any of the 6 (STANDARD) or 2
-  (CAP_SENSE, final samples) readings** → `GOOD`
+- Apparent resistance **below the ceiling at any of the measured-direction
+  readings (3 reverse per pad for STANDARD, final reverse sample for
+  CAP_SENSE in the current build)** → `GOOD`
 - No reading below the ceiling → `OPEN`
 
-There is no `SHORT` result — a genuine short reads as a very low resistance,
-which is just a strong `GOOD` under this scheme. Reported resistance/voltage
-values are streamed per-pad on the `PAD` line (`rf=`/`rr=`/`vf=`/`vr=` for
-STANDARD, `vfs=`/`vrs=` for CAP_SENSE) — see `docs/BONDTEST72_HOST_PROTOCOL.md`.
+The forward direction is currently not measured: forward drive charges the
+adapter-side bypass cap to ~VCC and is the trigger sequence for the CH446X
+latch-up, so the sweep runs reverse-only (`MEASURE_DIRECTIONS =
+REVERSE_ONLY` in `src/test/result.h`). The `PAD` line's `method=` field
+encodes which directions it carries — `STD`/`STD_FW`/`STD_REV` for STANDARD,
+`CAP`/`CAP_FW`/`CAP_REV` for CAP_SENSE, with the corresponding `rf=`/`rr=`/
+`vf=`/`vr=`/`vfs=`/`vrs=` groups present only for measured directions — see
+`docs/BONDTEST72_HOST_PROTOCOL.md`.
 
 ---
 
@@ -417,8 +423,8 @@ ADAPTER aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] lifespan=<uint> mfg_date=<Y
 
 SLOT slot=<uint> present=<0|1> tested=<0|1>          # sent before that slot's PAD lines
 
-PAD slot=<uint> apin=<uint> dp=<uint> method=STD result=<GOOD|OPEN> rf=<f,f,f> rr=<f,f,f> vf=<f,f,f> vr=<f,f,f>
-PAD slot=<uint> apin=<uint> dp=<uint> method=CAP result=<GOOD|OPEN> vfs=<f,f,f,f,f> vrs=<f,f,f,f,f>
+PAD slot=<uint> apin=<uint> dp=<uint> method=STD_REV result=<GOOD|OPEN> rr=<f,f,f> vr=<f,f,f>
+PAD slot=<uint> apin=<uint> dp=<uint> method=CAP_REV result=<GOOD|OPEN> vrs=<f,f,f,f,f>
 
 SUMMARY outcome=<PASS|FAIL> good=<uint> tested=<uint> [fail_reason=DUT_REMOVED]
 

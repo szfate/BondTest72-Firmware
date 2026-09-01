@@ -231,12 +231,14 @@ EVENT FAULT msg=<message>
 ### `PAD`
 
 One line per tested die pad, sent during a test run. Format depends on `method`:
-- `STD` — most IO pads. A 6-point Kelvin resistance sweep: 3 pullup levels (330k/33k/3.3k) × forward/reverse.
-- `CAP` — pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX), which can't settle fast enough at 330k/33k. Instead of resistance, reports raw voltage samples across the 3.3k-only charging curve.
+- `STD` / `STD_FW` / `STD_REV` — most IO pads. A Kelvin resistance sweep: 3 pullup levels (330k/33k/3.3k). The variant encodes which direction group(s) the line carries: `STD` = both, `STD_FW` = forward only, `STD_REV` = reverse only.
+- `CAP` / `CAP_FW` / `CAP_REV` — pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX), which can't settle fast enough at 330k/33k. Instead of resistance, reports raw voltage samples across the 3.3k-only charging curve. Variants as for `STD`.
+
+The current firmware measures the reverse direction only (`MEASURE_DIRECTIONS = REVERSE_ONLY` in `src/test/result.h`): forward drive charges the adapter-side bypass cap to ~VCC and is the trigger sequence for the CH446X latch-up. PAD lines therefore carry `method=STD_REV`/`CAP_REV` and only the reverse groups. Unmeasured groups are never sent as zeros — `0Ω` would read as a dead short.
 
 ```
-PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> method=STD result=<GOOD|OPEN> rf=<f,f,f> rr=<f,f,f> vf=<f,f,f> vr=<f,f,f>
-PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> method=CAP result=<GOOD|OPEN> vfs=<f,f,f,f,f> vrs=<f,f,f,f,f>
+PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> method=STD_REV result=<GOOD|OPEN> rr=<f,f,f> vr=<f,f,f>
+PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> method=CAP_REV result=<GOOD|OPEN> vrs=<f,f,f,f,f>
 ```
 
 | Field | Type | Description |
@@ -244,11 +246,13 @@ PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> method=CAP result=<GOOD|OPEN> vf
 | `slot` | uint8 | DUT slot number (0 for single-DUT adapters) |
 | `apin` | uint8 | Adapter pin number |
 | `dp` | uint8 | Die pad number (0-indexed) |
-| `method` | string | `STD` or `CAP` — see above |
+| `method` | string | `STD`/`STD_FW`/`STD_REV` or `CAP`/`CAP_FW`/`CAP_REV` — which direction group(s) the line carries |
 | `result` | string | `GOOD` or `OPEN` |
-| `rf` / `rr` | float[3] | STD only. Forward/reverse apparent bond resistance (Ω) at each pullup level, low-current-first (330k, 33k, 3.3k — see `current_list_ua` on `EVENT TEST_START`). GOOD if any of the 6 readings is below `max_bond_r_ohms`. |
-| `vf` / `vr` | float[3] | STD only. The underlying Kelvin voltages behind `rf`/`rr`, same order, 3 decimal places. |
-| `vfs` / `vrs` | float[5] | CAP only. Raw voltage samples across the charging curve, earliest-first (see `cap_time_list_us` on `EVENT TEST_START`), 3 decimal places. No resistance is reported — mid-charge resistance isn't physically meaningful; classification uses only the final (most-settled) sample. |
+| `rr` | float[3] | STD lines. Reverse apparent bond resistance (Ω) at each pullup level, low-current-first (330k, 33k, 3.3k — see `current_list_ua` on `EVENT TEST_START`). GOOD if any of the reverse readings is below `max_bond_r_ohms`. |
+| `vr` | float[3] | STD lines. The underlying Kelvin voltages behind `rr`, same order, 3 decimal places. |
+| `rf` / `vf` | float[3] | STD lines. Forward-direction equivalents of `rr`/`vr`, present only when the method includes forward (`STD`, `STD_FW`). |
+| `vrs` | float[5] | CAP lines. Raw voltage samples across the reverse charging curve, earliest-first (see `cap_time_list_us` on `EVENT TEST_START`), 3 decimal places. No resistance is reported — mid-charge resistance isn't physically meaningful; classification uses only the final (most-settled) sample. Present only when the method includes reverse (`CAP`, `CAP_REV`). |
+| `vfs` | float[5] | CAP lines. Forward charging curve, present only when the method includes forward (`CAP`, `CAP_FW`). |
 
 ---
 
@@ -361,15 +365,15 @@ DSCAN DONE
 → RUN
 ← EVENT TEST_START aid=0123456789ABCDEF ahw=1 ins=237 tests=263 pm=2 current_list_ua=10,100,1000 max_bond_r_ohms=60000 cap_time_list_us=1250,2500,10000,15000,20000
 ← SLOT slot=0 present=1 tested=1
-← PAD slot=0 apin=63 dp=0 method=STD result=GOOD rf=49273,6113,897 rr=53579,6734,1097 vf=0.429,0.516,0.705 vr=0.461,0.559,0.824
-← PAD slot=0 apin=64 dp=1 method=STD result=GOOD rf=46735,6000,911 rr=56431,6957,1105 vf=0.409,0.508,0.714 vr=0.482,0.575,0.828
-  ... (one PAD line per die pad; CAP_SENSE pads use vfs=/vrs= instead of rf=/rr=/vf=/vr=)
+← PAD slot=0 apin=63 dp=0 method=STD_REV result=GOOD rr=53579,6734,1097 vr=0.461,0.559,0.824
+← PAD slot=0 apin=64 dp=1 method=STD_REV result=GOOD rr=56431,6957,1105 vr=0.482,0.575,0.828
+  ... (one PAD line per die pad; CAP pads use method=CAP_REV and vrs= instead of rr=/vr=)
 ← SUMMARY outcome=PASS good=64 tested=64
 
 # Host requests results again
 → GET_RESULTS
 ← SLOT slot=0 present=1 tested=1
-← PAD slot=0 apin=63 dp=0 method=STD result=GOOD rf=49273,6113,897 rr=53579,6734,1097 vf=0.429,0.516,0.705 vr=0.461,0.559,0.824
+← PAD slot=0 apin=63 dp=0 method=STD_REV result=GOOD rr=53579,6734,1097 vr=0.461,0.559,0.824
   ... (all SLOT/PAD/SUMMARY lines repeated; no EVENT TEST_START)
 ```
 

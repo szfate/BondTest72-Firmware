@@ -30,16 +30,19 @@ PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc) {
         uint8_t gndCh     = adapter.channelForPin(tc.gndPin);
         const PullupLevel& lvl = PULLUP_LEVELS[PULLUP_LEVEL_COUNT - 1];  // 3.3k — weakest R, strongest current
 
-        // forward: adapterPin driven + Kelvin-sensed, gndPin sinks
-        measureKelvinCurve(_mux, _adc, adapterCh, gndCh, lvl.bus, lvl.ohms, tc.settleUs, maxOhms, &pr.readings[0]);
-
-        // reverse: gndPin driven + Kelvin-sensed, adapterPin sinks
-        measureKelvinCurve(_mux, _adc, gndCh, adapterCh, lvl.bus, lvl.ohms, tc.settleUs, maxOhms,
-                            &pr.readings[CAP_SENSE_SAMPLE_COUNT]);
+        if (measuresForward(MEASURE_DIRECTIONS)) {
+            // forward: adapterPin driven + Kelvin-sensed, gndPin sinks
+            measureKelvinCurve(_mux, _adc, adapterCh, gndCh, lvl.bus, lvl.ohms, tc.settleUs, maxOhms, &pr.readings[0]);
+        }
+        if (measuresReverse(MEASURE_DIRECTIONS)) {
+            // reverse: gndPin driven + Kelvin-sensed, adapterPin sinks
+            measureKelvinCurve(_mux, _adc, gndCh, adapterCh, lvl.bus, lvl.ohms, tc.settleUs, maxOhms,
+                                &pr.readings[CAP_SENSE_SAMPLE_COUNT]);
+        }
 
         // Classify on the last (most-settled) sample of each direction — the earlier samples are curve-shape only.
-        bool fwdConducted = pr.readings[CAP_SENSE_SAMPLE_COUNT - 1].conducted;
-        bool revConducted = pr.readings[2 * CAP_SENSE_SAMPLE_COUNT - 1].conducted;
+        bool fwdConducted = measuresForward(MEASURE_DIRECTIONS) && pr.readings[CAP_SENSE_SAMPLE_COUNT - 1].conducted;
+        bool revConducted = measuresReverse(MEASURE_DIRECTIONS) && pr.readings[2 * CAP_SENSE_SAMPLE_COUNT - 1].conducted;
         pr.bond = (fwdConducted || revConducted) ? BondResult::GOOD : BondResult::OPEN;
         return pr;
     }
@@ -50,17 +53,20 @@ PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc) {
 
     bool anyConducted = false;
     for (uint8_t i = 0; i < PULLUP_LEVEL_COUNT; i++) {
-        // forward: adapterPin driven + Kelvin-sensed, gndPin sinks
-        PadReading fwd = measureKelvin(_mux, _adc, adapterCh, gndCh,
-                                        PULLUP_LEVELS[i].bus, PULLUP_LEVELS[i].ohms, tc.settleUs, maxOhms);
-        pr.readings[i] = fwd;
-        anyConducted |= fwd.conducted;
-
-        // reverse: gndPin driven + Kelvin-sensed, adapterPin sinks
-        PadReading rev = measureKelvin(_mux, _adc, gndCh, adapterCh,
-                                        PULLUP_LEVELS[i].bus, PULLUP_LEVELS[i].ohms, tc.settleUs, maxOhms);
-        pr.readings[PULLUP_LEVEL_COUNT + i] = rev;
-        anyConducted |= rev.conducted;
+        if (measuresForward(MEASURE_DIRECTIONS)) {
+            // forward: adapterPin driven + Kelvin-sensed, gndPin sinks
+            PadReading fwd = measureKelvin(_mux, _adc, adapterCh, gndCh,
+                                            PULLUP_LEVELS[i].bus, PULLUP_LEVELS[i].ohms, tc.settleUs, maxOhms);
+            pr.readings[i] = fwd;
+            anyConducted |= fwd.conducted;
+        }
+        if (measuresReverse(MEASURE_DIRECTIONS)) {
+            // reverse: gndPin driven + Kelvin-sensed, adapterPin sinks
+            PadReading rev = measureKelvin(_mux, _adc, gndCh, adapterCh,
+                                            PULLUP_LEVELS[i].bus, PULLUP_LEVELS[i].ohms, tc.settleUs, maxOhms);
+            pr.readings[PULLUP_LEVEL_COUNT + i] = rev;
+            anyConducted |= rev.conducted;
+        }
     }
 
     pr.bond = anyConducted ? BondResult::GOOD : BondResult::OPEN;
@@ -100,19 +106,9 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
                 _mux.clearAll();
                 continue;
             }
-            if (tc.strategy == TestStrategy::PRECHARGE) {
-                // Charge cap through the bond: inject at adapterPin, return at gndPin.
-                // Ground reference first — see groundAndDischarge in hal/kelvin.cpp.
-                _mux.setChannel(adapter.channelForPin(tc.gndPin), Bus::B);
-                _mux.setChannel(adapter.channelForPin(tc.adapterPin), Bus::D);
-                delayMicroseconds(tc.settleUs);
-                _mux.clearAll();
-                continue;
-            }
-
             PadResult pr = sweepPad(adapter, tc);
 
-            // Full per-reading detail goes out via sendPadResult (rf=/rr=/vf=/vr=); keep this to a summary.
+            // Full per-reading detail goes out via sendPadResult; keep this to a summary.
             LOG_I("slot%u apin%u die%u: result=%s", slot, tc.adapterPin, tc.diePad,
                   pr.bond == BondResult::GOOD ? "GOOD" : "OPEN");
 
@@ -141,7 +137,7 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
             // Every pad must pass individually.
             for (uint8_t i = 0; i < padMap.caseCount && result.outcome == TestOutcome::PASS; i++) {
                 const TestCase& tc = padMap.cases[i];
-                if (tc.strategy == TestStrategy::DISCHARGE || tc.strategy == TestStrategy::PRECHARGE) continue;
+                if (tc.strategy == TestStrategy::DISCHARGE) continue;
                 const PadResult& pr = sr.byChannel[adapter.channelForPin(tc.adapterPin)];
                 if (pr.bond != BondResult::GOOD)
                     result.outcome = TestOutcome::FAIL;

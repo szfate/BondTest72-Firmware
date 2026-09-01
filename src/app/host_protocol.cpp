@@ -280,11 +280,20 @@ static void printReadingGroupCsv(const PadReading* group, uint8_t count, bool re
 
 void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad,
                                  TestStrategy strategy, const PadResult& r) {
+    // method= encodes which direction group(s) the line carries (see
+    // MEASURE_DIRECTIONS in result.h): STD/CAP = both, *_FW = forward only,
+    // *_REV = reverse only. Unmeasured groups are omitted from the wire —
+    // zeroed 0Ω/0V values would read as a dead short to keyword consumers.
+    const bool fwdMeasured = measuresForward(MEASURE_DIRECTIONS);
+    const bool revMeasured = measuresReverse(MEASURE_DIRECTIONS);
+    const char* dirSuffix = (fwdMeasured && revMeasured) ? "" : (fwdMeasured ? "_FW" : "_REV");
+
     Serial.print("PAD ");
     Serial.print("slot=");   Serial.print(slot);
     Serial.print(" apin=");    Serial.print(adapterPin);
     Serial.print(" dp=");     Serial.print(diePad);
     Serial.print(" method="); Serial.print(strategy == TestStrategy::CAP_SENSE ? "CAP" : "STD");
+    Serial.print(dirSuffix);
     Serial.print(" result=");
     Serial.print(r.bond == BondResult::GOOD ? "GOOD" : "OPEN");
 
@@ -298,19 +307,32 @@ void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePa
         // approaches VCC and doesn't represent anything physical. Only the
         // final (most-settled) sample in each direction is steady-state
         // enough for that transform to matter, and that's already reflected
-        // in `result` via the classification.
+        // in `result` via the classification. Each curve is sent only for the
+        // direction(s) its method= covers (vfs = forward, vrs = reverse).
         const PadReading* fwd = &r.readings[0];
         const PadReading* rev = &r.readings[CAP_SENSE_SAMPLE_COUNT];
-        Serial.print(" vfs="); printReadingGroupCsv(fwd, CAP_SENSE_SAMPLE_COUNT, false);
-        Serial.print(" vrs="); printReadingGroupCsv(rev, CAP_SENSE_SAMPLE_COUNT, false);
+        if (fwdMeasured) {
+            Serial.print(" vfs="); printReadingGroupCsv(fwd, CAP_SENSE_SAMPLE_COUNT, false);
+        }
+        if (revMeasured) {
+            Serial.print(" vrs="); printReadingGroupCsv(rev, CAP_SENSE_SAMPLE_COUNT, false);
+        }
     } else {
         const PadReading* fwd = &r.readings[0];
         const PadReading* rev = &r.readings[PULLUP_LEVEL_COUNT];
 
-        Serial.print(" rf="); printReadingGroupCsv(fwd, PULLUP_LEVEL_COUNT, true);
-        Serial.print(" rr="); printReadingGroupCsv(rev, PULLUP_LEVEL_COUNT, true);
-        Serial.print(" vf="); printReadingGroupCsv(fwd, PULLUP_LEVEL_COUNT, false);
-        Serial.print(" vr="); printReadingGroupCsv(rev, PULLUP_LEVEL_COUNT, false);
+        if (fwdMeasured) {
+            Serial.print(" rf="); printReadingGroupCsv(fwd, PULLUP_LEVEL_COUNT, true);
+        }
+        if (revMeasured) {
+            Serial.print(" rr="); printReadingGroupCsv(rev, PULLUP_LEVEL_COUNT, true);
+        }
+        if (fwdMeasured) {
+            Serial.print(" vf="); printReadingGroupCsv(fwd, PULLUP_LEVEL_COUNT, false);
+        }
+        if (revMeasured) {
+            Serial.print(" vr="); printReadingGroupCsv(rev, PULLUP_LEVEL_COUNT, false);
+        }
     }
     Serial.println();
 }
