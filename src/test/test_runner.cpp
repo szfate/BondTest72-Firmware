@@ -15,16 +15,22 @@ PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc) {
 
     if (tc.strategy == TestStrategy::CAP_SENSE) {
         // Only the strongest (3.3k) pullup is fast enough to fully settle a
-        // real DUT bypass cap in practical time — τ = R·C, so at 1µF the
-        // 330k/33k levels would need hundreds of ms, impractical per-pad,
-        // while 3.3k gives τ≈3.3ms. tc.settleUs is the total elapsed time
-        // for the last sample (~6τ for the real DUT cap value — set per pad
-        // map, NOT the short STANDARD default). Instead of one point-in-time
-        // reading, measureKelvinCurve takes CAP_SENSE_SAMPLE_COUNT samples
-        // spread across that window without releasing the connection in
-        // between, so the readings[] array holds a visible charging curve
-        // (still rising vs already plateaued) rather than discrete current
-        // levels — see result.h and measureKelvinCurve's doc comment.
+        // real cap in practical time — τ = R·C, so at 1µF the 330k/33k
+        // levels would need hundreds of ms, impractical per-pad. In the
+        // reverse-only sweep (MEASURE_DIRECTIONS, result.h) the DUT bypass
+        // cap sits on the grounded sink side and never charges; the node
+        // being charged is the die-side net, whose capacitance is
+        // DUT-dependent (~0.7µF / τ≈2.3ms on the 1x1 die). tc.settleUs is
+        // the total elapsed time for the last sample and must cover ~3τ of
+        // that net — OPEN has to charge past the resistance-ceiling voltage
+        // (~95% of VCC) to classify OPEN, while GOOD only errs safe (set per
+        // pad map, NOT the short STANDARD default). Instead of one
+        // point-in-time reading, measureKelvinCurve takes
+        // CAP_SENSE_SAMPLE_COUNT samples spread across that window without
+        // releasing the connection in between, so the readings[] array holds
+        // a charging curve (die net rising on OPEN pads, flat at the bond
+        // divider on GOOD pads) rather than discrete current levels — see
+        // result.h and measureKelvinCurve's doc comment.
         const float maxOhms = tc.thresholds->maxBondResistanceOhms;
         uint8_t adapterCh = adapter.channelForPin(tc.adapterPin);
         uint8_t gndCh     = adapter.channelForPin(tc.gndPin);

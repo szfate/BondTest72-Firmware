@@ -13,13 +13,23 @@ float pullupCurrentUA(float pullupOhms) {
     return VCC / pullupOhms * 1.0e6f;
 }
 
+// Schedule front-loaded for the reverse-only sweep (MEASURE_DIRECTIONS —
+// result.h): the only charging curve left is the die-side net on OPEN pads.
+// Sized around a ~1µF die-side net (τ≈3.3ms through the 3.3k; ~0.75µF /
+// τ≈2.5ms measured on the 1x1 die): with the padmaps' 20ms window the
+// samples land at ~0.05/0.1/0.4/3/6τ — two points on the early rise, one
+// mid-rise, one near-settled, one settled. /128 still reads clean in
+// practice (ADC-read overhead is only ~tens of µs); don't go much earlier
+// or the first sample starts inside it. GOOD pads rise into the bond-
+// divider plateau (strong bonds are flat from the first sample) — the DUT
+// bypass cap sits on the grounded sink side and never charges.
 void curveSampleTimesUs(uint16_t totalSettleUs, uint16_t* out) {
     static_assert(CAP_SENSE_SAMPLE_COUNT == 5, "curveSampleTimesUs's schedule is hardcoded for 5 points");
-    out[0] = totalSettleUs / 16;
-    out[1] = totalSettleUs / 8;
-    out[2] = totalSettleUs / 2;
-    out[3] = totalSettleUs * 3 / 4;
-    out[4] = totalSettleUs;
+    out[0] = totalSettleUs / 128;   // 0.156ms at a 20ms window
+    out[1] = totalSettleUs / 64;    // 0.3125ms
+    out[2] = totalSettleUs / 16;    // 1.25ms
+    out[3] = totalSettleUs / 2;     // 10ms
+    out[4] = totalSettleUs;         // 20ms
 }
 
 static PadReading classifyVoltage(float v, float pullupOhms, float maxResistanceOhms) {
@@ -57,12 +67,12 @@ static PadReading classifyVoltage(float v, float pullupOhms, float maxResistance
 // path, since COM_C/D/E are pullups to VCC and Bus::B is the only ground.
 // That's ~33mA through two ~50Ω switches, above the continuous rating but
 // entirely within the rails, so it's switch stress rather than a latch-up
-// risk. τ≈100µs into 1µF; 500µs is ~5τ, >99% drained.
+// risk. τ≈100µs into 1µF; 1ms is ~10τ, fully drained.
 static void groundAndDischarge(MuxController& mux, uint8_t forceCh, uint8_t sinkCh) {
     mux.clearAll();
     mux.setChannel(sinkCh, Bus::B);   // reference first — never leave it floating
     mux.setChannel(forceCh, Bus::B);  // then drain into a solid ground
-    delayMicroseconds(500);
+    delayMicroseconds(1000);
 
     mux.clearAll();
     mux.setChannel(sinkCh, Bus::B);   // reference first again, before the caller drives forceCh

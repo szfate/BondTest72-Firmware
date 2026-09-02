@@ -44,11 +44,14 @@ enum class TestStrategy : uint8_t {
     CAP_SENSE,   // For pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX) where
                  // STANDARD's 330k/33k levels can never settle in practical time (τ = R·C —
                  // at 1µF, 330k gives τ≈330ms, 33k gives τ≈33ms, impractical per-pad). Uses
-                 // only the 3.3k level (τ≈3.3ms for 1µF — the only level fast enough to fully
-                 // settle in a few tens of ms), fwd + rev. `settleUs` here is the post-discharge
-                 // settle time (want ~5τ for the real DUT cap value, not the short STANDARD
-                 // default) — see measureKelvin's built-in discharge step for how the cap gets
-                 // to a known baseline before each reading.
+                 // only the 3.3k level, one direction per MEASURE_DIRECTIONS (result.h) — in
+                 // the reverse-only sweep the DUT bypass cap is on the grounded sink side and
+                 // the charged node is the die-side net (τ is DUT-dependent, ~2.3ms on the
+                 // 1x1 die). `settleUs` here is the post-discharge settle time (want ≥~3τ of
+                 // THAT net — OPEN must charge past the resistance-ceiling voltage to
+                 // classify; GOOD errs safe — not the short STANDARD default) — see
+                 // measureKelvin's built-in discharge step for how the node gets to a known
+                 // baseline before each reading.
 };
 
 enum class PadType : uint8_t {

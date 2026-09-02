@@ -363,7 +363,7 @@ DSCAN DONE
 
 # Host starts test
 → RUN
-← EVENT TEST_START aid=0123456789ABCDEF ahw=1 ins=237 tests=263 pm=2 current_list_ua=10,100,1000 max_bond_r_ohms=60000 cap_time_list_us=1250,2500,10000,15000,20000
+← EVENT TEST_START aid=0123456789ABCDEF ahw=1 ins=237 tests=263 pm=2 current_list_ua=10,100,1000 max_bond_r_ohms=60000 cap_time_list_us=156,312,1250,10000,20000
 ← SLOT slot=0 present=1 tested=1
 ← PAD slot=0 apin=63 dp=0 method=STD_REV result=GOOD rr=53579,6734,1097 vr=0.461,0.559,0.824
 ← PAD slot=0 apin=64 dp=1 method=STD_REV result=GOOD rr=56431,6957,1105 vr=0.482,0.575,0.828
