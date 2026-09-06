@@ -6,32 +6,32 @@ Firmware for the BondTest72 wirebond integrity tester — a bench instrument for
 
 ## How it works
 
-The tester injects a small constant current (~100 µA) through the GND pad of the die and measures the resulting voltage at each IO pad. Because every IO pad has an ESD protection diode tied to GND internally, a good bond produces a predictable forward-drop voltage. Missing or shorted bonds deviate from this signature.
+The tester measures each die pad with a Kelvin resistance sweep. The pad under test is driven through one of three pullup strengths (330 kΩ / 33 kΩ / 3.3 kΩ — 10/100/1000 µA, weakest current first) against the pad map's GND reference pin, and the driven node is Kelvin-sensed on COM_A. The apparent bond resistance `R = Rpu · V / (VCC − V)` is computed for each reading; a pad is **GOOD** if any reading falls below the resistance ceiling (60 kΩ), **OPEN** if none do — there is no fixed voltage-threshold table.
 
 ```
-                         3.3 V
-                           │
-                        27 kΩ  ← pullup on COM_D
-                           │
-          ┌────────────────┤ COM_D (ADC0) ← bond sense
-          │                │
-  GND pad ┤ ~100 µA →  ESD diode
-          │                │
-          └────────────────┤ IO pad under test
+                        3.3 V
+                          │
+                 330k / 33k / 3.3k   ← pullup sweep, weakest current first
+                          │
+       driven pin ────────┤ ← Kelvin sense (COM_A, ADC1)
+                          │
+                   path under test
+             (bond · die trace · ESD structure)
+                          │
+      reference pin ──────┴──→ tester GND return (Bus::B)
 ```
 
-| COM_D voltage | Interpretation |
-|---------------|----------------|
-| 0.2 – 0.8 V   | Good bond (ESD diode forward drop) |
-| > 2.5 V       | Open bond — no return path, pullup dominates |
-| < 0.1 V       | Short to GND |
+The sweep runs **reverse-only** in the current build (`MEASURE_DIRECTIONS = REVERSE_ONLY` in `src/test/result.h`): the forward direction charges the adapter-side bypass cap to ~VCC and is the trigger sequence for the CH446X latch-up (see `src/hal/kelvin.cpp`). Forward is kept available for root-cause isolation.
 
-### Two-phase bond testing
+### Test strategies
 
-Each pad is tested in two phases to catch both bond defects and inter-pad shorts:
+Each pad map is a flat list of per-pad test cases — every pad is measured independently against its own reference pin (there is no neighbour-ring concept):
 
-1. **Neighbour phase** — the pad under test is grounded and its immediate ring-neighbours are sensed via a 1 MΩ/220 kΩ divider (~0.6 V idle). A low reading on a neighbour indicates an inter-pad short.
-2. **Injection phase** — current is injected via the GND pad and the bond voltage is measured on COM_D. Neighbour sense is not active during this phase to avoid interaction.
+1. **STANDARD** — most IO pads. One reading per pullup level per measured direction (3 reverse readings today).
+2. **CAP_SENSE** — pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX) that can't settle at 330k/33k (τ = R·C). Uses only the 3.3k level and samples a 5-point charging curve; classification uses the final (most-settled) sample.
+3. **DISCHARGE** — prep step around CAP_SENSE pads: shorts pad + return to GND to drain the cap, no result recorded.
+
+Before every reading the pad and its return are grounded to a known baseline, and the driven node is drained again before the mux releases — the order is safety-critical and doubles as the CH446X latch-up mitigation (`groundAndDischarge`/`drainAndRelease` in `src/hal/kelvin.cpp`).
 
 ---
 
@@ -63,11 +63,11 @@ The adapter board is specific to a die form factor (e.g. 1×0.5, 1×1) and conne
 
 ### ADC buses
 
-| Bus | GPIO | ADC | Bias circuit | Idle reading |
-|-----|------|-----|-------------|-------------|
-| COM_D — bond sense | GP26 | ADC0 | 27 kΩ pullup to 3.3 V | ~3.3 V (no DUT) |
-| COM_A — left neighbour sense | GP27 | ADC1 | 1 MΩ/220 kΩ divider | ~0.6 V |
-| COM_C — right neighbour sense | GP28 | ADC2 | 1 MΩ/220 kΩ divider | ~0.6 V |
+| Bus | GPIO | ADC | Role |
+|-----|------|-----|------|
+| COM_D | GP26 | ADC0 | Not sampled by the test path — available for debug tooling |
+| COM_A | GP27 | ADC1 | Kelvin sense — the production measurement input |
+| COM_C | GP28 | ADC2 | Not sampled by the test path — available for debug tooling |
 
 ### Known adapters
 
@@ -77,6 +77,8 @@ The adapter board is specific to a die form factor (e.g. 1×0.5, 1×1) and conne
 | Mezzanine70 r1 | COB v2+ | 2 | 1x1   | Fixed COB boards |
 | Mezzanine70 r1 | 1x0p5       | 3 | 1x0p5 | First 1x0p5 die adapter |
 
+Hardware IDs (`ahw` / EEPROM byte 2): `0x01` = Mezzanine70 r1, `0x02` = Mezzanine70 r2. The r2 board is identical except the onboard self-test diode is replaced with a 1 kΩ precision resistor, so `selfTest()` checks measured resistance instead of diode asymmetry.
+
 ---
 
 ## Firmware Architecture
@@ -84,20 +86,23 @@ The adapter board is specific to a die form factor (e.g. 1×0.5, 1×1) and conne
 ```
 ┌──────────────────────────────────────────────────────────┐
 │                    Application Layer                     │
-│     StateMachine  ·  HostProtocol  ·  AdapterMonitor     │
+│      StateMachine  ·  HostProtocol  ·  LedManager        │
 ├──────────────────────────┬───────────────────────────────┤
 │       Test Engine        │       Adapter Layer           │
 │  TestRunner  PadMap      │  AdapterBase (interface)      │
-│  PadMapRegistry          │  Mezzanine70                  │
-│  DutDetector  Discovery  │  AdapterRegistry              │
+│  PadMapRegistry          │  Mezzanine70 / Mezzanine70r2  │
+│  DutDetector             │  AdapterRegistry              │
+│  DiscoveryScanner        │  EepromManager                │
 ├──────────────────────────┴───────────────────────────────┤
 │               Hardware Abstraction Layer (HAL)           │
-│   MuxController · ADC · SK6812Controller                 │
-│   Buttons · AT21CS01Driver · UsbSerial                   │
+│   MuxController · AdcDriver · Kelvin (measurement)       │
+│   SK6812Controller · Buttons · AT21CS01Driver            │
 ├──────────────────────────────────────────────────────────┤
 │                    RP2350 / Arduino                      │
 └──────────────────────────────────────────────────────────┘
 ```
+
+Adapter liveness and DUT polling are folded into `StateMachine::update()` — there is no separate AdapterMonitor class.
 
 ### State machine
 
@@ -105,14 +110,15 @@ The adapter board is specific to a die form factor (e.g. 1×0.5, 1×1) and conne
 BOOT ──────────────────────────────────────────────► FAULT
   │ self-test ok                                       ▲
   ▼                                                    │ mux/ADC error,
-NO_ADAPTER ◄──────────────────────────┐               │ unknown adapter
-  │ adapter detected                  │               │
+NO_ADAPTER ◄──────────────────────────┐               │ unknown adapter,
+  │ adapter detected                  │               │ blank EEPROM
   ▼                                   │ adapter       │
-ADAPTER_DETECTED                      │ removed       │
-  │ DUT detected                      │               │
+ADAPTER_DETECTED ──EOL reached──► EOL_ADAPTER          │
+  │ DUT detected                      │ removed       │
   ▼                                   │               │
 READY ──── button / RUN cmd ──► TESTING ──────────────┘
-  ▲                                 │
+  ▲  \                              │
+  │   \─ DUT inserted backwards ─► WRONG_ORIENTATION
   │ new DUT detected                │
   │ (clears result LEDs)            ▼
   └──────────────────────────  PASS / FAIL
@@ -124,10 +130,11 @@ Result LEDs stay lit after the DUT is removed. They clear only when the next DUT
 
 | State | LED 0 — Ready | LED 1 — Pass | LED 2 — Fail |
 |-------|--------------|-------------|-------------|
-| No adapter | off | off | off |
+| No adapter / EOL adapter | dim red | dim red | dim red |
 | Adapter detected | yellow slow blink | off | off |
 | Ready | yellow solid | off | off |
-| Testing | yellow fast blink | off | off |
+| Testing | yellow solid | off | off |
+| Wrong orientation | red slow blink | off | off |
 | Pass | off | green solid | off |
 | Fail | off | off | red solid |
 | Fault | off | off | red fast blink |
@@ -161,7 +168,7 @@ Line-oriented text over USB CDC, 115200 baud. All messages with arguments use `k
 | `GET_RESULTS` | Re-send the last result set |
 | `GET_ADAPTER` | Query current adapter info |
 | `SET_PADMAP id=<uint>` | Override pad map selection |
-| `PROVISION hw=<uint> padmap=<uint>[,<uint>...] lifespan=<uint> date=<YYYYMMDD>` | Write adapter EEPROM (factory use) |
+| `PROVISION hw=<uint> padmap=<uint>[,<uint>...] lifespan=<uint> date=<YYYYMMDD> [ins=<uint>] [tests=<uint>] [eol=<0\|1>]` | Write adapter EEPROM (factory use). Counters default to 0 when omitted |
 | `DISCOVERY_SCAN` | Sweep all 70×70 pad pairs, stream sense voltages |
 
 ### Responses (tester → host)
@@ -173,8 +180,15 @@ ADAPTER aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] lifespan=<uint> mfg_date=<Y
 
 SLOT slot=<uint> present=<0|1> tested=<0|1>          # sent before that slot's PAD lines
 
-PAD slot=<uint> apin=<uint> dp=<uint> method=STD result=<GOOD|OPEN> rf=<f,f,f> rr=<f,f,f> vf=<f,f,f> vr=<f,f,f>
-PAD slot=<uint> apin=<uint> dp=<uint> method=CAP result=<GOOD|OPEN> vfs=<f,f,f,f,f> vrs=<f,f,f,f,f>
+PAD slot=<uint> apin=<uint> dp=<uint> method=STD_REV result=<GOOD|OPEN> rr=<f,f,f> vr=<f,f,f>
+PAD slot=<uint> apin=<uint> dp=<uint> method=CAP_REV result=<GOOD|OPEN> vrs=<f,f,f,f,f>
+
+# method= encodes which direction group(s) the line carries:
+#   STD / CAP       both directions (rf= + rr= / vfs= + vrs=)
+#   STD_FW / CAP_FW forward only (rf= / vfs=)
+#   STD_REV / CAP_REV reverse only (rr= / vrs=)
+# The current build is reverse-only, so lines carry STD_REV / CAP_REV and
+# only the reverse groups. Unmeasured groups are never sent as zeros.
 
 SUMMARY outcome=<PASS|FAIL> good=<uint> tested=<uint> [fail_reason=DUT_REMOVED]
 
@@ -216,9 +230,9 @@ Each adapter carries an AT21CS01 EEPROM that stores lifetime and configuration d
 | Offset | Size | Field |
 |--------|------|-------|
 | 0 | 2 | Magic: `{ 0xB7, 0x72 }` |
-| 2 | 1 | `adapter_hardware` (0x01 = Mezzanine70) |
+| 2 | 1 | `adapter_hardware` (0x01 = Mezzanine70 r1, 0x02 = Mezzanine70 r2) |
 | 3 | 1 | `rfu` (reserved, write 0xFF) |
-| 4 | 4 | `supported_padmap_ids` (0xFF = unused slot, up to 4 IDs) |
+| 4 | 4 | `supported_padmap_ids` (0xFF-terminated list, up to 4 IDs; first match against the pad map registry wins) |
 | 8 | 4 | reserved (all zeros) |
 | 12 | 4 | `designed_lifespan` — max insertions before EOL |
 | 16 | 4 | `date_of_manufacture` — YYYYMMDD as uint32 (e.g. 20260101) |
@@ -242,16 +256,20 @@ Host-side Python scripts for interacting with the tester. See [tools/README.md](
 ```
 src/
 ├── main.cpp              entry point — constructs and wires all layers
-├── hal/                  hardware drivers (MUX, ADC, LEDs, buttons, EEPROM, USB)
-├── adapter/              adapter abstraction, EEPROM layout, Mezzanine70 driver
+├── hal/                  hardware drivers (MUX, Kelvin measurement, ADC, LEDs, buttons, EEPROM)
+├── adapter/              adapter abstraction, EEPROM layout/manager, Mezzanine70 drivers
 ├── test/                 test runner, pad maps, DUT detector, discovery scan
-└── app/                  state machine, adapter monitor, host protocol
+├── app/                  state machine, LED manager, host protocol
+└── debug/                onboard self-tests (mux waveform, ADC, EEPROM, SK6812, buttons)
 docs/
 ├── ARCHITECTURE.md       detailed firmware design notes
+├── BONDTEST72_HOST_PROTOCOL.md  full host protocol reference
+├── ADAPTER_MEZ70.md      Mezzanine70 adapter pin map and behaviour
 ├── MUX_MAP.md            logical pad → MUX chip/channel mapping
 ├── DUT_PADMAP_TEMPLATE.md  pad map template for new adapters
 ├── DUT_PADMAP_1X1.md       pad map — 1x1 die (Mezzanine70)
 ├── DUT_PADMAP_1X0P5.md     pad map — 1x0p5 die
+├── GLOSSARY.md           shared vocabulary
 └── RP2350 PINMAP.md      MCU GPIO assignments
 tools/                    host-side Python scripts
 ```
