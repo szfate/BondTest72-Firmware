@@ -42,6 +42,7 @@ private:
     void selectPadMap();
     bool checkAdapterAlive();  // returns false and transitions to NO_ADAPTER if adapter gone
     void startTest();
+    void tryStartTest();
     void sendResults();
     void flushEeprom();
 

@@ -66,6 +66,7 @@ private:
     HostCommand processLine(const char* line);
     static bool parseKvUint(const char* kv, const char* key, uint32_t& out);
     static bool parseKvUintList(const char* kv, const char* key, uint8_t* out, uint8_t maxCount);
+    void printPadmapList(const uint8_t* padmapIds);
 
     char     _lineBuf[256];
     uint16_t _lineLen           = 0;

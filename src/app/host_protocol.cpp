@@ -136,6 +136,19 @@ void HostProtocol::setUid(const char* uid16) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
+// Prints " pm=<id>[,<id>...]" for a 0xFF-terminated padmap id list; prints
+// nothing if the list is empty. Shared by ADAPTER, ADAPTER_DETECTED, TEST_START.
+void HostProtocol::printPadmapList(const uint8_t* padmapIds) {
+    uint8_t pmCount = 0;
+    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) pmCount++;
+    if (pmCount == 0) return;
+    Serial.print(" pm=");
+    for (uint8_t i = 0; i < pmCount; i++) {
+        if (i > 0) Serial.print(',');
+        Serial.print(padmapIds[i]);
+    }
+}
+
 void HostProtocol::sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
                                     uint32_t lifespan, uint32_t dateOfManufacture,
                                     uint32_t insertions, uint32_t tests, bool eol,
@@ -143,15 +156,7 @@ void HostProtocol::sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
     Serial.print("ADAPTER");
     Serial.print(" aid=");     Serial.print(_uid);
     Serial.print(" ahw=");     Serial.print(hwId);
-    uint8_t pmCount = 0;
-    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) pmCount++;
-    if (pmCount > 0) {
-        Serial.print(" pm=");
-        for (uint8_t i = 0; i < pmCount; i++) {
-            if (i > 0) Serial.print(',');
-            Serial.print(padmapIds[i]);
-        }
-    }
+    printPadmapList(padmapIds);
     Serial.print(" lifespan=");   Serial.print(lifespan);
     Serial.print(" mfg_date=");   Serial.print(dateOfManufacture);
     Serial.print(" ins=");        Serial.print(insertions);
@@ -165,15 +170,7 @@ void HostProtocol::sendAdapterDetected(uint8_t hwId, const uint8_t* padmapIds) {
     Serial.print("EVENT ADAPTER_DETECTED ");
     Serial.print("aid=");     Serial.print(_uid);
     Serial.print(" ahw=");    Serial.print(hwId);
-    uint8_t pmCount = 0;
-    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) pmCount++;
-    if (pmCount > 0) {
-        Serial.print(" pm=");
-        for (uint8_t i = 0; i < pmCount; i++) {
-            if (i > 0) Serial.print(',');
-            Serial.print(padmapIds[i]);
-        }
-    }
+    printPadmapList(padmapIds);
     Serial.println();
 }
 
@@ -198,15 +195,7 @@ void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const P
     // the test currently starting (incremented only after it completes).
     Serial.print(" ins=");     Serial.print(insertions);
     Serial.print(" tests=");   Serial.print(tests);
-    uint8_t pmCount = 0;
-    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) pmCount++;
-    if (pmCount > 0) {
-        Serial.print(" pm=");
-        for (uint8_t i = 0; i < pmCount; i++) {
-            if (i > 0) Serial.print(',');
-            Serial.print(padmapIds[i]);
-        }
-    }
+    printPadmapList(padmapIds);
 
     // Order matches PULLUP_LEVELS / rf,rr,vf,vr in PAD lines, low-current-first.
     // Fixed for the life of the firmware build, so sent once here rather than

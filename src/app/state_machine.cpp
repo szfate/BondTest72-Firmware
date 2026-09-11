@@ -95,15 +95,8 @@ void StateMachine::update() {
     }
 
     bool startReq = _buttons.startPressed();
-    if (_state == State::READY && startReq) {
-        startTest();
-    } else if ((_state == State::PASS || _state == State::FAIL) && startReq) {
-        // DUT may have been removed while result was displayed; re-check before starting another run
-        if (_dutDetector.checkNow())
-            startTest();
-        else
-            transition(State::ADAPTER_DETECTED);
-    }
+    if (startReq)
+        tryStartTest();
 
     // Poll for adapter in NO_ADAPTER state. On first detection, wait out
     // ADAPTER_INSERT_SETTLE_MS before the first EEPROM read: a half-seated
@@ -199,13 +192,7 @@ void StateMachine::handleDutEvent(DutEvent ev) {
 void StateMachine::handleCommand(HostCommand cmd) {
     switch (cmd) {
         case HostCommand::RUN:
-            if (_state == State::READY) startTest();
-            else if (_state == State::PASS || _state == State::FAIL) {
-                if (_dutDetector.checkNow())
-                    startTest();
-                else
-                    transition(State::ADAPTER_DETECTED);
-            }
+            tryStartTest();
             break;
         case HostCommand::GET_RESULTS:
             sendResults();
@@ -390,6 +377,22 @@ bool StateMachine::checkAdapterAlive() {
     _dutDetector.setAdapter(nullptr);
     transition(State::NO_ADAPTER);
     return false;
+}
+
+void StateMachine::tryStartTest() {
+    // Starts a run when the machine is in a startable state: READY always starts;
+    // PASS/FAIL re-check DUT presence first — the DUT may have been removed while
+    // the result was displayed. No-op in every other state.
+    if (_state == State::READY) {
+        startTest();
+        return;
+    }
+    if (_state == State::PASS || _state == State::FAIL) {
+        if (_dutDetector.checkNow())
+            startTest();
+        else
+            transition(State::ADAPTER_DETECTED);
+    }
 }
 
 void StateMachine::startTest() {
