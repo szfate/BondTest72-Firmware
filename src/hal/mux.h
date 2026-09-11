@@ -8,9 +8,9 @@ static constexpr uint8_t MUX_CHANNEL_COUNT = 72;
 //                             paired onto the same channel as whichever of
 //                             COM_C/D/E is currently driving that pad
 //   Y1 = COM_B             — tester GND (return path)
-//   Y2 = COM_C             — 330 kΩ pullup (current injection)
-//   Y3 = COM_D             — 33 kΩ pullup (current injection)
-//   Y4 = COM_E             — 3.3 kΩ pullup (current injection)
+//   Y2 = COM_C             — 280 kΩ pullup (current injection)
+//   Y3 = COM_D             — 27.4 kΩ pullup (current injection)
+//   Y4 = COM_E             — 2.49 kΩ pullup (current injection)
 enum class Bus : uint8_t { A = 0, B = 1, C = 2, D = 3, E = 4 };
 
 class MuxController {

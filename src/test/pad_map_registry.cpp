@@ -3,21 +3,25 @@
 // Activity-detection ceiling: a reading counts as "conducted" if its apparent
 // bond resistance is below this. Same ceiling for both STANDARD (IO pads)
 // and CAP_SENSE (VDDIO/VDD_CORE/PWR_AUX, which have a real bypass cap and
-// use CAP_SENSE's longer 3.3k-only settle instead of STANDARD's 6-reading
+// use CAP_SENSE's longer 2.49k-only settle instead of STANDARD's 6-reading
 // sweep — see TestStrategy::CAP_SENSE in pad_map.h). Shared-PCB-net power
 // pins (e.g. a pin electrically tied to a sibling pin's bond through a
 // shared bypass cap) are a separate, harder problem neither strategy can
 // fix — see kelvin.h.
 //
 // 60kΩ, from bench data with visually-confirmed-missing bonds: real bonds
-// (incl. weak ESD-diode-mediated ones) conduct at the 33k/3.3k levels up to
-// ~9.2kΩ/~1.6kΩ — the 330k level alone can read as high as ~81kΩ for a real
+// (incl. weak ESD-diode-mediated ones) conduct at the 27.4k/2.49k levels up to
+// ~9.2kΩ/~1.6kΩ — the 280k level alone can read as high as ~81kΩ for a real
 // bond, but OR-across-readings means that's fine, the same pad still passes
-// via its 33k/3.3k reading (the 330k level is not the decisive one). Confirmed-
+// via its 27.4k/2.49k reading (the 280k level is not the decisive one). Confirmed-
 // missing bonds never dropped below ~256kΩ at ANY reading (leakage/coupling
 // artifacts, not a real low-resistance path) — 60kΩ sits ~6.5x above the
-// strongest decisive real-bond reading (9.2kΩ at the 33k level) and ~4.3x
-// below the weakest unbonded-artifact reading (256kΩ). This was calibrated
+// strongest decisive real-bond reading (9.2kΩ at the 27.4k level) and ~4.3x
+// below the weakest unbonded-artifact reading (256kΩ). NOTE: this calibration
+// data was measured at the previous 330k/33k/3.3k pullup levels — apparent
+// resistance ≈ bond resistance at steady state so it transfers approximately,
+// but the leakage-artifact floor scales with the pullup network, so re-confirm
+// the margins on the bench with the 280k/27.4k/2.49k levels. This was calibrated
 // against STANDARD's readings; CAP_SENSE reuses it unverified — worth
 // confirming on the bench once real CAP_SENSE data is available.
 static constexpr TestThresholds kThresh = { 60000.0f };

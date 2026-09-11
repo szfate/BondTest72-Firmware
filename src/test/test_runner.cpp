@@ -14,13 +14,14 @@ PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc) {
     PadResult pr = {};
 
     if (tc.strategy == TestStrategy::CAP_SENSE) {
-        // Only the strongest (3.3k) pullup is fast enough to fully settle a
-        // real cap in practical time — τ = R·C, so at 1µF the 330k/33k
-        // levels would need hundreds of ms, impractical per-pad. In the
+        // Only the strongest (2.49k) pullup is fast enough to fully settle a
+        // real cap in practical time — τ = R·C, so at 1µF the 280k/27.4k
+        // levels would need hundreds/tens of ms, impractical per-pad. In the
         // reverse-only sweep (MEASURE_DIRECTIONS, result.h) the DUT bypass
         // cap sits on the grounded sink side and never charges; the node
         // being charged is the die-side net, whose capacitance is
-        // DUT-dependent (~0.7µF / τ≈2.3ms on the 1x1 die). tc.settleUs is
+        // DUT-dependent (~0.7µF on the 1x1 die; τ≈1.8ms at the 2.49k level —
+        // τ≈2.3ms was measured at the previous 3.3k pullup). tc.settleUs is
         // the total elapsed time for the last sample and must cover ~3τ of
         // that net — OPEN has to charge past the resistance-ceiling voltage
         // (~95% of VCC) to classify OPEN, while GOOD only errs safe (set per
@@ -34,7 +35,7 @@ PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc) {
         const float maxOhms = tc.thresholds->maxBondResistanceOhms;
         uint8_t adapterCh = adapter.channelForPin(tc.adapterPin);
         uint8_t gndCh     = adapter.channelForPin(tc.gndPin);
-        const PullupLevel& lvl = PULLUP_LEVELS[PULLUP_LEVEL_COUNT - 1];  // 3.3k — weakest R, strongest current
+        const PullupLevel& lvl = PULLUP_LEVELS[PULLUP_LEVEL_COUNT - 1];  // 2.49k — weakest R, strongest current
 
         if (measuresForward(MEASURE_DIRECTIONS)) {
             // forward: adapterPin driven + Kelvin-sensed, gndPin sinks

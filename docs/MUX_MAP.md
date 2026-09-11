@@ -18,7 +18,7 @@ Fixed bus wiring (from schematic):
 
 | CH446X Bus | COM pin | Role |
 |------------|---------|------|
-| BUS_D | COM_D | Injection + sense (27 kΩ pullup → GP26 / ADC0) |
+| BUS_D | COM_D | Injection + sense (27.4 kΩ pullup → GP26 / ADC0) |
 | BUS_A | COM_A | Left neighbour sense (1 MΩ divider → GP27 / ADC1) |
 | BUS_C | COM_C | Right neighbour sense (1 MΩ divider → GP28 / ADC2) |
 | BUS_B | — | Tester GND (return path, no ADC) |

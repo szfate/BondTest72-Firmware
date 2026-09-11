@@ -1,7 +1,7 @@
 #include "buttons.h"
 #include <Arduino.h>
 
-static constexpr uint8_t  START_PIN   = 0;   // GP0 — active low, internal pullup
+static constexpr uint8_t  START_PIN   = 0;   // GP0 — active low; external pullup fitted (pin stays INPUT — RP2350 errata precaution)
 static constexpr uint32_t DEBOUNCE_MS = 20;
 
 void Buttons::begin() {

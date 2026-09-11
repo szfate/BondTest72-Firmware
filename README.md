@@ -6,12 +6,12 @@ Firmware for the BondTest72 wirebond integrity tester — a bench instrument for
 
 ## How it works
 
-The tester measures each die pad with a Kelvin resistance sweep. The pad under test is driven through one of three pullup strengths (330 kΩ / 33 kΩ / 3.3 kΩ — 10/100/1000 µA, weakest current first) against the pad map's GND reference pin, and the driven node is Kelvin-sensed on COM_A. The apparent bond resistance `R = Rpu · V / (VCC − V)` is computed for each reading; a pad is **GOOD** if any reading falls below the resistance ceiling (60 kΩ), **OPEN** if none do — there is no fixed voltage-threshold table.
+The tester measures each die pad with a Kelvin resistance sweep. The pad under test is driven through one of three pullup strengths (280 kΩ / 27.4 kΩ / 2.49 kΩ — ~10/100/1000 µA through a good bond, weakest current first; values calculated from bench IV measurements) against the pad map's GND reference pin, and the driven node is Kelvin-sensed on COM_A. The apparent bond resistance `R = Rpu · V / (VCC − V)` is computed for each reading; a pad is **GOOD** if any reading falls below the resistance ceiling (60 kΩ), **OPEN** if none do — there is no fixed voltage-threshold table.
 
 ```
                         3.3 V
                           │
-                 330k / 33k / 3.3k   ← pullup sweep, weakest current first
+                 280k / 27.4k / 2.49k   ← pullup sweep, weakest current first
                           │
        driven pin ────────┤ ← Kelvin sense (COM_A, ADC1)
                           │
@@ -28,7 +28,7 @@ The sweep runs **reverse-only** in the current build (`MEASURE_DIRECTIONS = REVE
 Each pad map is a flat list of per-pad test cases — every pad is measured independently against its own reference pin (there is no neighbour-ring concept):
 
 1. **STANDARD** — most IO pads. One reading per pullup level per measured direction (3 reverse readings today).
-2. **CAP_SENSE** — pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX) that can't settle at 330k/33k (τ = R·C). Uses only the 3.3k level and samples a 5-point charging curve; classification uses the final (most-settled) sample.
+2. **CAP_SENSE** — pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX) that can't settle at 280k/27.4k (τ = R·C). Uses only the 2.49k level and samples a 5-point charging curve; classification uses the final (most-settled) sample.
 3. **DISCHARGE** — prep step around CAP_SENSE pads: shorts pad + return to GND to drain the cap, no result recorded.
 
 Before every reading the pad and its return are grounded to a known baseline, and the driven node is drained again before the mux releases — the order is safety-critical and doubles as the CH446X latch-up mitigation (`groundAndDischarge`/`drainAndRelease` in `src/hal/kelvin.cpp`).

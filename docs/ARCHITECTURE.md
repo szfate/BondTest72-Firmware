@@ -204,12 +204,12 @@ struct PadMap {
 };
 ```
 
-`STANDARD` pads get a Kelvin resistance sweep (330k/33k/3.3k pullup; which
+`STANDARD` pads get a Kelvin resistance sweep (280k/27.4k/2.49k pullup; which
 directions are measured is set by `MEASURE_DIRECTIONS` in
 `src/test/result.h` — reverse-only in the current build). `CAP_SENSE` pads
 (VDDIO/VDD_CORE/PWR_AUX — real bypass caps
-that can't settle fast enough at 330k/33k) instead sample a charging curve at
-one fixed 3.3k pullup. `DISCHARGE` is a prep step around CAP_SENSE
+that can't settle fast enough at 280k/27.4k) instead sample a charging curve at
+one fixed 2.49k pullup. `DISCHARGE` is a prep step around CAP_SENSE
 pads with no result recorded. See `TestRunner` below and `EVENT TEST_START`'s
 `max_bond_r_ohms`/`current_list_ua`/`cap_time_list_us` in the host protocol doc
 for exactly what's compared against what.
@@ -309,7 +309,7 @@ run(adapter, padMap):
 ```
 
 `sweepPad(adapter, tc)`:
-- **STANDARD** (most IO pads): for each of the 3 pullup levels (330k/33k/3.3k,
+- **STANDARD** (most IO pads): for each of the 3 pullup levels (280k/27.4k/2.49k,
   low-current-first) takes one reading per measured direction (forward =
   `adapterPin` driven + Kelvin-sensed with `gndPin` sinking; reverse = roles
   swapped). Which directions are measured is set by `MEASURE_DIRECTIONS`
@@ -318,14 +318,14 @@ run(adapter, padMap):
   `tc.thresholds->maxBondResistanceOhms` on that reading. Pad is `GOOD` if
   *any* reading conducted (see the rationale for a resistance ceiling over a
   voltage margin in `pad_map.h`).
-- **CAP_SENSE** (VDDIO/VDD_CORE/PWR_AUX): single 3.3k pullup, one 5-point
+- **CAP_SENSE** (VDDIO/VDD_CORE/PWR_AUX): single 2.49k pullup, one 5-point
   charging-curve sample set (`measureKelvinCurve`) per measured direction
   instead of one settled reading — classification uses
   only the last (most-settled) sample of each direction.
 
 Apparent resistance: `R = Rpu · V / (VCC − V)`, from the Kelvin voltage read on
 COM_A (Bus::A) while the pad under test is driven through one of the pullup
-buses (Bus::C/D/E → 330k/33k/3.3k) and the reference pin sinks to Bus::B (tester
+buses (Bus::C/D/E → 280k/27.4k/2.49k) and the reference pin sinks to Bus::B (tester
 GND). COM_D/COM_C are not part of this measurement (see Hardware Summary).
 
 ### Result Classification

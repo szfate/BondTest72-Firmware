@@ -17,7 +17,7 @@ struct EepromData {
     uint32_t     eolReached;             // 0 = ok, EOL_REACHED = end-of-life
 };
 
-// Pack EepromData into EEPROM_WIRE_BYTES (32 header + 4 CRC-32). buf must be at least EEPROM_WIRE_BYTES.
+// Pack EepromData into EepromData::WIRE_BYTES (32 header + 4 CRC-32). buf must be at least EepromData::WIRE_BYTES long.
 // Layout: [0..1] magic  [2] hwId  [3] rfu  [4..7] padmapIds  [8..11] reserved
 //         [12..15] designedLifespan  [16..19] dateOfManufacture
 //         [20..23] insertionCount    [24..27] testCount  [28..31] eolReached  [32..35] CRC32

@@ -18,9 +18,11 @@ static uint8_t computeAddr(uint8_t y, uint8_t x) {
 }
 
 // Shift 7-bit address into chip, set switch data, then commit with STB.
-// Speed note: replace digitalWrite with gpio_set_mask/gpio_clr_mask (hardware/gpio.h)
-// for ~50x speedup (~200 ns/transaction vs ~10 µs). All CH446X setup/hold
-// requirements (3–10 ns) are met by back-to-back SIO writes without added delays.
+// Do NOT swap digitalWrite for gpio_set_mask/gpio_clr_mask as a "50x speedup"
+// (~200 ns/transaction vs ~10 µs): the ~10 µs per-switch serial window is part
+// of the latchup exposure-window analysis in kelvin.cpp — the ground-reference-
+// first sequencing assumes each switch commit takes this long. Optimizing this
+// away would invalidate that analysis.
 static void writeSwitch(uint8_t chip, uint8_t addr, bool on) {
     const uint8_t dat = DAT_PINS[chip];
     const uint8_t clk = CLK_PINS[chip];

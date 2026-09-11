@@ -10,7 +10,7 @@ tester. It does not contain active components or isolation switches.
 ## Adapter Pin → Tester Channel
 
 Adapter pins are 1-indexed (physical connector labels). Tester channels are
-0-indexed firmware indices used in `TestCase.mezPin` calls via `channelForPin()`.
+0-indexed firmware indices used in `TestCase.adapterPin` calls via `channelForPin()`.
 
 ```
 tester_ch = adapter_pin − 1

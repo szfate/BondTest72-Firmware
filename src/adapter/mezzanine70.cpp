@@ -21,7 +21,7 @@ static constexpr float ISOLATION_SHORT_THRESHOLD_V = 1.5f;
 
 bool Mezzanine70::connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
                                            const PadMap& padMap) const {
-    LOG_I("connector isolation sweep: %u pads", padMap.caseCount);
+    LOG_I("connector isolation sweep: %u test steps", padMap.caseCount);
     bool ok = true;
     for (uint8_t i = 0; i < padMap.caseCount; i++) {
         const TestCase& tc = padMap.cases[i];
@@ -45,19 +45,20 @@ void Mezzanine70::tickEolLed() {
     setEolLed((millis() / 500) % 2 == 0);  // 1 Hz blink
 }
 
-// Onboard diode between channels 70 (U2 X21) and 71 (U2 X20).
-// Anode=70, cathode=71. Drive anode→D (27K pull-up), cathode→B (GND).
-// Read COM_D (ch0) at the anode: forward → ~Vf, reverse → ~3.3V.
-static constexpr uint8_t DIODE_ANODE   = 70;
-static constexpr uint8_t DIODE_CATHODE = 71;
+// Onboard diode between tester channels 70 (U2 X21) and 71 (U2 X20) — these are
+// tester channels, NOT adapter pins; don't run them through channelForPin().
+// Anode=70, cathode=71. Drive anode→D (27.4k pull-up), cathode→B (GND).
+// Read COM_A (Kelvin sense) at the anode: forward → ~Vf, reverse → ~3.3V.
+static constexpr uint8_t DIODE_ANODE_CH   = 70;
+static constexpr uint8_t DIODE_CATHODE_CH = 71;
 static constexpr float   DIODE_FWD_MIN = 0.3f;
 static constexpr float   DIODE_FWD_MAX = 1.0f;
 static constexpr float   DIODE_REV_MIN = 2.5f;
 
 bool Mezzanine70::selfTest(MuxController& mux, AdcDriver& adc) const {
-    PadReading fwd = measureKelvin(mux, adc, DIODE_ANODE, DIODE_CATHODE,
+    PadReading fwd = measureKelvin(mux, adc, DIODE_ANODE_CH, DIODE_CATHODE_CH,
                                     PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, 200, 0.0f);  // anode = Vf
-    PadReading rev = measureKelvin(mux, adc, DIODE_CATHODE, DIODE_ANODE,
+    PadReading rev = measureKelvin(mux, adc, DIODE_CATHODE_CH, DIODE_ANODE_CH,
                                     PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, 200, 0.0f);  // cathode ≈ 3.3V (blocking)
 
     LOG_I("adapter self-test: fwd=%.3fV rev=%.3fV", fwd.voltageV, rev.voltageV);
@@ -74,7 +75,7 @@ static constexpr float RESISTOR_EXPECTED_OHMS = 1000.0f;
 static constexpr float RESISTOR_TOLERANCE     = 0.20f;  // ±20%, sanity check not precision spec
 
 bool Mezzanine70r2::selfTest(MuxController& mux, AdcDriver& adc) const {
-    PadReading r = measureKelvin(mux, adc, DIODE_ANODE, DIODE_CATHODE,
+    PadReading r = measureKelvin(mux, adc, DIODE_ANODE_CH, DIODE_CATHODE_CH,
                                   PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, 200, 0.0f);
 
     float deviation = (r.resistanceOhms - RESISTOR_EXPECTED_OHMS) / RESISTOR_EXPECTED_OHMS;

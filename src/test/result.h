@@ -48,7 +48,7 @@ constexpr uint8_t READING_COUNT = 2 * READINGS_PER_DIR;
 //   STANDARD  — N = PULLUP_LEVEL_COUNT, one slot per pullup level, highest
 //               resistance/lowest current first.
 //   CAP_SENSE — N = CAP_SENSE_SAMPLE_COUNT, one slot per time-sample of a
-//               single continuous 3.3k charging event (see
+//               single continuous 2.49k charging event (see
 //               measureKelvinCurve), earliest to latest — NOT a current
 //               level. Classification uses only the last (most-settled)
 //               slot in each direction; earlier slots are for curve-shape

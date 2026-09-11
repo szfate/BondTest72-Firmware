@@ -7,10 +7,12 @@ static constexpr float VCC = 3.3f;
 // up if a future padmap's largest cap exceeds ~5µF (see drainAndRelease's residual note).
 static constexpr uint32_t DRAIN_SETTLE_US = 1000;
 
+// Pullup strengths, lowest current first. 280k/27.4k/2.49k were calculated from
+// bench IV measurements to drive ~10 µA / ~100 µA / ~1000 µA through a good bond.
 const PullupLevel PULLUP_LEVELS[PULLUP_LEVEL_COUNT] = {
-    { Bus::C, 330000.0f },
-    { Bus::D,  33000.0f },
-    { Bus::E,   3300.0f },
+    { Bus::C, 280000.0f },
+    { Bus::D,  27400.0f },
+    { Bus::E,   2490.0f },
 };
 
 float pullupCurrentUA(float pullupOhms) {
@@ -19,9 +21,10 @@ float pullupCurrentUA(float pullupOhms) {
 
 // Schedule front-loaded for the reverse-only sweep (MEASURE_DIRECTIONS —
 // result.h): the only charging curve left is the die-side net on OPEN pads.
-// Sized around a ~1µF die-side net (τ≈3.3ms through the 3.3k; ~0.75µF /
-// τ≈2.5ms measured on the 1x1 die): with the padmaps' 20ms window the
-// samples land at ~0.05/0.1/0.4/3/6τ — two points on the early rise, one
+// Sized around a ~1µF die-side net (τ≈2.5ms through the 2.49k; ~0.75µF /
+// τ≈1.9ms measured on the 1x1 die — at the previous 3.3k pullup the measured
+// τ was ~2.5ms): with the padmaps' 20ms window the
+// samples land at ~0.06/0.13/0.5/4/8τ — two points on the early rise, one
 // mid-rise, one near-settled, one settled. /128 still reads clean in
 // practice (ADC-read overhead is only ~tens of µs); don't go much earlier
 // or the first sample starts inside it. GOOD pads rise into the bond-
@@ -84,7 +87,7 @@ static void groundAndDischarge(MuxController& mux, uint8_t forceCh, uint8_t sink
 
 // Ends a measurement: drains forceCh, then opens everything. ORDER IS
 // SAFETY-CRITICAL (mirror of groundAndDischarge above): forceCh may sit at
-// ~VCC on a charged DUT cap (CAP_SENSE charges 1µF to ~VCC through 3.3k over
+// ~VCC on a charged DUT cap (CAP_SENSE charges 1µF to ~VCC through 2.49k over
 // the settle window), and grounding a charged cap plate is safe ONLY while
 // its return (sinkCh) is still held on Bus::B — with the return floating, the
 // plate's step to GND drives the return to about −VCC by charge conservation

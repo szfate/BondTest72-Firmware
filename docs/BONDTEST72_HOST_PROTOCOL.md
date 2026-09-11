@@ -231,8 +231,8 @@ EVENT FAULT msg=<message>
 ### `PAD`
 
 One line per tested die pad, sent during a test run. Format depends on `method`:
-- `STD` / `STD_FW` / `STD_REV` — most IO pads. A Kelvin resistance sweep: 3 pullup levels (330k/33k/3.3k). The variant encodes which direction group(s) the line carries: `STD` = both, `STD_FW` = forward only, `STD_REV` = reverse only.
-- `CAP` / `CAP_FW` / `CAP_REV` — pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX), which can't settle fast enough at 330k/33k. Instead of resistance, reports raw voltage samples across the 3.3k-only charging curve. Variants as for `STD`.
+- `STD` / `STD_FW` / `STD_REV` — most IO pads. A Kelvin resistance sweep: 3 pullup levels (280k/27.4k/2.49k). The variant encodes which direction group(s) the line carries: `STD` = both, `STD_FW` = forward only, `STD_REV` = reverse only.
+- `CAP` / `CAP_FW` / `CAP_REV` — pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX), which can't settle fast enough at 280k/27.4k. Instead of resistance, reports raw voltage samples across the 2.49k-only charging curve. Variants as for `STD`.
 
 The current firmware measures the reverse direction only (`MEASURE_DIRECTIONS = REVERSE_ONLY` in `src/test/result.h`): forward drive charges the adapter-side bypass cap to ~VCC and is the trigger sequence for the CH446X latch-up. PAD lines therefore carry `method=STD_REV`/`CAP_REV` and only the reverse groups. Unmeasured groups are never sent as zeros — `0Ω` would read as a dead short.
 
@@ -248,7 +248,7 @@ PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> method=CAP_REV result=<GOOD|OPEN
 | `dp` | uint8 | Die pad number (0-indexed) |
 | `method` | string | `STD`/`STD_FW`/`STD_REV` or `CAP`/`CAP_FW`/`CAP_REV` — which direction group(s) the line carries |
 | `result` | string | `GOOD` or `OPEN` |
-| `rr` | float[3] | STD lines. Reverse apparent bond resistance (Ω) at each pullup level, low-current-first (330k, 33k, 3.3k — see `current_list_ua` on `EVENT TEST_START`). GOOD if any of the reverse readings is below `max_bond_r_ohms`. |
+| `rr` | float[3] | STD lines. Reverse apparent bond resistance (Ω) at each pullup level, low-current-first (280k, 27.4k, 2.49k — see `current_list_ua` on `EVENT TEST_START`). GOOD if any of the reverse readings is below `max_bond_r_ohms`. |
 | `vr` | float[3] | STD lines. The underlying Kelvin voltages behind `rr`, same order, 3 decimal places. |
 | `rf` / `vf` | float[3] | STD lines. Forward-direction equivalents of `rr`/`vr`, present only when the method includes forward (`STD`, `STD_FW`). |
 | `vrs` | float[5] | CAP lines. Raw voltage samples across the reverse charging curve, earliest-first (see `cap_time_list_us` on `EVENT TEST_START`), 3 decimal places. No resistance is reported — mid-charge resistance isn't physically meaningful; classification uses only the final (most-settled) sample. Present only when the method includes reverse (`CAP`, `CAP_REV`). |

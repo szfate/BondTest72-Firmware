@@ -5,7 +5,7 @@ Internal-only pins (GP23, GP24, GP25, GP29) included for completeness.
 
 | Pin | GPIO | SPI | UART | I2C | ADC | Assigned To | Notes |
 |-----|------|-----|------|-----|-----|-------------|-------|
-| 1 | GP0 | SPI0 RX | UART0 TX | I2C0 SDA | — | START | active low, use internal pullup |
+| 1 | GP0 | SPI0 RX | UART0 TX | I2C0 SDA | — | START | active low, external pullup fitted (pin left as INPUT) |
 | 2 | GP1 | SPI0 CSn | UART0 RX | I2C0 SCL | — | LED_DIN | |
 | 3 | GND | — | — | — | — | GND | |
 | 4 | GP2 | SPI0 SCK | UART0 CTS | I2C1 SDA | — | GP2 | Breakout header |
