@@ -116,7 +116,7 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
 
             // Full per-reading detail goes out via sendPadResult; keep this to a summary.
             LOG_I("slot%u apin%u die%u: result=%s", slot, tc.adapterPin, tc.diePad,
-                  pr.bond == BondResult::GOOD ? "GOOD" : "OPEN");
+                  pr.bond == BondResult::GOOD ? "GOOD" : pr.bond == BondResult::OPEN ? "OPEN" : "NOT_TESTED");
 
             sr.byChannel[adapter.channelForPin(tc.adapterPin)] = pr;
             sr.testedCount++;

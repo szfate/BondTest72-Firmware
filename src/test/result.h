@@ -3,6 +3,7 @@
 #include "pad_map.h"
 
 enum class BondResult : uint8_t {
+    NOT_TESTED,  // zero-init default for untested channels — never emitted on the wire
     GOOD,   // at least one reading showed activity
     OPEN,   // every reading sat at ~VCC — no conduction detected at all
 };

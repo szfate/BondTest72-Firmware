@@ -15,6 +15,7 @@
 
 constexpr uint32_t ADAPTER_POLL_INTERVAL_MS       = 1500;
 constexpr uint32_t ADAPTER_POLL_INTERVAL_FAST_MS  = 100;
+constexpr uint32_t ADAPTER_INSERT_SETTLE_MS  = 100;  // wait after adapter presence first detected before the first EEPROM read — half-seated contacts read as garbage/blank
 constexpr uint32_t DUT_INSERT_SETTLE_MS      = 1000;  // debounce: ignore poll after insertion until connector is seated
 
 class StateMachine {
@@ -63,7 +64,9 @@ private:
     char          _adapterUid[17]  = {};
     EepromManager::ReadResult _lastEepromResult = EepromManager::ReadResult::Blank;
 
-    uint32_t      _lastAdapterPoll  = 0;
+    uint32_t      _lastAdapterLivePoll   = 0;  // 1500 ms liveness cadence while an adapter is present
+    uint32_t      _lastAdapterInsertPoll = 0;  // 100 ms insertion cadence while in NO_ADAPTER — separate so the cadences can't fight
+    uint32_t      _adapterSettleUntil = 0;  // 0 = not detecting; else don't init adapter until this time (insertion settle)
     uint32_t      _lastDutPoll      = 0;
     uint32_t      _dutSettleUntil   = 0;
 };

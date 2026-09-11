@@ -72,9 +72,9 @@ void StateMachine::update() {
 
     // Adapter liveness (runtime — removal triggers reset)
     if (_state != State::NO_ADAPTER) {
-        if (now - _lastAdapterPoll >= ADAPTER_POLL_INTERVAL_MS) {
+        if (now - _lastAdapterLivePoll >= ADAPTER_POLL_INTERVAL_MS) {
             checkAdapterAlive();
-            _lastAdapterPoll = now;
+            _lastAdapterLivePoll = now;
         }
     }
 
@@ -105,24 +105,40 @@ void StateMachine::update() {
             transition(State::ADAPTER_DETECTED);
     }
 
-    // Poll for adapter in NO_ADAPTER state
+    // Poll for adapter in NO_ADAPTER state. On first detection, wait out
+    // ADAPTER_INSERT_SETTLE_MS before the first EEPROM read: a half-seated
+    // connector makes early reads fail or return garbage (a floating SWI line
+    // reads as 0xFF, which looks like a blank header → spurious
+    // ADAPTER_NOT_PROVISIONED). Init failure retries on the next poll instead of
+    // latching FAULT — insertion bounce must not wedge the tester. Only a
+    // genuinely blank adapter (read succeeded, header really is blank) latches.
     if (_state == State::NO_ADAPTER) {
-        if (now - _lastAdapterPoll >= ADAPTER_POLL_INTERVAL_FAST_MS) {
+        if (now - _lastAdapterInsertPoll >= ADAPTER_POLL_INTERVAL_FAST_MS) {
+            _lastAdapterInsertPoll = now;
             if (_eepromMgr.isPresent()) {
-                if (tryInitAdapter()) {
-                    if (_eepromData.eolReached == EepromData::EOL_REACHED) {
-                        LOG_W("adapter: EOL — rejecting");
-                        _hostProtocol.sendEolWarning(_eepromData.insertionCount);
-                        _state = State::EOL_ADAPTER;
+                if (_adapterSettleUntil == 0)
+                    _adapterSettleUntil = now + ADAPTER_INSERT_SETTLE_MS;  // just detected — let it seat first
+                else if (now >= _adapterSettleUntil) {
+                    if (tryInitAdapter()) {
+                        _adapterSettleUntil = 0;
+                        if (_eepromData.eolReached == EepromData::EOL_REACHED) {
+                            LOG_W("adapter: EOL — rejecting");
+                            _hostProtocol.sendEolWarning(_eepromData.insertionCount);
+                            _state = State::EOL_ADAPTER;
+                        } else {
+                            transition(State::ADAPTER_DETECTED);
+                        }
+                    } else if (_lastEepromResult == EepromManager::ReadResult::Blank) {
+                        _hostProtocol.sendFault("ADAPTER_INIT_FAILED");
+                        transition(State::FAULT);  // fully seated but unprovisioned — permanent
                     } else {
-                        transition(State::ADAPTER_DETECTED);
+                        _adapterSettleUntil = 0;  // transient read failure — retry after another settle
+                        LOG_W("adapter: init failed during detection, retrying");
                     }
-                } else {
-                    _hostProtocol.sendFault("ADAPTER_INIT_FAILED");
-                    transition(State::FAULT);
                 }
+            } else {
+                _adapterSettleUntil = 0;  // contact lost before settle elapsed (bounce) — start over
             }
-            _lastAdapterPoll = now;
         }
     }
 

@@ -106,7 +106,13 @@ bool HostProtocol::parseKvUintList(const char* kv, const char* key, uint8_t* out
                 out[count] = (uint8_t)atol(val);
                 count++;
                 while (*val && *val != ',' && *val != ' ') val++;
-                if (*val == ',') { val++; continue; }
+                if (*val == ',') {
+                    val++;
+                    // Empty field (trailing or doubled comma) would atol() as 0 — a
+                    // phantom padmap ID. Reject the whole list instead.
+                    if (*val == ',' || *val == ' ' || *val == '\0') return false;
+                    continue;
+                }
                 break;
             }
             while (count < maxCount) out[count++] = 0xFF;
@@ -294,7 +300,9 @@ void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePa
     Serial.print(" method="); Serial.print(strategy == TestStrategy::CAP_SENSE ? "CAP" : "STD");
     Serial.print(dirSuffix);
     Serial.print(" result=");
-    Serial.print(r.bond == BondResult::GOOD ? "GOOD" : "OPEN");
+    // NOT_TESTED never reaches the wire (PAD lines are only sent for tested cases);
+    // the explicit third branch keeps a future leak from mislabeling as OPEN.
+    Serial.print(r.bond == BondResult::GOOD ? "GOOD" : r.bond == BondResult::OPEN ? "OPEN" : "NOT_TESTED");
 
     if (strategy == TestStrategy::CAP_SENSE) {
         // Raw voltage samples from the charging curve, forward and reverse

@@ -4,7 +4,7 @@
 
 class EepromManager {
 public:
-    enum class ReadResult { Ok, Blank, CrcError };
+    enum class ReadResult { Ok, Blank, CrcError, IoError };
 
     explicit EepromManager(AT21CS01Driver& eeprom);
 

@@ -6,7 +6,7 @@
 
 extern AT21CS01Driver eeprom;
 
-// Scratch address in the reserved area (bytes 24–127) — safe to overwrite.
+// Scratch address in the free area past the header+CRC (bytes 0–35) — safe to overwrite.
 static constexpr uint8_t SCRATCH_ADDR = 0x7F;
 
 void eepromErase() {
