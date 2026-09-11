@@ -63,20 +63,19 @@ HostCommand HostProtocol::processLine(const char* line) {
         if (hasHw) _provisionHwId = (uint8_t)hw;
         uint32_t ls;
         if (parseKvUint(line + 10, "lifespan", ls)) _provisionLifespan = ls;
-        if (parseKvUintList(line + 10, "padmap", _provisionPadmapIds, 4)) {
-            uint32_t dt;
-            if (parseKvUint(line + 10, "date", dt)) {
-                _provisionMfgDate = dt;
-            }
-            uint32_t ins;
-            if (parseKvUint(line + 10, "ins", ins)) _provisionIns = ins;
-            uint32_t tests;
-            if (parseKvUint(line + 10, "tests", tests)) _provisionTests = tests;
-            uint32_t eol;
-            if (parseKvUint(line + 10, "eol", eol)) _provisionEol = eol;
-            return HostCommand::PROVISION;
+        if (!parseKvUintList(line + 10, "padmap", _provisionPadmapIds, 4))
+            return HostCommand::PROVISION_INVALID;
+        uint32_t dt;
+        if (parseKvUint(line + 10, "date", dt)) {
+            _provisionMfgDate = dt;
         }
-        return HostCommand::NONE;
+        uint32_t ins;
+        if (parseKvUint(line + 10, "ins", ins)) _provisionIns = ins;
+        uint32_t tests;
+        if (parseKvUint(line + 10, "tests", tests)) _provisionTests = tests;
+        uint32_t eol;
+        if (parseKvUint(line + 10, "eol", eol)) _provisionEol = eol;
+        return HostCommand::PROVISION;
     }
 
     return HostCommand::NONE;

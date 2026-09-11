@@ -46,11 +46,15 @@ void StateMachine::begin() {
         bool ok = tryInitAdapter();
         if (ok && _eepromData.eolReached == EepromData::EOL_REACHED) {
             LOG_W("adapter: EOL — rejecting");
-            _state = State::EOL_ADAPTER;
+            transition(State::EOL_ADAPTER);  // sends EVENT EOL_WARNING to the host
         } else {
-            if (ok) _dutDetector.prime();
-            _state = ok ? State::ADAPTER_DETECTED : State::FAULT;
-            if (!ok) _hostProtocol.sendFault("ADAPTER_INIT_FAILED");
+            if (ok) {
+                _dutDetector.prime();
+                transition(State::ADAPTER_DETECTED);
+            } else {
+                _hostProtocol.sendFault("ADAPTER_INIT_FAILED");
+                transition(State::FAULT);
+            }
         }
         LOG_I("adapter init %s -> %s", ok ? "ok" : "FAILED", stateName(_state));
     }
@@ -224,6 +228,9 @@ void StateMachine::handleCommand(HostCommand cmd) {
                 transition(tryInitAdapter() ? State::ADAPTER_DETECTED : State::FAULT);
                 Serial.println("OK PROVISION");
             }
+            break;
+        case HostCommand::PROVISION_INVALID:
+            _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_PADMAP");
             break;
         case HostCommand::DISCOVERY_SCAN:
             if (_state == State::TESTING) {

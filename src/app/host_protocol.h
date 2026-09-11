@@ -19,6 +19,7 @@ enum class HostCommand : uint8_t {
     GET_RESULTS,
     SET_PADMAP,
     PROVISION,
+    PROVISION_INVALID,
     GET_ADAPTER,
     DISCOVERY_SCAN,
     HELLO,
