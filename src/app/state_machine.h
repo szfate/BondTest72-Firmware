@@ -34,6 +34,7 @@ public:
 
 private:
     void transition(State next);
+    void handleAdapterArrival(bool initOk);
     void handleDutEvent(DutEvent ev);
     void handleCommand(HostCommand cmd);
     bool tryInitAdapter();

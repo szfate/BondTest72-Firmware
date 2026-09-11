@@ -91,23 +91,27 @@ bool Mezzanine70r2::selfTest(MuxController& mux, AdcDriver& adc) const {
 // two "equivalent" pins goes through actual bond wires on the die, and can
 // sit above what one drive strength alone can detect even when genuinely
 // connected (mirrors why pad bond tests sweep multiple levels too).
+// Shared core of senseDutPresent/senseDutFlipped.
+bool Mezzanine70::kelvinPresence(MuxController& mux, AdcDriver& adc,
+                                  uint8_t pinA, uint8_t pinB, float thresholdV, const char* tag) const {
+    bool connected = kelvinAnyLevelBelow(mux, adc, channelForPin(pinA),
+                                         channelForPin(pinB), thresholdV, 200);
+    LOG_D("%s: apin%u<->apin%u: %s", tag, pinA, pinB, connected ? "yes" : "no");
+    return connected;
+}
+
 bool Mezzanine70::senseDutPresent(MuxController& mux, AdcDriver& adc,
                                     const PadMap& padMap) const {
-    bool present = kelvinAnyLevelBelow(mux, adc, channelForPin(padMap.presencePadA),
-                                        channelForPin(padMap.presencePadB), padMap.presenceThresholdV, 200);
-    LOG_D("dut present: apin%u<->apin%u: %s", padMap.presencePadA, padMap.presencePadB,
-          present ? "yes" : "no");
-    return present;
+    return kelvinPresence(mux, adc, padMap.presencePadA, padMap.presencePadB,
+                          padMap.presenceThresholdV, "dut present");
 }
 
 bool Mezzanine70::senseDutFlipped(MuxController& mux, AdcDriver& adc,
                                     const PadMap& padMap) const {
-    uint8_t flippedA = ADAPTER_PIN_COUNT_PLUS_1 - padMap.presencePadA;
-    uint8_t flippedB = ADAPTER_PIN_COUNT_PLUS_1 - padMap.presencePadB;
-    bool flipped = kelvinAnyLevelBelow(mux, adc, channelForPin(flippedA),
-                                        channelForPin(flippedB), padMap.presenceThresholdV, 200);
-    LOG_D("dut flipped: apin%u<->apin%u: %s", flippedA, flippedB, flipped ? "yes" : "no");
-    return flipped;
+    return kelvinPresence(mux, adc,
+                          ADAPTER_PIN_COUNT_PLUS_1 - padMap.presencePadA,
+                          ADAPTER_PIN_COUNT_PLUS_1 - padMap.presencePadB,
+                          padMap.presenceThresholdV, "dut flipped");
 }
 
 bool Mezzanine70::checkDutNow(MuxController& mux, AdcDriver& adc,

@@ -49,13 +49,13 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 
 | ID | Where | Fix | Effort |
 |----|-------|-----|--------|
-| F1 | `state_machine.cpp:43-58` vs `:104-123` | Adapter-arrival sequence duplicated and already divergent (boot bypasses `transition()`, hand-rolls EOL). Extract `handleAdapterArrival()`; route through `transition()`. Fixes B2. | M |
+| ~~F1~~ | `state_machine.cpp:43-58` vs `:104-123` | DONE: `handleAdapterArrival()` extracted; both boot and runtime insertion poll route through it (and through `transition()`). Boot `prime()` and transient-retry remain at their call sites. Fixes B2. | M |
 | ~~F2~~ |  `state_machine.cpp:93-102` vs `:182-188` | Button-start and host-RUN-start are identical. Extract `tryStartTest()`. | S |
 | ~~F3~~ |  `host_protocol.cpp:141-149`, `:163-171`, `:196-204` | Padmap-list printing ×3. Extract `printPadmapList()`. | S |
 | F4 | `host_protocol.cpp:53-80` + `state_machine.cpp:203-228` + `eeprom_test.cpp:45-52` | Provision defaults ×3 (already drifted), blank-detection ×2. Hoist into `eeprom_layout`: `PADMAP_ID_SLOTS`, `eepromHeaderLooksBlank()`, `eepromDefaults(hw)`. Replaces 7 scattered raw sentinels with a `ProvisionRequest` struct. Properly fixes B1. | M |
 | F5 | `test_runner.cpp:138-152` vs `state_machine.cpp:409-414` | Pass/fail verify loop duplicates `sendResults()` pad iteration. Fold verify into the main measurement loop (behavior-identical) + shared `forEachTestedCase()`. | M |
-| F6 | `dut_detector.cpp:28-32` vs `:44-49` | Sensing block ×2. Extract private `senseCandidate()`. | S |
-| F7 | `mezzanine70.cpp:93-110` | `senseDutPresent`/`senseDutFlipped` = same function mirrored. Private `kelvinPresence()` helper. | S |
+| ~~F6~~ | `dut_detector.cpp:28-32` vs `:44-49` | DONE: private `senseCandidate()` extracted; `prime()` and `poll()` both use it. | S |
+| ~~F7~~ | `mezzanine70.cpp:93-110` | DONE: private `kelvinPresence()` helper extracted; `senseDutPresent`/`senseDutFlipped` are now one-liners mirroring it (LOG_D tags preserved). | S |
 | F8 | `src/debug/` | 5 of 6 debug tests compiled but unreachable (only `adapterSelfTest` dispatched). Each re-declares `main.cpp` globals via `extern`. **Delete** mux_waveform_test, button_test, adc_test, sk6812_test, eeprom_test (10 files). Resolves B7's comment rot and C9. | S |
 | F9 | `mux_map.h:9` + `mux_map.cpp:5` + `mux.h:4` | "72" hardcoded ×3. Use `MUX_CHANNEL_COUNT`; optional constexpr/static_assert validation. | S |
 | F10 | `result.h:40-54` + `test_runner.cpp:46,51,73` + `host_protocol.cpp:313,322` | Readings-array index rule spread over 3 files. Add `readingsPerDir()`/`reverseBase()` to `result.h`. | S |

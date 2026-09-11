@@ -25,6 +25,8 @@ public:
     void         tickEolLed()       override;
 
 private:
+    bool kelvinPresence(MuxController& mux, AdcDriver& adc,
+                        uint8_t pinA, uint8_t pinB, float thresholdV, const char* tag) const;
     uint8_t _padmapIds[4];
 };
 

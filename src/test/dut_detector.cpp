@@ -23,13 +23,19 @@ void DutDetector::setPadMap(const PadMap* padMap) {
     _confirmCount = 0;
 }
 
-void DutDetector::prime() {
-    if (!_adapter || !_padMap) return;
+// Shared sensing block of prime() and poll(): sweep presence, then flipped
+// orientation only if not present; classify to a DutState.
+DutDetector::DutState DutDetector::senseCandidate() {
     bool present = _adapter->senseDutPresent(_mux, _adc, *_padMap);
     bool flipped = !present && _adapter->senseDutFlipped(_mux, _adc, *_padMap);
-    _state = present ? DutState::PRESENT           :
-             flipped ? DutState::WRONG_ORIENTATION :
-                       DutState::ABSENT;
+    return present ? DutState::PRESENT           :
+           flipped ? DutState::WRONG_ORIENTATION :
+                     DutState::ABSENT;
+}
+
+void DutDetector::prime() {
+    if (!_adapter || !_padMap) return;
+    _state = senseCandidate();
     _pendingState = _state;
     _confirmCount = DUT_CONFIRM_COUNT;
 }
@@ -41,12 +47,7 @@ bool DutDetector::dutPresent() const {
 DutEvent DutDetector::poll() {
     if (!_adapter || !_padMap) return DutEvent::NONE;
 
-    bool present = _adapter->senseDutPresent(_mux, _adc, *_padMap);
-    bool flipped = !present && _adapter->senseDutFlipped(_mux, _adc, *_padMap);
-
-    DutState candidate = present ? DutState::PRESENT           :
-                          flipped ? DutState::WRONG_ORIENTATION :
-                                    DutState::ABSENT;
+    DutState candidate = senseCandidate();
 
     if (candidate == _state) {
         _pendingState = candidate;

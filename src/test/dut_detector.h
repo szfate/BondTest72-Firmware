@@ -37,4 +37,6 @@ private:
     DutState _state = DutState::ABSENT;
     DutState _pendingState = DutState::ABSENT;
     uint8_t  _confirmCount = 0;
+
+    DutState senseCandidate();
 };

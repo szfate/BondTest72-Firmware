@@ -44,18 +44,9 @@ void StateMachine::begin() {
     LOG_I("begin, eeprom present=%d", _eepromMgr.isPresent());
     if (_eepromMgr.isPresent()) {
         bool ok = tryInitAdapter();
-        if (ok && _eepromData.eolReached == EepromData::EOL_REACHED) {
-            LOG_W("adapter: EOL — rejecting");
-            transition(State::EOL_ADAPTER);  // sends EVENT EOL_WARNING to the host
-        } else {
-            if (ok) {
-                _dutDetector.prime();
-                transition(State::ADAPTER_DETECTED);
-            } else {
-                _hostProtocol.sendFault("ADAPTER_INIT_FAILED");
-                transition(State::FAULT);
-            }
-        }
+        if (ok && _eepromData.eolReached != EepromData::EOL_REACHED)
+            _dutDetector.prime();  // sync detector with a DUT already seated at power-on
+        handleAdapterArrival(ok);
         LOG_I("adapter init %s -> %s", ok ? "ok" : "FAILED", stateName(_state));
     }
     _ledManager.update(_state);
@@ -114,16 +105,10 @@ void StateMachine::update() {
                 else if (now >= _adapterSettleUntil) {
                     if (tryInitAdapter()) {
                         _adapterSettleUntil = 0;
-                        if (_eepromData.eolReached == EepromData::EOL_REACHED) {
-                            LOG_W("adapter: EOL — rejecting");
-                            _hostProtocol.sendEolWarning(_eepromData.insertionCount);
-                            _state = State::EOL_ADAPTER;
-                        } else {
-                            transition(State::ADAPTER_DETECTED);
-                        }
+                        handleAdapterArrival(true);
                     } else if (_lastEepromResult == EepromManager::ReadResult::Blank) {
-                        _hostProtocol.sendFault("ADAPTER_INIT_FAILED");
-                        transition(State::FAULT);  // fully seated but unprovisioned — permanent
+                        _adapterSettleUntil = 0;
+                        handleAdapterArrival(false);  // fully seated but unprovisioned — permanent
                     } else {
                         _adapterSettleUntil = 0;  // transient read failure — retry after another settle
                         LOG_W("adapter: init failed during detection, retrying");
@@ -158,6 +143,25 @@ void StateMachine::transition(State next) {
     }
 
     _ledManager.update(_state);
+}
+
+void StateMachine::handleAdapterArrival(bool initOk) {
+    // Shared tail of adapter arrival — used by boot (begin) and the runtime
+    // insertion poll. Healthy arrivals go to ADAPTER_DETECTED; EOL adapters are
+    // rejected with an EVENT EOL_WARNING; init failure is fatal (FAULT). Callers
+    // that want to retry transient failures (the runtime insertion path) must
+    // handle those before calling this with false.
+    if (!initOk) {
+        _hostProtocol.sendFault("ADAPTER_INIT_FAILED");
+        transition(State::FAULT);
+        return;
+    }
+    if (_eepromData.eolReached == EepromData::EOL_REACHED) {
+        LOG_W("adapter: EOL — rejecting");
+        transition(State::EOL_ADAPTER);  // sends EVENT EOL_WARNING to the host
+    } else {
+        transition(State::ADAPTER_DETECTED);
+    }
 }
 
 void StateMachine::handleDutEvent(DutEvent ev) {
