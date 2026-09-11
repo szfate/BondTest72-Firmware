@@ -2,6 +2,8 @@
 
 *2026-09-11 · all 55 src files and 10 tool scripts read in full at HEAD `f7ef512`.*
 
+**Progress 2026-09-12:** done today — B1–B8, all three cheap-hardening items, C1–C9, F2, F3 (struck through below). Notes: B6 was fixed differently than prescribed (adapters are *not* trivially destructible — `AdapterBase` has a virtual dtor — so `create()` now ends the previous occupant's lifetime explicitly instead of asserting). Also done beyond the review: adapter-insertion settle+retry (no more spurious NOT_PROVISIONED/FAULT on seating) and EEPROM blank-header re-read confirmation; pullups retuned to 280k/27.4k/2.49k from bench IV data (supersedes the 33k/27k references in C2/C3).
+
 Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = half day+). Bugs first, then improvements.
 
 ---
@@ -10,20 +12,20 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 
 | ID | Where | What | Fix | Effort |
 |----|-------|------|-----|--------|
-| B1 | `src/app/host_protocol.cpp:53-80` | `PROVISION` without a `padmap=` key is silently dropped (returns `NONE`, no response to host). Protocol doc (`docs/BONDTEST72_HOST_PROTOCOL.md:103`) promises `ERROR code=6 msg=MISSING_PADMAP`. The check in `state_machine.cpp:208-209` is unreachable dead code. | Track key-presence per field: return a `PROVISION_INVALID` command instead of `NONE` so the state machine emits the promised error. Proper fix is a `ProvisionRequest` struct (see F4). | S |
-| B2 | `src/app/state_machine.cpp:332-338` | Boot-time EOL adapter (`begin()` :47-48) bypasses `transition()` and goes straight to `State::EOL_ADAPTER` — no `EVENT EOL_WARNING` is sent to the host, and the SK6812 status LEDs never light. The runtime path (:109-113) does both correctly. | Route the boot path through `transition()` (extract a shared `handleAdapterArrival()` — see F1). | S |
-| B3 | `src/app/state_machine.cpp:403-417` | `GET_RESULTS` iterates the **live** `_padMap` but `_lastResult` was captured under the map active at `startTest()`. A `SET_PADMAP` between run and re-fetch mislabels every PAD line's die-pad numbers. | Cache `const PadMap* _lastResultPadMap` in `startTest()`; use it in `sendResults()`. | S |
-| B4 | `src/test/pad_map_registry.cpp:21` | Threshold comment rot on the **GOOD/OPEN decision boundary**: comment says 50 kΩ with margin arithmetic tuned for 50 k, but the constant is **60 000 Ω**. Any future reader "fixing" the comment could silently change the threshold. | Author confirms 60 kΩ against bench data; then reconcile the three comment sites (registry :12-20, pad_map.h:34-35, kelvin.h comment) with corrected margins (>6× above the strongest real-bond reading, >4× below the weakest unbonded artifact). | S |
-| B5 | `src/hal/kelvin.cpp:75,96` | Drain-settle is hardcoded `1000 µs` in two places with a comment saying "scale with padmap's largest cap" — but it's not parameterized. Any padmap with a cap >5 µF silently under-drains. | Extract `DRAIN_SETTLE_US = 1000` (named constant only; do NOT restructure the sequencing — it's latchup-safety-critical). Longer term: derive from `max(tc.settleUs)` for CAP_SENSE cases. | S |
-| B6 | `src/adapter/adapter_registry.cpp:16-18` | `create()` placement-news **over a live object** on every adapter re-detection (state_machine.cpp:305). Safe today only because `Mezzanine70` is trivially destructible and callers null the pointer first — a nontrivial adapter would be UB. | Add `static_assert(std::is_trivially_destructible_v<Mezzanine70>)` and `std::is_base_of_v<AdapterBase, Mezzanine70>`; fix the "Call once at boot" comment (it isn't — it's called on every re-detection). | S |
-| B7 | `src/adapter/eeprom_manager.cpp:16-18` | SWI transport failure (`_eeprom.read` → false) is returned as `ReadResult::CrcError`, conflating a flaky 1-Wire contact with a genuinely corrupt header. Harder to debug on the bench. | Add `ReadResult::IoError`; callers already treat both as not-Ok, so zero behavior change. | S |
-| B8 | `src/debug/eeprom_test.cpp:9-10` | Scratch-area comment claims "bytes 24-127" but the header+CRC occupy **0-35**. Anyone "correcting" the test downward would clobber `testCount` / `eolReached`. Also auto-provisions with defaults that drifted from the real `PROVISION` path. | Fix comment (scratch starts at byte 36). Longer term, delete this file (see F8). | S |
+| ~~B1~~ |  `src/app/host_protocol.cpp:53-80` | `PROVISION` without a `padmap=` key is silently dropped (returns `NONE`, no response to host). Protocol doc (`docs/BONDTEST72_HOST_PROTOCOL.md:103`) promises `ERROR code=6 msg=MISSING_PADMAP`. The check in `state_machine.cpp:208-209` is unreachable dead code. | Track key-presence per field: return a `PROVISION_INVALID` command instead of `NONE` so the state machine emits the promised error. Proper fix is a `ProvisionRequest` struct (see F4). | S |
+| ~~B2~~ |  `src/app/state_machine.cpp:332-338` | Boot-time EOL adapter (`begin()` :47-48) bypasses `transition()` and goes straight to `State::EOL_ADAPTER` — no `EVENT EOL_WARNING` is sent to the host, and the SK6812 status LEDs never light. The runtime path (:109-113) does both correctly. | Route the boot path through `transition()` (extract a shared `handleAdapterArrival()` — see F1). | S |
+| ~~B3~~ |  `src/app/state_machine.cpp:403-417` | `GET_RESULTS` iterates the **live** `_padMap` but `_lastResult` was captured under the map active at `startTest()`. A `SET_PADMAP` between run and re-fetch mislabels every PAD line's die-pad numbers. | Cache `const PadMap* _lastResultPadMap` in `startTest()`; use it in `sendResults()`. | S |
+| ~~B4~~ |  `src/test/pad_map_registry.cpp:21` | Threshold comment rot on the **GOOD/OPEN decision boundary**: comment says 50 kΩ with margin arithmetic tuned for 50 k, but the constant is **60 000 Ω**. Any future reader "fixing" the comment could silently change the threshold. | Author confirms 60 kΩ against bench data; then reconcile the three comment sites (registry :12-20, pad_map.h:34-35, kelvin.h comment) with corrected margins (>6× above the strongest real-bond reading, >4× below the weakest unbonded artifact). | S |
+| ~~B5~~ |  `src/hal/kelvin.cpp:75,96` | Drain-settle is hardcoded `1000 µs` in two places with a comment saying "scale with padmap's largest cap" — but it's not parameterized. Any padmap with a cap >5 µF silently under-drains. | Extract `DRAIN_SETTLE_US = 1000` (named constant only; do NOT restructure the sequencing — it's latchup-safety-critical). Longer term: derive from `max(tc.settleUs)` for CAP_SENSE cases. | S |
+| ~~B6~~ |  `src/adapter/adapter_registry.cpp:16-18` | `create()` placement-news **over a live object** on every adapter re-detection (state_machine.cpp:305). Safe today only because `Mezzanine70` is trivially destructible and callers null the pointer first — a nontrivial adapter would be UB. | Add `static_assert(std::is_trivially_destructible_v<Mezzanine70>)` and `std::is_base_of_v<AdapterBase, Mezzanine70>`; fix the "Call once at boot" comment (it isn't — it's called on every re-detection). | S |
+| ~~B7~~ |  `src/adapter/eeprom_manager.cpp:16-18` | SWI transport failure (`_eeprom.read` → false) is returned as `ReadResult::CrcError`, conflating a flaky 1-Wire contact with a genuinely corrupt header. Harder to debug on the bench. | Add `ReadResult::IoError`; callers already treat both as not-Ok, so zero behavior change. | S |
+| ~~B8~~ |  `src/debug/eeprom_test.cpp:9-10` | Scratch-area comment claims "bytes 24-127" but the header+CRC occupy **0-35**. Anyone "correcting" the test downward would clobber `testCount` / `eolReached`. Also auto-provisions with defaults that drifted from the real `PROVISION` path. | Fix comment (scratch starts at byte 36). Longer term, delete this file (see F8). | S |
 
 ### Cheap hardening (same phase as P0)
 
-- **Untested channels read as GOOD.** `BondResult::GOOD == 0` and `TestResult` is zero-initialized (`src/test/result.h:5-8`). Add a `NOT_TESTED = 0` first value and shift GOOD/OPEN down. Wire format unchanged (results are only emitted for tested cases).
-- **`parseKvUintList` trailing comma** (`host_protocol.cpp:113`) → phantom padmap ID `0` fills the next slot. Not reachable from conforming host tools, but reject or document.
-- **`_lastAdapterPoll`** (`state_machine.h:65`) serves two different cadences (1500 ms live-check at :71, 100 ms insertion-check at :106) — they fight each other. Split into two timestamps.
+- ~~**Untested channels read as GOOD.**~~ DONE: `BondResult::NOT_TESTED = 0` added; GOOD/OPEN shifted down; wire format unchanged.
+- ~~**`parseKvUintList` trailing comma** (`host_protocol.cpp:113`)~~ DONE: empty fields (trailing/doubled comma) rejected → whole list fails → `PROVISION_INVALID` → `ERROR MISSING_PADMAP`.
+- ~~**`_lastAdapterPoll`** (`state_machine.h:65`) serves two cadences~~ DONE: split into `_lastAdapterLivePoll` (1500 ms) / `_lastAdapterInsertPoll` (100 ms).
 
 ---
 
@@ -31,15 +33,15 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 
 | ID | Where | What |
 |----|-------|------|
-| C1 | `src/hal/mux.cpp:21-23` | TODO proposes swapping `digitalWrite` for `gpio_set_mask` as a "50x speedup". That would invalidate the latchup exposure-window analysis in `kelvin.cpp:48-57`. **Rewrite as a warning**, not a TODO. |
-| C2 | `src/adapter/mezzanine70.cpp:49-50` | "27K pull-up" → actually 33 k (`PULLUP_LEVELS[1]`); "Read COM_D" → actually COM_A. |
-| C3 | `docs/MUX_MAP.md:21` | "27 kΩ pullup" stale vs code (33 k). |
-| C4 | `src/test/pad_map.h:6-7` | Says `PULLUP_LEVELS` lives in `test_runner.cpp`; it's in `hal/kelvin.cpp:6-10`. |
-| C5 | `src/adapter/mezzanine70.cpp:24` | Logs `caseCount` as "%u pads" — it counts test *steps* (incl. DISCHARGE), not pads. |
-| C6 | `src/adapter/mezzanine70.cpp:49-52` | `DIODE_ANODE`/`DIODE_CATHODE` are tester channels (70/71), not adapter pins. Rename to `..._CH` so nobody adds the (wrong) `channelForPin()` call. |
-| C7 | `src/adapter/eeprom_layout.h:20` | Comment mentions `EEPROM_WIRE_BYTES` (constant is `EepromData::WIRE_BYTES`). |
-| C8 | `docs/ADAPTER_MEZ70.md:13` | References `TestCase.mezPin`; field is now `adapterPin`. |
-| C9 | `src/hal/buttons.cpp:4` | Says "internal pullup" but code is `INPUT` (external pullup fitted; RP2350 errata precaution). Doc-only fix. |
+| ~~C1~~ |  `src/hal/mux.cpp:21-23` | TODO proposes swapping `digitalWrite` for `gpio_set_mask` as a "50x speedup". That would invalidate the latchup exposure-window analysis in `kelvin.cpp:48-57`. **Rewrite as a warning**, not a TODO. |
+| ~~C2~~ |  `src/adapter/mezzanine70.cpp:49-50` | "27K pull-up" → actually 33 k (`PULLUP_LEVELS[1]`); "Read COM_D" → actually COM_A. |
+| ~~C3~~ |  `docs/MUX_MAP.md:21` | "27 kΩ pullup" stale vs code (33 k). |
+| ~~C4~~ |  `src/test/pad_map.h:6-7` | Says `PULLUP_LEVELS` lives in `test_runner.cpp`; it's in `hal/kelvin.cpp:6-10`. |
+| ~~C5~~ |  `src/adapter/mezzanine70.cpp:24` | Logs `caseCount` as "%u pads" — it counts test *steps* (incl. DISCHARGE), not pads. |
+| ~~C6~~ |  `src/adapter/mezzanine70.cpp:49-52` | `DIODE_ANODE`/`DIODE_CATHODE` are tester channels (70/71), not adapter pins. Rename to `..._CH` so nobody adds the (wrong) `channelForPin()` call. |
+| ~~C7~~ |  `src/adapter/eeprom_layout.h:20` | Comment mentions `EEPROM_WIRE_BYTES` (constant is `EepromData::WIRE_BYTES`). |
+| ~~C8~~ |  `docs/ADAPTER_MEZ70.md:13` | References `TestCase.mezPin`; field is now `adapterPin`. |
+| ~~C9~~ |  `src/hal/buttons.cpp:4` | Says "internal pullup" but code is `INPUT` (external pullup fitted; RP2350 errata precaution). Doc-only fix. |
 
 ---
 
@@ -48,8 +50,8 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 | ID | Where | Fix | Effort |
 |----|-------|-----|--------|
 | F1 | `state_machine.cpp:43-58` vs `:104-123` | Adapter-arrival sequence duplicated and already divergent (boot bypasses `transition()`, hand-rolls EOL). Extract `handleAdapterArrival()`; route through `transition()`. Fixes B2. | M |
-| F2 | `state_machine.cpp:93-102` vs `:182-188` | Button-start and host-RUN-start are identical. Extract `tryStartTest()`. | S |
-| F3 | `host_protocol.cpp:141-149`, `:163-171`, `:196-204` | Padmap-list printing ×3. Extract `printPadmapList()`. | S |
+| ~~F2~~ |  `state_machine.cpp:93-102` vs `:182-188` | Button-start and host-RUN-start are identical. Extract `tryStartTest()`. | S |
+| ~~F3~~ |  `host_protocol.cpp:141-149`, `:163-171`, `:196-204` | Padmap-list printing ×3. Extract `printPadmapList()`. | S |
 | F4 | `host_protocol.cpp:53-80` + `state_machine.cpp:203-228` + `eeprom_test.cpp:45-52` | Provision defaults ×3 (already drifted), blank-detection ×2. Hoist into `eeprom_layout`: `PADMAP_ID_SLOTS`, `eepromHeaderLooksBlank()`, `eepromDefaults(hw)`. Replaces 7 scattered raw sentinels with a `ProvisionRequest` struct. Properly fixes B1. | M |
 | F5 | `test_runner.cpp:138-152` vs `state_machine.cpp:409-414` | Pass/fail verify loop duplicates `sendResults()` pad iteration. Fold verify into the main measurement loop (behavior-identical) + shared `forEachTestedCase()`. | M |
 | F6 | `dut_detector.cpp:28-32` vs `:44-49` | Sensing block ×2. Extract private `senseCandidate()`. | S |
