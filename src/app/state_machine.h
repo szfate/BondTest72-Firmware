@@ -57,6 +57,7 @@ private:
     State         _state           = State::NO_ADAPTER;
     AdapterBase*  _adapter         = nullptr;
     const PadMap* _padMap          = nullptr;
+    const PadMap* _lastResultPadMap = nullptr;  // pad map active when _lastResult was captured; a later SET_PADMAP must not relabel it
     TestResult    _lastResult      = {};
     EepromData    _eepromData;
     char          _adapterUid[17]  = {};

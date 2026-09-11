@@ -9,15 +9,17 @@
 // shared bypass cap) are a separate, harder problem neither strategy can
 // fix — see kelvin.h.
 //
-// 50kΩ, from bench data with visually-confirmed-missing bonds: real bonds
+// 60kΩ, from bench data with visually-confirmed-missing bonds: real bonds
 // (incl. weak ESD-diode-mediated ones) conduct at the 33k/3.3k levels up to
 // ~9.2kΩ/~1.6kΩ — the 330k level alone can read as high as ~81kΩ for a real
 // bond, but OR-across-readings means that's fine, the same pad still passes
-// via its 33k/3.3k reading. Confirmed-missing bonds never dropped below
-// ~256kΩ at ANY reading (leakage/coupling artifacts, not a real low-
-// resistance path) — 50kΩ sits with ~5x margin on both sides. This was
-// calibrated against STANDARD's readings; CAP_SENSE reuses it unverified —
-// worth confirming on the bench once real CAP_SENSE data is available.
+// via its 33k/3.3k reading (the 330k level is not the decisive one). Confirmed-
+// missing bonds never dropped below ~256kΩ at ANY reading (leakage/coupling
+// artifacts, not a real low-resistance path) — 60kΩ sits ~6.5x above the
+// strongest decisive real-bond reading (9.2kΩ at the 33k level) and ~4.3x
+// below the weakest unbonded-artifact reading (256kΩ). This was calibrated
+// against STANDARD's readings; CAP_SENSE reuses it unverified — worth
+// confirming on the bench once real CAP_SENSE data is available.
 static constexpr TestThresholds kThresh = { 60000.0f };
 
 static constexpr uint8_t GND  = 10;  // adapter pin 10, die pad 18; all GND pins equivalent (1x1)

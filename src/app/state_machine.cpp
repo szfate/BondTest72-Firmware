@@ -390,6 +390,7 @@ void StateMachine::startTest() {
     transition(State::TESTING);
     _ledManager.update(_state);
 
+    _lastResultPadMap = _padMap;
     _lastResult = _testRunner.run(*_adapter, *_padMap);
     _eepromData.testCount++;
     flushEeprom();
@@ -408,13 +409,15 @@ void StateMachine::startTest() {
 }
 
 void StateMachine::sendResults() {
-    if (!_adapter || !_padMap) return;
+    // Iterate the pad map that was active when the test ran, not the live one —
+    // a SET_PADMAP between the run and GET_RESULTS would otherwise mislabel pad numbers.
+    if (!_adapter || !_lastResultPadMap) return;
     for (uint8_t slot = 0; slot < _lastResult.slotCount; slot++) {
         const SlotResult& sr = _lastResult.slots[slot];
         _hostProtocol.sendSlotStatus(slot, sr.present, sr.tested);
         if (!sr.tested) continue;
-        for (uint8_t i = 0; i < _padMap->caseCount; i++) {
-            const TestCase& tc = _padMap->cases[i];
+        for (uint8_t i = 0; i < _lastResultPadMap->caseCount; i++) {
+            const TestCase& tc = _lastResultPadMap->cases[i];
             if (tc.strategy == TestStrategy::DISCHARGE) continue;
             uint8_t channel = _adapter->channelForPin(tc.adapterPin);
             _hostProtocol.sendPadResult(slot, tc.adapterPin, tc.diePad, tc.strategy, sr.byChannel[channel]);

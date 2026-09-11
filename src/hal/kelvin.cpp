@@ -3,6 +3,10 @@
 
 static constexpr float VCC = 3.3f;
 
+// Drain-settle window used by both drain phases below. ~10τ into a 1µF net; scale it
+// up if a future padmap's largest cap exceeds ~5µF (see drainAndRelease's residual note).
+static constexpr uint32_t DRAIN_SETTLE_US = 1000;
+
 const PullupLevel PULLUP_LEVELS[PULLUP_LEVEL_COUNT] = {
     { Bus::C, 330000.0f },
     { Bus::D,  33000.0f },
@@ -67,12 +71,12 @@ static PadReading classifyVoltage(float v, float pullupOhms, float maxResistance
 // path, since COM_C/D/E are pullups to VCC and Bus::B is the only ground.
 // That's ~33mA through two ~50Ω switches, above the continuous rating but
 // entirely within the rails, so it's switch stress rather than a latch-up
-// risk. τ≈100µs into 1µF; 1ms is ~10τ, fully drained.
+// risk. τ≈100µs into 1µF; DRAIN_SETTLE_US (1ms) is ~10τ, fully drained.
 static void groundAndDischarge(MuxController& mux, uint8_t forceCh, uint8_t sinkCh) {
     mux.clearAll();
     mux.setChannel(sinkCh, Bus::B);   // reference first — never leave it floating
     mux.setChannel(forceCh, Bus::B);  // then drain into a solid ground
-    delayMicroseconds(1000);
+    delayMicroseconds(DRAIN_SETTLE_US);
 
     mux.clearAll();
     mux.setChannel(sinkCh, Bus::B);   // reference first again, before the caller drives forceCh
@@ -84,16 +88,16 @@ static void groundAndDischarge(MuxController& mux, uint8_t forceCh, uint8_t sink
 // the settle window), and grounding a charged cap plate is safe ONLY while
 // its return (sinkCh) is still held on Bus::B — with the return floating, the
 // plate's step to GND drives the return to about −VCC by charge conservation
-// and fires the parasitic SCR. The 1ms (~20τ into 1µF, ~50Ω Ron) ensures no
+// and fires the parasitic SCR. DRAIN_SETTLE_US (~20τ into 1µF, ~50Ω Ron) ensures no
 // residual charge crosses clearAll() into the next call: a partially charged
 // node left floating would dip its return when the next REVERSE measurement
 // grounds it as the sink, scaled by whatever charge is left. Residual =
 // V·e^(−t/RC), so caps up to ~5µF are fully drained (≤50mV); beyond that,
-// scale this delay with the padmap's largest cap or poll COM_A until drained.
+// scale DRAIN_SETTLE_US with the padmap's largest cap or poll COM_A until drained.
 // Precondition: sinkCh→Bus::B still closed, as left by groundAndDischarge.
 static void drainAndRelease(MuxController& mux, uint8_t forceCh) {
     mux.setChannel(forceCh, Bus::B);  // drain while the return (sinkCh) is still grounded
-    delayMicroseconds(1000);
+    delayMicroseconds(DRAIN_SETTLE_US);
     mux.clearAll();
 }
 
