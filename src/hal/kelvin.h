@@ -2,14 +2,30 @@
 #include <stdint.h>
 #include "mux.h"
 #include "adc.h"
-#include "test/pad_map.h"
-#include "test/result.h"
+
+// Number of pullup drive strengths swept per pad (280k/27.4k/2.49k —
+// IV-measured to drive ~10/100/1000 µA through a good bond; see
+// PULLUP_LEVELS below). Hardware description of the tester board's pullup
+// network — single source of truth. result.h derives READINGS_PER_DIR from
+// this, and PULLUP_LEVELS (defined in kelvin.cpp) must have exactly this
+// many entries. Bumping this requires: more entries in PULLUP_LEVELS
+// (hal/kelvin.cpp), and — since only COM_C/D/E are wired as pullup buses
+// today — additional hardware pullup networks to actually drive the extra
+// currents.
+constexpr uint8_t PULLUP_LEVEL_COUNT = 3;
+
+// Number of voltage samples measureKelvinCurve takes across a single
+// CAP_SENSE charging event (see curveSampleTimesUs in hal/kelvin.cpp for the
+// actual time schedule). Independent of PULLUP_LEVEL_COUNT — CAP_SENSE
+// samples one continuous charge at a fixed pullup, not different pullups —
+// so this can be tuned purely for curve-shape resolution.
+constexpr uint8_t CAP_SENSE_SAMPLE_COUNT = 5;
 
 struct PullupLevel { Bus bus; float ohms; };
 
 // Lowest current (highest resistance) first — sweeping in this order avoids
 // hitting bypass caps with strong current before weak. Exactly
-// PULLUP_LEVEL_COUNT entries (see pad_map.h).
+// PULLUP_LEVEL_COUNT entries (defined in kelvin.cpp).
 extern const PullupLevel PULLUP_LEVELS[PULLUP_LEVEL_COUNT];
 
 // Approximate steady-state drive current for a pullup value (I = VCC/R),
@@ -23,6 +39,16 @@ float pullupCurrentUA(float pullupOhms);
 // samples at for a given totalSettleUs. Exposed so the host protocol can
 // report the same schedule it actually used, instead of re-deriving it.
 void curveSampleTimesUs(uint16_t totalSettleUs, uint16_t* out /* [CAP_SENSE_SAMPLE_COUNT] */);
+
+// One Kelvin measurement: what the instrument observed at one channel pair
+// under one drive strength. `conducted` is the caller's threshold applied —
+// the maxResistanceOhms argument is caller-supplied, so classification
+// policy lives with whoever passes it.
+struct PadReading {
+    float voltageV;      // COM_A Kelvin voltage
+    float resistanceOhms; // apparent bond resistance, informational only
+    bool  conducted;      // voltageV sufficiently below VCC ⇒ activity detected
+};
 
 // Drives forceCh through pullupBus while also Kelvin-tapping it on Bus::A
 // (same channel, two Y buses closed at once); sinks the other end on Bus::B.

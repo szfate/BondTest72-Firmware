@@ -81,6 +81,7 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 ## P4 — Layering (optional but cheap wins)
 
 - **LY1** `kelvin.h` includes `test/pad_map.h` + `test/result.h` — HAL depends upward on its caller. Caused C4's doc drift. Moving measurement policy into `test/` is the clean fix (L); a `void` and one comment fix is the pragmatic minimum.
+  → **DONE** (partial): `PULLUP_LEVEL_COUNT`/`CAP_SENSE_SAMPLE_COUNT` and `PadReading` moved into `hal/kelvin.h` (hardware description + instrument output live low; the move was forced — constants down + PadReading up created an include cycle). `conducted` kept in the struct, threshold caller-supplied so classification policy stays in test/. kelvin.h now includes only mux.h/adc.h. `mezzanine70.cpp` still includes test/pad_map.h for `TestCase` (adapter→test for pad maps — separate question, out of scope).
 - ~~**LY2**~~ MOOT: `DiscoveryScanner` removed entirely (user decision — hardware is stable, bring-up instrument no longer needed). The app→test inversion died with it.
 - **LY3** `main.cpp:14-24` globals with external linkage → anonymous namespace (`mux`/`adc` are collision magnets).
 - **LY4** `main.cpp:12` includes `debug/eeprom_test.h` — unused after F8.

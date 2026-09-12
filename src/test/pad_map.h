@@ -1,21 +1,8 @@
 #pragma once
 #include <stdint.h>
 
-// Number of pullup drive strengths swept per pad (280k/27.4k/2.49k today —
-// IV-measured to drive ~10/100/1000 µA through a good bond).
-// Single source of truth — result.h derives READING_COUNT from this, and
-// hal/kelvin.cpp's PULLUP_LEVELS array must have exactly this many entries.
-// Bumping this requires: more entries in PULLUP_LEVELS (hal/kelvin.cpp),
-// and — since only COM_C/D/E are wired as pullup buses today — additional
-// hardware pullup networks to actually drive the extra currents.
-constexpr uint8_t PULLUP_LEVEL_COUNT = 3;
-
-// Number of voltage samples measureKelvinCurve takes across a single
-// CAP_SENSE charging event (see hal/kelvin.cpp's curveSampleTimesUs for the
-// actual time schedule). Independent of PULLUP_LEVEL_COUNT — CAP_SENSE
-// samples one continuous charge at a fixed pullup, not different pullups —
-// so this can be tuned purely for curve-shape resolution.
-constexpr uint8_t CAP_SENSE_SAMPLE_COUNT = 5;
+// PULLUP_LEVEL_COUNT and CAP_SENSE_SAMPLE_COUNT now live in hal/kelvin.h —
+// they describe the tester board's measurement hardware, not pad-map policy.
 
 // A reading counts as "activity" if its apparent bond resistance (computed
 // from the Kelvin voltage and the pullup value — see measureKelvin) is

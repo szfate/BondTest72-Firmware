@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include "pad_map.h"
+#include "hal/kelvin.h"
 
 enum class BondResult : uint8_t {
     NOT_TESTED,  // zero-init default for untested channels — never emitted on the wire
@@ -49,11 +50,6 @@ constexpr uint8_t READINGS_PER_DIR = PULLUP_LEVEL_COUNT > CAP_SENSE_SAMPLE_COUNT
 //               current level. Classification uses only the last (most-settled)
 //               slot in each direction; earlier slots are for curve-shape
 //               visibility.
-struct PadReading {
-    float voltageV;      // COM_A Kelvin voltage
-    float resistanceOhms; // apparent bond resistance, informational only
-    bool  conducted;      // voltageV sufficiently below VCC ⇒ activity detected
-};
 
 // Single source of the group-length rule documented above: how many readings
 // each direction group holds for a strategy.
