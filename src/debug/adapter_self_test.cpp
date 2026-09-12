@@ -4,10 +4,7 @@
 #include "adapter/adapter_base.h"
 #include <Arduino.h>
 
-extern MuxController mux;
-extern AdcDriver     adc;
-
-void adapterSelfTest(const AdapterBase* adapter) {
+void adapterSelfTest(const AdapterBase* adapter, MuxController& mux, AdcDriver& adc) {
     Serial.println("\n--- adapter self-test ---");
     if (!adapter) { Serial.println("no adapter"); return; }
     bool ok = adapter->selfTest(mux, adc);

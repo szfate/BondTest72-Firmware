@@ -11,7 +11,7 @@ struct EepromData {
 
     AdapterHardware adapterHardware;
     uint8_t         rfu;  // reserved, written 0xFF — earmarked as layout_version if a second header layout ever exists
-    uint8_t         supportedPadmapIds[4];  // PADMAP_UNSET-terminated list of supported pad map IDs
+    uint8_t         supportedPadmapIds[AdapterBase::PADMAP_ID_COUNT];  // PADMAP_UNSET-terminated list of supported pad map IDs
     uint32_t     designedLifespan;       // max insertions before EOL (set at manufacture)
     uint32_t     dateOfManufacture;      // YYYYMMDD
     uint32_t     insertionCount;         // absent→present transitions (wear metric)

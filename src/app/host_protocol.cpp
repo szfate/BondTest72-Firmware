@@ -58,13 +58,13 @@ HostCommand HostProtocol::processLine(const char* line) {
         _provisionEol      = EepromData::FIELD_UNSET;
         _provisionHwId     = EepromData::HWID_UNSET;
         _provisionLifespan = EepromData::FIELD_UNSET;
-        for (uint8_t i = 0; i < 4; i++) _provisionPadmapIds[i] = EepromData::PADMAP_UNSET;
+        for (uint8_t i = 0; i < AdapterBase::PADMAP_ID_COUNT; i++) _provisionPadmapIds[i] = EepromData::PADMAP_UNSET;
         uint32_t hw;
         bool hasHw = parseKvUint(line + sizeof("PROVISION ") - 1, "hw", hw);
         if (hasHw) _provisionHwId = (uint8_t)hw;
         uint32_t ls;
         if (parseKvUint(line + sizeof("PROVISION ") - 1, "lifespan", ls)) _provisionLifespan = ls;
-        if (!parseKvUintList(line + sizeof("PROVISION ") - 1, "padmap", _provisionPadmapIds, 4))
+        if (!parseKvUintList(line + sizeof("PROVISION ") - 1, "padmap", _provisionPadmapIds, AdapterBase::PADMAP_ID_COUNT))
             return HostCommand::PROVISION_INVALID;
         uint32_t dt;
         if (parseKvUint(line + sizeof("PROVISION ") - 1, "date", dt)) {
@@ -143,9 +143,9 @@ void HostProtocol::setAdapterUid(const char* uid16) {
 
 // Prints " pm=<id>[,<id>...]" for a PADMAP_UNSET-terminated padmap id list; prints
 // nothing if the list is empty. Shared by ADAPTER, ADAPTER_DETECTED, TEST_START.
-void HostProtocol::printPadmapList(const uint8_t* padmapIds) {
+void HostProtocol::printPadmapList(const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT]) {
     uint8_t pmCount = 0;
-    for (uint8_t i = 0; i < 4 && padmapIds[i] != EepromData::PADMAP_UNSET; i++) pmCount++;
+    for (uint8_t i = 0; i < AdapterBase::PADMAP_ID_COUNT && padmapIds[i] != EepromData::PADMAP_UNSET; i++) pmCount++;
     if (pmCount == 0) return;
     Serial.print(" pm=");
     for (uint8_t i = 0; i < pmCount; i++) {
@@ -154,7 +154,7 @@ void HostProtocol::printPadmapList(const uint8_t* padmapIds) {
     }
 }
 
-void HostProtocol::sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
+void HostProtocol::sendAdapterInfo(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT],
                                     uint32_t lifespan, uint32_t dateOfManufacture,
                                     uint32_t insertions, uint32_t tests, bool eol,
                                     bool dutPresent) {
@@ -171,7 +171,7 @@ void HostProtocol::sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
     Serial.println();
 }
 
-void HostProtocol::sendAdapterDetected(uint8_t hwId, const uint8_t* padmapIds) {
+void HostProtocol::sendAdapterDetected(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT]) {
     Serial.print("EVENT ADAPTER_DETECTED ");
     Serial.print("aid=");     Serial.print(_adapterUid);
     Serial.print(" ahw=");    Serial.print(hwId);
@@ -225,7 +225,7 @@ void HostProtocol::printCapSchedule(const PadMap* padMap) {
     }
 }
 
-void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const PadMap* padMap,
+void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT], const PadMap* padMap,
                                   uint32_t insertions, uint32_t tests) {
     // Counts as of this insertion/before this test's run — testCount excludes
     // the test currently starting (incremented only after it completes).

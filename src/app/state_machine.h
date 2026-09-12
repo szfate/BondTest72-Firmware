@@ -1,21 +1,29 @@
 #pragma once
 #include "state.h"
-#include "hal/mux.h"
-#include "hal/adc.h"
-#include "hal/sk6812.h"
-#include "hal/buttons.h"
-#include "adapter/adapter_base.h"
 #include "adapter/eeprom_manager.h"
-#include "test/dut_detector.h"
-#include "test/test_runner.h"
 #include "test/result.h"
 #include "host_protocol.h"
 #include "led_manager.h"
+
+// By-value members and nested enums above need full definitions; everything
+// else in this header is a reference/pointer/enum — forward-declared so
+// editing a hal/test header doesn't recompile every consumer of this one.
+class   MuxController;
+class   AdcDriver;
+class   SK6812Controller;
+class   Buttons;
+class   AdapterBase;
+struct  PadMap;
+class   DutDetector;
+class   TestRunner;
+class   HostProtocol;
+enum class DutEvent : uint8_t;
 
 constexpr uint32_t ADAPTER_POLL_INTERVAL_MS       = 1500;
 constexpr uint32_t ADAPTER_POLL_INTERVAL_FAST_MS  = 100;
 constexpr uint32_t ADAPTER_INSERT_SETTLE_MS  = 100;  // wait after adapter presence first detected before the first EEPROM read — half-seated contacts read as garbage/blank
 constexpr uint32_t DUT_INSERT_SETTLE_MS      = 1000;  // debounce: ignore poll after insertion until connector is seated
+constexpr uint32_t DUT_POLL_INTERVAL_MS      = 250;   // DUT presence cadence — owned by the app's poll loop, not the detector
 
 class StateMachine {
 public:

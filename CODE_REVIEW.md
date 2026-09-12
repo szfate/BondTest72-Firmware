@@ -83,12 +83,12 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 - **LY1** `kelvin.h` includes `test/pad_map.h` + `test/result.h` — HAL depends upward on its caller. Caused C4's doc drift. Moving measurement policy into `test/` is the clean fix (L); a `void` and one comment fix is the pragmatic minimum.
   → **DONE** (partial): `PULLUP_LEVEL_COUNT`/`CAP_SENSE_SAMPLE_COUNT` and `PadReading` moved into `hal/kelvin.h` (hardware description + instrument output live low; the move was forced — constants down + PadReading up created an include cycle). `conducted` kept in the struct, threshold caller-supplied so classification policy stays in test/. kelvin.h now includes only mux.h/adc.h. `mezzanine70.cpp` still includes test/pad_map.h for `TestCase` (adapter→test for pad maps — separate question, out of scope).
 - ~~**LY2**~~ MOOT: `DiscoveryScanner` removed entirely (user decision — hardware is stable, bring-up instrument no longer needed). The app→test inversion died with it.
-- **LY3** `main.cpp:14-24` globals with external linkage → anonymous namespace (`mux`/`adc` are collision magnets).
-- **LY4** `main.cpp:12` includes `debug/eeprom_test.h` — unused after F8.
+- ~~**LY3**~~ DONE: main.cpp globals → anonymous namespace (setup/loop stay external — Arduino core links them by name). The build failure on first attempt proved the point: `debug/adapter_self_test.cpp` was importing `mux`/`adc` via bare `extern` decls; `adapterSelfTest()` now takes `MuxController&, AdcDriver&` params (matching the codebase's injection style) and the externs are gone.
+- ~~**LY4**~~ DONE (as side effect of F8): `debug/eeprom_test.h` no longer exists; main.cpp has no trace of it.
 - ~~**LY6**~~ MOOT: `DiscoveryScanner` removed (same decision as LY2).
-- **LY7** `state_machine.h` includes 12 headers for 8 ref members → forward-declare.
-- **LY8** `getSupportedPadmapIds()` returns a length-less pointer; `4` hardcoded at `state_machine.cpp:332` → `const uint8_t (&)[4]`.
-- **LY9** `DUT_POLL_INTERVAL_MS` lives in `dut_detector.h`, consumed only by `state_machine` → move to app.
+- ~~**LY7**~~ DONE: state_machine.h down from 12 includes to 5 (state.h, eeprom_manager.h for the nested ReadResult enum, result.h for the by-value TestResult, host_protocol.h for HostCommand, led_manager.h for the by-value LedManager); the 8 ref members + 2 pointers + DutEvent/PadMap are forward-declared. state_machine.cpp pulls the hal/test headers it actually uses.
+- ~~**LY8**~~ DONE: `AdapterBase::PADMAP_ID_COUNT = 4` (wire bytes [4..7] fix the length); `getSupportedPadmapIds()` now returns `const uint8_t (&)[PADMAP_ID_COUNT]` (trailing-return syntax — the parenthesized declarator can't carry `override`). Same treatment for host_protocol's provision list and the sendAdapter*/printPadmapList params; eeprom_layout.h's `supportedPadmapIds` uses the constant. eeprom_layout.cpp's per-byte pack/unpack lines kept — they document wire offsets, not counts.
+- ~~**LY9**~~ DONE: `DUT_POLL_INTERVAL_MS` moved from dut_detector.h to app/state_machine.h (only consumer is state_machine's poll loop; `DUT_CONFIRM_COUNT` stays with the detector — it's detector-internal).
 
 ---
 

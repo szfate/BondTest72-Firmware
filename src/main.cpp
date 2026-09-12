@@ -10,6 +10,10 @@
 #include "app/host_protocol.h"
 #include "app/state_machine.h"
 
+// Internal linkage — the names (mux, adc, ...) must not leak to the link
+// stage where Arduino core/library symbols could collide with them.
+// setup()/loop() stay outside: the Arduino core references them by name.
+namespace {
 MuxController    mux;
 AT21CS01Driver   eeprom;
 AdcDriver        adc;
@@ -21,6 +25,7 @@ EepromManager    eepromMgr(eeprom);
 DutDetector      dutDetector(mux, adc);
 TestRunner       testRunner(mux, adc, dutDetector);
 StateMachine     stateMachine(mux, adc, leds, buttons, eepromMgr, dutDetector, testRunner, hostProtocol);
+}  // namespace
 
 void setup() {
     Serial.begin(115200);

@@ -32,7 +32,7 @@ public:
     HostCommand poll();
     uint8_t     setPadmapId() const { return _setPadmapId; }
 
-    const uint8_t* provisionPadmapIds() const { return _provisionPadmapIds; }
+    const uint8_t (&provisionPadmapIds() const)[AdapterBase::PADMAP_ID_COUNT] { return _provisionPadmapIds; }
     uint8_t     provisionHwId()       const { return _provisionHwId; }
     uint32_t    provisionLifespan()   const { return _provisionLifespan; }
     uint32_t    provisionMfgDate()    const { return _provisionMfgDate; }
@@ -42,16 +42,16 @@ public:
 
     void setAdapterUid(const char* uid16);
 
-void sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
+void sendAdapterInfo(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT],
                      uint32_t lifespan, uint32_t dateOfManufacture,
                      uint32_t insertions, uint32_t tests, bool eol,
                      bool dutPresent);
-    void sendAdapterDetected(uint8_t hwId, const uint8_t* padmapIds);
+    void sendAdapterDetected(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT]);
     void sendAdapterRemoved();
     void sendDutInserted();
     void sendDutRemoved();
-    void sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const PadMap* padMap,
-                        uint32_t insertions, uint32_t tests);
+void sendTestStart(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT], const PadMap* padMap,
+                    uint32_t insertions, uint32_t tests);
     void sendEolWarning(uint32_t insertionCount);
     void sendWrongOrientation();
     void sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad, TestStrategy strategy, const PadResult& r);
@@ -66,7 +66,7 @@ private:
     HostCommand processLine(const char* line);
     static bool parseKvUint(const char* kv, const char* key, uint32_t& out);
     static bool parseKvUintList(const char* kv, const char* key, uint8_t* out, uint8_t maxCount);
-    void printPadmapList(const uint8_t* padmapIds);
+    void printPadmapList(const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT]);
     void printBondThreshold(const PadMap* padMap);
     void printCapSchedule(const PadMap* padMap);
 
@@ -74,8 +74,8 @@ private:
     uint16_t _lineLen           = 0;
     bool     _overflowWarned    = false;
     uint8_t  _setPadmapId       = 0;
-    uint8_t  _provisionPadmapIds[4] = {EepromData::PADMAP_UNSET, EepromData::PADMAP_UNSET,
-                                       EepromData::PADMAP_UNSET, EepromData::PADMAP_UNSET};
+uint8_t  _provisionPadmapIds[AdapterBase::PADMAP_ID_COUNT] = {EepromData::PADMAP_UNSET, EepromData::PADMAP_UNSET,
+                                        EepromData::PADMAP_UNSET, EepromData::PADMAP_UNSET};
     uint8_t  _provisionHwId     = EepromData::HWID_UNSET;
     uint32_t _provisionLifespan = EepromData::FIELD_UNSET;
     uint32_t _provisionMfgDate  = EepromData::FIELD_UNSET;

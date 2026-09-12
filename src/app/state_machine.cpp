@@ -1,5 +1,11 @@
 #include "state_machine.h"
+#include "hal/mux.h"
+#include "hal/adc.h"
+#include "hal/buttons.h"
+#include "adapter/adapter_base.h"
 #include "adapter/adapter_registry.h"
+#include "test/dut_detector.h"
+#include "test/test_runner.h"
 #include "test/pad_map_registry.h"
 #include "debug/log.h"
 #include "debug/adapter_self_test.h"
@@ -358,7 +364,7 @@ bool StateMachine::tryInitAdapter() {
     char uidBuf[17];
     _hostProtocol.setAdapterUid(_eepromMgr.readSerialUid(uidBuf, sizeof(uidBuf)) ? uidBuf : nullptr);
 
-    adapterSelfTest(_adapter);
+    adapterSelfTest(_adapter, _mux, _adc);
     _dutDetector.setAdapter(_adapter);
     selectPadMap();
     // Discharge any residual charge on the connector pins before the first test to avoid false readings
@@ -369,8 +375,8 @@ bool StateMachine::tryInitAdapter() {
 }
 
 void StateMachine::selectPadMap() {
-    const uint8_t* ids = _adapter->getSupportedPadmapIds();
-    for (uint8_t i = 0; i < 4 && ids[i] != EepromData::PADMAP_UNSET; i++) {
+    const uint8_t (&ids)[AdapterBase::PADMAP_ID_COUNT] = _adapter->getSupportedPadmapIds();
+    for (uint8_t i = 0; i < AdapterBase::PADMAP_ID_COUNT && ids[i] != EepromData::PADMAP_UNSET; i++) {
         _padMap = PadMapRegistry::find(ids[i]);
         if (_padMap) break;
     }

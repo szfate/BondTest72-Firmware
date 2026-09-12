@@ -5,7 +5,6 @@
 #include "hal/adc.h"
 #include "adapter/adapter_base.h"
 
-constexpr uint32_t DUT_POLL_INTERVAL_MS = 250;
 constexpr uint8_t  DUT_CONFIRM_COUNT    = 2;
 
 enum class DutEvent : uint8_t {

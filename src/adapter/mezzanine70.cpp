@@ -12,7 +12,7 @@ static constexpr uint8_t ADAPTER_PIN_COUNT_PLUS_1 = 71;  // mirror formula for f
 
 Mezzanine70::Mezzanine70(const EepromData& eeprom)
 {
-    for (uint8_t i = 0; i < 4; i++) _padmapIds[i] = eeprom.supportedPadmapIds[i];
+    for (uint8_t i = 0; i < PADMAP_ID_COUNT; i++) _padmapIds[i] = eeprom.supportedPadmapIds[i];
     pinMode(EOL_LED_PIN, OUTPUT);
     digitalWrite(EOL_LED_PIN, LOW);
 }
