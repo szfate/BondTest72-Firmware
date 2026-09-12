@@ -259,8 +259,8 @@ void HostProtocol::sendWrongOrientation() {
     Serial.println("EVENT WRONG_ORIENTATION");
 }
 
-// Prints `count` comma-separated values from a contiguous group of readings
-// (either the forward or reverse half of PadResult.readings). For STD, count
+// Prints `count` comma-separated values from one direction group of PadResult
+// (pr.fwd or pr.rev). For STD, count
 // is PULLUP_LEVEL_COUNT and each slot is a pullup level, lowest-current-first
 // (see PULLUP_LEVELS in hal/kelvin.cpp); for CAP_SENSE, count is
 // CAP_SENSE_SAMPLE_COUNT and each slot is a curve timepoint, earliest-first.
@@ -305,29 +305,29 @@ void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePa
         // enough for that transform to matter, and that's already reflected
         // in `result` via the classification. Each curve is sent only for the
         // direction(s) its method= covers (vfs = forward, vrs = reverse).
-        const PadReading* fwd = &r.readings[0];
-        const PadReading* rev = &r.readings[CAP_SENSE_SAMPLE_COUNT];
+        const PadReading* fwd = r.fwd;
+        const PadReading* rev = r.rev;
         if (fwdMeasured) {
-            Serial.print(" vfs="); printReadingGroupCsv(fwd, CAP_SENSE_SAMPLE_COUNT, false);
+            Serial.print(" vfs="); printReadingGroupCsv(fwd, readingsPerDir(strategy), false);
         }
         if (revMeasured) {
-            Serial.print(" vrs="); printReadingGroupCsv(rev, CAP_SENSE_SAMPLE_COUNT, false);
+            Serial.print(" vrs="); printReadingGroupCsv(rev, readingsPerDir(strategy), false);
         }
     } else {
-        const PadReading* fwd = &r.readings[0];
-        const PadReading* rev = &r.readings[PULLUP_LEVEL_COUNT];
+        const PadReading* fwd = r.fwd;
+        const PadReading* rev = r.rev;
 
         if (fwdMeasured) {
-            Serial.print(" rf="); printReadingGroupCsv(fwd, PULLUP_LEVEL_COUNT, true);
+            Serial.print(" rf="); printReadingGroupCsv(fwd, readingsPerDir(strategy), true);
         }
         if (revMeasured) {
-            Serial.print(" rr="); printReadingGroupCsv(rev, PULLUP_LEVEL_COUNT, true);
+            Serial.print(" rr="); printReadingGroupCsv(rev, readingsPerDir(strategy), true);
         }
         if (fwdMeasured) {
-            Serial.print(" vf="); printReadingGroupCsv(fwd, PULLUP_LEVEL_COUNT, false);
+            Serial.print(" vf="); printReadingGroupCsv(fwd, readingsPerDir(strategy), false);
         }
         if (revMeasured) {
-            Serial.print(" vr="); printReadingGroupCsv(rev, PULLUP_LEVEL_COUNT, false);
+            Serial.print(" vr="); printReadingGroupCsv(rev, readingsPerDir(strategy), false);
         }
     }
     Serial.println();

@@ -2,7 +2,9 @@
 
 // Source of truth: docs/MUX_MAP.md
 // Chip indices: 0=U2, 1=U3, 2=U4
-const MuxEntry MUX_MAP[72] = {
+// Size tied to MUX_CHANNEL_COUNT (mux.h) — a count mismatch fails at link time.
+static_assert(MUX_CHANNEL_COUNT == 72, "MUX_MAP table below is written for 72 channels");
+const MuxEntry MUX_MAP[MUX_CHANNEL_COUNT] = {
     // pad  chip  channel
     {0,  0},  //  0  U2 X0
     {0, 16},  //  1  U2 X16
