@@ -23,7 +23,6 @@ enum class HostCommand : uint8_t {
     PROVISION,
     PROVISION_INVALID,
     GET_ADAPTER,
-    DISCOVERY_SCAN,
     HELLO,
 };
 
@@ -61,8 +60,6 @@ void sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
     void sendError(ErrorCode code, const char* msg);
     void sendFault(const char* msg);
     void sendOk(const char* what);
-    void sendDiscoveryScanPoint(uint8_t src, uint8_t snk, float v);
-    void sendDiscoveryScanDone();
     void sendHello();
 
 private:

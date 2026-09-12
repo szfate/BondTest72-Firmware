@@ -71,7 +71,6 @@ src/
 │   ├── pad_map_registry.h / .cpp            # hardcoded PadMap instances (see PadMapRegistry below)
 │   ├── dut_detector.h / dut_detector.cpp   # debounced presence/orientation polling via PadMap recipe
 │   ├── test_runner.h / test_runner.cpp      # test orchestration, adapter-agnostic
-│   ├── discovery_scanner.h / .cpp           # 70×70 pad-to-pad voltage sweep (unknown pad map)
 │   └── result.h                             # result structs (per-pad, per-slot, per-run)
 │
 └── app/
@@ -405,7 +404,6 @@ GET_ADAPTER                      query adapter info
 GET_RESULTS                      re-send last result set
 SET_PADMAP id=<uint>             select active pad map by project ID
 PROVISION hw=<uint> padmap=<uint>[,<uint>...] lifespan=<uint> date=<YYYYMMDD>  write adapter EEPROM (factory use)
-DISCOVERY_SCAN                   sweep all pad pairs, stream sense voltages
 ```
 
 ### Events and responses (tester → host)
@@ -428,9 +426,6 @@ PAD slot=<uint> apin=<uint> dp=<uint> method=STD_REV result=<GOOD|OPEN> rr=<f,f,
 PAD slot=<uint> apin=<uint> dp=<uint> method=CAP_REV result=<GOOD|OPEN> vrs=<f,f,f,f,f>
 
 SUMMARY outcome=<PASS|FAIL> good=<uint> tested=<uint> [fail_reason=DUT_REMOVED]
-
-DSCAN src=<uint> snk=<uint> sv=<float>
-DSCAN DONE
 
 OK PROVISION
 

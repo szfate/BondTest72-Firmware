@@ -169,7 +169,6 @@ Line-oriented text over USB CDC, 115200 baud. All messages with arguments use `k
 | `GET_ADAPTER` | Query current adapter info |
 | `SET_PADMAP id=<uint>` | Override pad map selection |
 | `PROVISION hw=<uint> padmap=<uint>[,<uint>...] lifespan=<uint> date=<YYYYMMDD> [ins=<uint>] [tests=<uint>] [eol=<0\|1>]` | Write adapter EEPROM (factory use). Counters default to 0 when omitted |
-| `DISCOVERY_SCAN` | Sweep all 70×70 pad pairs, stream sense voltages |
 
 ### Responses (tester → host)
 
@@ -200,9 +199,6 @@ EVENT TEST_START aid=<hex16> ahw=<uint> ins=<uint> tests=<uint> pm=<uint>[,<uint
 EVENT EOL_WARNING ins=<uint>
 EVENT WRONG_ORIENTATION
 EVENT FAULT msg=<string>
-
-DSCAN src=<uint> snk=<uint> sv=<float>
-DSCAN DONE
 
 OK PROVISION
 
@@ -258,9 +254,9 @@ src/
 ├── main.cpp              entry point — constructs and wires all layers
 ├── hal/                  hardware drivers (MUX, Kelvin measurement, ADC, LEDs, buttons, EEPROM)
 ├── adapter/              adapter abstraction, EEPROM layout/manager, Mezzanine70 drivers
-├── test/                 test runner, pad maps, DUT detector, discovery scan
+├── test/                 test runner, pad maps, DUT detector
 ├── app/                  state machine, LED manager, host protocol
-└── debug/                onboard self-tests (mux waveform, ADC, EEPROM, SK6812, buttons)
+└── debug/                log + adapter self-test
 docs/
 ├── ARCHITECTURE.md       detailed firmware design notes
 ├── BONDTEST72_HOST_PROTOCOL.md  full host protocol reference

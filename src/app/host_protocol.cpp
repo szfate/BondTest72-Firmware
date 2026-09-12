@@ -40,7 +40,6 @@ HostCommand HostProtocol::processLine(const char* line) {
     if (strcmp(line, "RUN") == 0)              return HostCommand::RUN;
     if (strcmp(line, "GET_RESULTS") == 0)      return HostCommand::GET_RESULTS;
     if (strcmp(line, "GET_ADAPTER") == 0)       return HostCommand::GET_ADAPTER;
-    if (strcmp(line, "DISCOVERY_SCAN") == 0)    return HostCommand::DISCOVERY_SCAN;
     if (strcmp(line, "HELLO") == 0)             return HostCommand::HELLO;
 
     if (strncmp(line, "SET_PADMAP ", sizeof("SET_PADMAP ") - 1) == 0) {
@@ -369,17 +368,6 @@ void HostProtocol::sendFault(const char* msg) {
 void HostProtocol::sendOk(const char* what) {
     Serial.print("OK ");
     Serial.println(what);
-}
-
-void HostProtocol::sendDiscoveryScanPoint(uint8_t src, uint8_t snk, float v) {
-    Serial.print("DSCAN ");
-    Serial.print("src="); Serial.print(src);
-    Serial.print(" snk="); Serial.print(snk);
-    Serial.print(" sv=");  Serial.println(v, 3);
-}
-
-void HostProtocol::sendDiscoveryScanDone() {
-    Serial.println("DSCAN DONE");
 }
 
 // uid= here is the TESTER's own RP2350 OTP board ID — distinct from the

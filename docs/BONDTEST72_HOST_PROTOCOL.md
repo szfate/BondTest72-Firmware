@@ -116,21 +116,6 @@ Resend the most recent test results.
 
 ---
 
-### `DISCOVERY_SCAN`
-
-Run a full pad-to-pad voltage sweep on all 70×70 combinations. Requires adapter and pad map. Not valid during test (`TESTING` state).
-
-**Request:** `DISCOVERY_SCAN`
-
-**Response:** Emits 4900 `DSCAN` lines followed by `DSCAN DONE`. Each line:
-```
-DSCAN src=<src> snk=<snk> sv=<voltage>
-```
-
-**Response (error):** `ERROR code=2 msg=BUSY` or `ERROR code=1 msg=NO_ADAPTER`
-
----
-
 ## Asynchronous Events
 
 These lines are sent by the tester without a corresponding command, in response to hardware state changes.
@@ -321,8 +306,8 @@ The tester operates as a state machine. Some commands are only valid in certain 
 |-------|---------------|
 | `NO_ADAPTER` | HELLO, GET_ADAPTER, PROVISION |
 | `FAULT` | HELLO, GET_ADAPTER, PROVISION |
-| `ADAPTER_DETECTED` | HELLO, GET_ADAPTER, SET_PADMAP, GET_RESULTS, DISCOVERY_SCAN, PROVISION |
-| `READY` | HELLO, GET_ADAPTER, RUN, SET_PADMAP, GET_RESULTS, DISCOVERY_SCAN, PROVISION |
+| `ADAPTER_DETECTED` | HELLO, GET_ADAPTER, SET_PADMAP, GET_RESULTS, PROVISION |
+| `READY` | HELLO, GET_ADAPTER, RUN, SET_PADMAP, GET_RESULTS, PROVISION |
 | `TESTING` | HELLO, GET_ADAPTER |
 | `PASS` / `FAIL` | HELLO, GET_ADAPTER, RUN, GET_RESULTS |
 | `EOL_ADAPTER` | HELLO, GET_ADAPTER, PROVISION |
@@ -333,25 +318,6 @@ is allowed everywhere except `TESTING`: a freshly manufactured (blank) adapter
 latches the tester into `FAULT`, and provisioning from there is the normal
 entry path — the old "EOL_ADAPTER only" rule was wrong. Commands outside a
 state's set are answered with `ERROR 8 WRONG_STATE` naming the current state.
-
----
-
-## Discovery Scan Output
-
-The `DSCAN` output format is separate from normal test results:
-
-```
-DSCAN src=<src> snk=<snk> sv=<voltage>
-```
-
-- `src`: source die pad (0-indexed)
-- `snk`: sink die pad (0-indexed)
-- `sv`: measured sense voltage, 3 decimal places
-
-The scan ends with:
-```
-DSCAN DONE
-```
 
 ---
 

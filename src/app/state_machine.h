@@ -11,7 +11,6 @@
 #include "test/result.h"
 #include "host_protocol.h"
 #include "led_manager.h"
-#include "test/discovery_scanner.h"
 
 constexpr uint32_t ADAPTER_POLL_INTERVAL_MS       = 1500;
 constexpr uint32_t ADAPTER_POLL_INTERVAL_FAST_MS  = 100;
@@ -58,7 +57,6 @@ private:
     DutDetector&      _dutDetector;
     TestRunner&       _testRunner;
     HostProtocol&     _hostProtocol;
-    DiscoveryScanner  _discoveryScanner;
 
     State         _state           = State::NO_ADAPTER;
     AdapterBase*  _adapter         = nullptr;

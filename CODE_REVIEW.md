@@ -81,10 +81,10 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 ## P4 — Layering (optional but cheap wins)
 
 - **LY1** `kelvin.h` includes `test/pad_map.h` + `test/result.h` — HAL depends upward on its caller. Caused C4's doc drift. Moving measurement policy into `test/` is the clean fix (L); a `void` and one comment fix is the pragmatic minimum.
-- **LY2** `discovery_scanner.cpp:4` includes `app/host_protocol.h` (inverts app→test). Inject a sink/callback.
+- ~~**LY2**~~ MOOT: `DiscoveryScanner` removed entirely (user decision — hardware is stable, bring-up instrument no longer needed). The app→test inversion died with it.
 - **LY3** `main.cpp:14-24` globals with external linkage → anonymous namespace (`mux`/`adc` are collision magnets).
 - **LY4** `main.cpp:12` includes `debug/eeprom_test.h` — unused after F8.
-- **LY6** `DiscoveryScanner` hardcodes 70 pins, `pin-1` channel math, magic `readVoltage(0)`, unexplained `delay(1)`. Inject `AdapterBase&`; **keep ground-first channel order exactly** (latchup).
+- ~~**LY6**~~ MOOT: `DiscoveryScanner` removed (same decision as LY2).
 - **LY7** `state_machine.h` includes 12 headers for 8 ref members → forward-declare.
 - **LY8** `getSupportedPadmapIds()` returns a length-less pointer; `4` hardcoded at `state_machine.cpp:332` → `const uint8_t (&)[4]`.
 - **LY9** `DUT_POLL_INTERVAL_MS` lives in `dut_detector.h`, consumed only by `state_machine` → move to app.
@@ -154,7 +154,7 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 Dedup F2/F3/F6/F7/F9/F10/F11/F12/F13; named constants N1–N8; hardening (NOT_TESTED, parseKvUintList, registry asserts); `pio run`.
 
 ### Phase 2 — structural (≈ half day)
-S1 → F5 → S2 → S3 → S4 → S5 → S6 → S7 → LY6 → `pio run` + bench smoke test (adapter detect, DUT insert/remove/flip, one full test, DISCOVERY_SCAN, PROVISION on scratch).
+S1 → F5 → S2 → S3 → S4 → S5 → S6 → S7 → `pio run` + bench smoke test (adapter detect, DUT insert/remove/flip, one full test, PROVISION on scratch).
 
 ### Explicitly not doing
 Kelvin layering (user decision), debug harness (files deleted instead), threshold value change (60 k stays), MeasurementCtx (when next adapter lands), EEPROM version byte (future).

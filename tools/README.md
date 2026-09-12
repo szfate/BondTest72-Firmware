@@ -45,31 +45,6 @@ uv run tools/die_visualizer --file path/to/log.txt --padmap 3
 | `--file` | *(required)* | Protocol log file to visualize |
 | `--padmap` | `2` | Pad map ID (1 = 1×1 v1, 2 = 1×1 v2, 3 = 1×0.5) |
 
-
----
-
-## discovery_scan.py
-
-Sends a `DISCOVERY_SCAN` command to the tester and collects sense voltages for every mezzanine-pin pair (70×70). Writes three output files:
-
-- `.csv` — raw voltage matrix
-- `.xlsx` — matrix with color-scale conditional formatting
-- `.png` — pixel heatmap (green = conducting, red = isolated)
-
-```sh
-uv run tools/discovery_scan.py --port /dev/tty.usbmodem1101
-uv run tools/discovery_scan.py --port COM3 --out my_scan --cell 8
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--port` | *(required)* | Serial port |
-| `--baud` | `115200` | Baud rate |
-| `--out` | auto | Output basename (no extension); overrides `--name` |
-| `--name` | — | Label appended to the auto-generated filename (e.g. `TTPG`) |
-| `--timeout` | `120` | Scan timeout in seconds |
-| `--cell` | `16` | Heatmap pixel cell size |
-
 ---
 
 ## provision.py

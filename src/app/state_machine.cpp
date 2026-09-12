@@ -36,7 +36,6 @@ StateMachine::StateMachine(MuxController&    mux,
     , _dutDetector(dutDetector)
     , _testRunner(testRunner)
     , _hostProtocol(hostProtocol)
-    , _discoveryScanner(mux, adc, hostProtocol)
 {
 }
 
@@ -218,10 +217,10 @@ static constexpr uint16_t CMD_MASK[static_cast<uint8_t>(State::COUNT)] = {
     /* NO_ADAPTER        */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER) | cmdBit(HostCommand::PROVISION),
     /* EOL_ADAPTER       */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER) | cmdBit(HostCommand::PROVISION),
     /* ADAPTER_DETECTED  */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER) | cmdBit(HostCommand::SET_PADMAP) |
-                            cmdBit(HostCommand::GET_RESULTS) | cmdBit(HostCommand::DISCOVERY_SCAN) | cmdBit(HostCommand::PROVISION),
+                            cmdBit(HostCommand::GET_RESULTS) | cmdBit(HostCommand::PROVISION),
     /* READY             */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER) | cmdBit(HostCommand::RUN) |
                             cmdBit(HostCommand::SET_PADMAP) | cmdBit(HostCommand::GET_RESULTS) |
-                            cmdBit(HostCommand::DISCOVERY_SCAN) | cmdBit(HostCommand::PROVISION),
+                            cmdBit(HostCommand::PROVISION),
     /* WRONG_ORIENTATION */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER),
     /* TESTING           */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER),
     /* PASS              */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER) | cmdBit(HostCommand::RUN) | cmdBit(HostCommand::GET_RESULTS),
@@ -281,15 +280,6 @@ void StateMachine::handleCommand(HostCommand cmd) {
             break;
         case HostCommand::PROVISION_INVALID:
             _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_PADMAP");
-            break;
-        case HostCommand::DISCOVERY_SCAN:
-            if (_state == State::TESTING) {
-                _hostProtocol.sendError(ErrorCode::BUSY, "BUSY");
-            } else if (!_adapter || !_padMap) {
-                _hostProtocol.sendError(ErrorCode::NO_ADAPTER, "NO_ADAPTER");
-            } else {
-                _discoveryScanner.run();
-            }
             break;
         case HostCommand::GET_ADAPTER:
             if (!_adapter) {
