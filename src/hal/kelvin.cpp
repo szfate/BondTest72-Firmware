@@ -1,7 +1,7 @@
 #include "kelvin.h"
 #include <Arduino.h>
 
-static constexpr float VCC = 3.3f;
+// VCC comes from adc.h (via kelvin.h).
 
 // Drain-settle window used by both drain phases below. ~10τ into a 1µF net; scale it
 // up if a future padmap's largest cap exceeds ~5µF (see drainAndRelease's residual note).

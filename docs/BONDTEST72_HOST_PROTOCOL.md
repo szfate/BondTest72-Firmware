@@ -47,12 +47,12 @@ Retrieve adapter information. Requires an adapter to be connected.
 
 **Response (success):**
 ```
-ADAPTER aid=<uid> ahw=<hw> pm=<uint>[,<uint>...] lifespan=<n> mfg_date=<n> ins=<n> tests=<n> eol=<0|1> dut=<0|1>
+ADAPTER aid=<adapter_uid> ahw=<hw> pm=<uint>[,<uint>...] lifespan=<n> mfg_date=<n> ins=<n> tests=<n> eol=<0|1> dut=<0|1>
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `aid` | string | 16-char adapter EEPROM serial UID |
+| `aid` | string | 16-char hex serial UID from the adapter's AT21CS01 EEPROM; sixteen '0's if the serial read failed. Distinct from HELLO's `uid=`, which is the tester's own RP2350 OTP board ID. |
 | `ahw` | uint8 | Hardware ID (complete adapter identifier) |
 | `pm` | uint8[] | Supported pad map IDs, comma-separated (absent if none) |
 | `lifespan` | uint32 | Designed lifespan (number of insertions) |

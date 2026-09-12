@@ -63,7 +63,6 @@ private:
     const PadMap* _lastResultPadMap = nullptr;  // pad map active when _lastResult was captured; a later SET_PADMAP must not relabel it
     TestResult    _lastResult      = {};
     EepromData    _eepromData;
-    char          _adapterUid[17]  = {};
     EepromManager::ReadResult _lastEepromResult = EepromManager::ReadResult::Blank;
 
     uint32_t      _lastAdapterLivePoll   = 0;  // 1500 ms liveness cadence while an adapter is present

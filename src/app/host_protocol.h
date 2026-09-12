@@ -39,7 +39,7 @@ public:
     uint32_t    provisionTests()  const { return _provisionTests; }
     uint32_t    provisionEol()    const { return _provisionEol; }
 
-    void setUid(const char* uid16);
+    void setAdapterUid(const char* uid16);
 
 void sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
                      uint32_t lifespan, uint32_t dateOfManufacture,
@@ -58,6 +58,7 @@ void sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
     void sendSummary(const TestResult& result);
     void sendError(ErrorCode code, const char* msg);
     void sendFault(const char* msg);
+    void sendOk(const char* what);
     void sendDiscoveryScanPoint(uint8_t src, uint8_t snk, float v);
     void sendDiscoveryScanDone();
     void sendHello();
@@ -79,5 +80,5 @@ private:
     uint32_t _provisionIns    = 0xFFFFFFFF;
     uint32_t _provisionTests  = 0xFFFFFFFF;
     uint32_t _provisionEol    = 0xFFFFFFFF;
-    char     _uid[17]           = {};
+    char     _adapterUid[17]    = {};  // aid= on the wire — adapter's AT21CS01 serial (HELLO's uid= is the tester's own board ID)
 };

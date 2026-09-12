@@ -5,7 +5,7 @@
 // Pin assignments — from docs/RP2350 PINMAP.md
 static constexpr uint8_t ADC_PINS[3]  = {26, 27, 28};  // COM_D, COM_A, COM_C
 static constexpr uint8_t DCDC_PSM_PIN = 23;             // HIGH = FPWM (less noise), LOW = PFM (power save)
-static constexpr float   ADC_SCALE    = 3.3f / 4095.0f; // 12-bit, 3.3 V rail
+static constexpr float   ADC_SCALE    = VCC / 4095.0f; // 12-bit against the VCC rail
 
 void AdcDriver::begin() {
     analogReadResolution(12);

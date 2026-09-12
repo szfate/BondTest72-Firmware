@@ -233,7 +233,7 @@ void StateMachine::handleCommand(HostCommand cmd) {
             } else {
                 _adapter = nullptr; _padMap = nullptr;
                 transition(tryInitAdapter() ? State::ADAPTER_DETECTED : State::FAULT);
-                Serial.println("OK PROVISION");
+                _hostProtocol.sendOk("PROVISION");
             }
             break;
         case HostCommand::PROVISION_INVALID:
@@ -319,17 +319,11 @@ bool StateMachine::tryInitAdapter() {
     _adapter = AdapterRegistry::create(_eepromData);
     if (!_adapter) { LOG_E("adapter: unknown hw %u", (uint8_t)_eepromData.adapterHardware); return false; }
 
-    // UID is a unique 64-bit serial burned into the AT21CS01; fall back to all-zeros if the read fails
-    // so the host always receives a valid-length UID string rather than garbage.
+    // aid = the adapter's unique 64-bit serial burned into the AT21CS01. On read
+    // failure pass nullptr — setAdapterUid falls back to sixteen '0's so the host
+    // always sees a valid-length aid rather than garbage.
     char uidBuf[17];
-    if (_eepromMgr.readSerialUid(uidBuf, sizeof(uidBuf))) {
-        memcpy(_adapterUid, uidBuf, sizeof(_adapterUid));
-        _hostProtocol.setUid(_adapterUid);
-    } else {
-        memset(_adapterUid, '0', sizeof(_adapterUid) - 1);
-        _adapterUid[sizeof(_adapterUid) - 1] = '\0';
-        _hostProtocol.setUid(_adapterUid);
-    }
+    _hostProtocol.setAdapterUid(_eepromMgr.readSerialUid(uidBuf, sizeof(uidBuf)) ? uidBuf : nullptr);
 
     adapterSelfTest(_adapter);
     _dutDetector.setAdapter(_adapter);

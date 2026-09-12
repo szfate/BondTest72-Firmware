@@ -59,9 +59,9 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 | ~~F8~~ | `src/debug/` | DONE: mux_waveform_test, button_test, adc_test, sk6812_test, eeprom_test deleted (10 files); only adapterSelfTest and log remain. Also removes main.cpp's unused `debug/eeprom_test.h` include (LY4). Resolves B8's comment rot and C9's doc drift. | S |
 | ~~F9~~ | `mux_map.h:9` + `mux_map.cpp:5` + `mux.h:4` | DONE: `MUX_MAP` sized by `MUX_CHANNEL_COUNT` (mux_map.h now includes mux.h); static_assert guards the table's 72-entry assumption. | S |
 | ~~F10~~ | `result.h:40-54` + `test_runner.cpp:46,51,73` + `host_protocol.cpp:313,322` | DONE: went further than the original helpers — `PadResult` now has separate `fwd[]`/`rev[]` groups (same memory), so the strategy-dependent base index vanished entirely; only `readingsPerDir()` remains as the group-length rule. | S |
-| F11 | `state_machine.cpp:225` | `Serial.println("OK PROVISION")` is the only host-facing line not routed through `HostProtocol`. Add `sendOk()`. | S |
-| F12 | `state_machine.h:62` vs `host_protocol.h:80` | `_adapterUid[17]` duplicates `_uid[17]` with its own all-zeros fallback. Drop the member; move fallback into `setUid()`. | S |
-| F13 | `kelvin.cpp:4` vs `adc.cpp:8` | `VCC = 3.3f` duplicated. One shared constant in `kelvin.h`. | S |
+| ~~F11~~ | `state_machine.cpp:225` | DONE: `HostProtocol::sendOk(what)` added; PROVISION's `OK PROVISION` now routes through it (wire byte-identical — doc + provision.py match the exact string). | S |
+| ~~F12~~ | `state_machine.h:62` vs `host_protocol.h:80` | DONE: `_adapterUid` dropped from StateMachine (was a third buffer + duplicate fallback); `setAdapterUid(nullptr)` fallback is the single source. HostProtocol's `_uid` → `_adapterUid` + `setAdapterUid()` for clarity vs the tester's HELLO `uid=` (RP2350 OTP board ID, sent live, never stored). Doc: `aid=` description now states both IDs and the '0' fallback. | S |
+| ~~F13~~ | `kelvin.cpp:4` vs `adc.cpp:8` | DONE — with one deviation: `VCC` lives in `adc.h` instead of kelvin.h (kelvin.h already includes adc.h, and putting it in kelvin.h would force adc.cpp to pull kelvin.h's test-layer includes — the LY1 trap). One shared `inline constexpr float VCC = 3.3f`. | S |
 
 ---
 

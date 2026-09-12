@@ -9,7 +9,7 @@
 
 void HostProtocol::begin() {
     _lineLen = 0;
-    memset(_uid, 0, sizeof(_uid));
+    memset(_adapterUid, 0, sizeof(_adapterUid));
 }
 
 HostCommand HostProtocol::poll() {
@@ -124,13 +124,17 @@ bool HostProtocol::parseKvUintList(const char* kv, const char* key, uint8_t* out
     return false;
 }
 
-void HostProtocol::setUid(const char* uid16) {
+// Sets the adapter uid (aid= on the wire) — the 16-char hex serial from the
+// adapter's AT21CS01. Distinct from HELLO's uid=, which is the tester's own
+// RP2350 OTP board ID. A nullptr uid falls back to sixteen '0's so the host
+// always receives a valid-length aid rather than garbage.
+void HostProtocol::setAdapterUid(const char* uid16) {
     if (uid16) {
-        strncpy(_uid, uid16, sizeof(_uid) - 1);
-        _uid[sizeof(_uid) - 1] = '\0';
+        strncpy(_adapterUid, uid16, sizeof(_adapterUid) - 1);
+        _adapterUid[sizeof(_adapterUid) - 1] = '\0';
     } else {
-        memset(_uid, '0', sizeof(_uid) - 1);
-        _uid[sizeof(_uid) - 1] = '\0';
+        memset(_adapterUid, '0', sizeof(_adapterUid) - 1);
+        _adapterUid[sizeof(_adapterUid) - 1] = '\0';
     }
 }
 
@@ -154,7 +158,7 @@ void HostProtocol::sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
                                     uint32_t insertions, uint32_t tests, bool eol,
                                     bool dutPresent) {
     Serial.print("ADAPTER");
-    Serial.print(" aid=");     Serial.print(_uid);
+    Serial.print(" aid=");     Serial.print(_adapterUid);
     Serial.print(" ahw=");     Serial.print(hwId);
     printPadmapList(padmapIds);
     Serial.print(" lifespan=");   Serial.print(lifespan);
@@ -168,7 +172,7 @@ void HostProtocol::sendAdapterInfo(uint8_t hwId, const uint8_t* padmapIds,
 
 void HostProtocol::sendAdapterDetected(uint8_t hwId, const uint8_t* padmapIds) {
     Serial.print("EVENT ADAPTER_DETECTED ");
-    Serial.print("aid=");     Serial.print(_uid);
+    Serial.print("aid=");     Serial.print(_adapterUid);
     Serial.print(" ahw=");    Serial.print(hwId);
     printPadmapList(padmapIds);
     Serial.println();
@@ -189,7 +193,7 @@ void HostProtocol::sendDutRemoved() {
 void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const PadMap* padMap,
                                   uint32_t insertions, uint32_t tests) {
     Serial.print("EVENT TEST_START ");
-    Serial.print("aid=");     Serial.print(_uid);
+    Serial.print("aid=");     Serial.print(_adapterUid);
     Serial.print(" ahw=");    Serial.print(hwId);
     // Counts as of this insertion/before this test's run — testCount excludes
     // the test currently starting (incremented only after it completes).
@@ -368,6 +372,11 @@ void HostProtocol::sendFault(const char* msg) {
     Serial.println(msg);
 }
 
+void HostProtocol::sendOk(const char* what) {
+    Serial.print("OK ");
+    Serial.println(what);
+}
+
 void HostProtocol::sendDiscoveryScanPoint(uint8_t src, uint8_t snk, float v) {
     Serial.print("DSCAN ");
     Serial.print("src="); Serial.print(src);
@@ -379,6 +388,8 @@ void HostProtocol::sendDiscoveryScanDone() {
     Serial.println("DSCAN DONE");
 }
 
+// uid= here is the TESTER's own RP2350 OTP board ID — distinct from the
+// adapter's aid= (AT21CS01 serial) on ADAPTER/ADAPTER_DETECTED/TEST_START.
 void HostProtocol::sendHello() {
     Serial.print("HELLO name=");
     Serial.print(FW_NAME);
