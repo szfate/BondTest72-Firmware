@@ -9,7 +9,6 @@
 #include "adapter/eeprom_manager.h"
 #include "app/host_protocol.h"
 #include "app/state_machine.h"
-#include "debug/eeprom_test.h"
 
 MuxController    mux;
 AT21CS01Driver   eeprom;

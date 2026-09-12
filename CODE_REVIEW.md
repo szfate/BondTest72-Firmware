@@ -56,7 +56,7 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 | F5 | `test_runner.cpp:138-152` vs `state_machine.cpp:409-414` | Pass/fail verify loop duplicates `sendResults()` pad iteration. Fold verify into the main measurement loop (behavior-identical) + shared `forEachTestedCase()`. | M |
 | ~~F6~~ | `dut_detector.cpp:28-32` vs `:44-49` | DONE: private `senseCandidate()` extracted; `prime()` and `poll()` both use it. | S |
 | ~~F7~~ | `mezzanine70.cpp:93-110` | DONE: private `kelvinPresence()` helper extracted; `senseDutPresent`/`senseDutFlipped` are now one-liners mirroring it (LOG_D tags preserved). | S |
-| F8 | `src/debug/` | 5 of 6 debug tests compiled but unreachable (only `adapterSelfTest` dispatched). Each re-declares `main.cpp` globals via `extern`. **Delete** mux_waveform_test, button_test, adc_test, sk6812_test, eeprom_test (10 files). Resolves B7's comment rot and C9. | S |
+| ~~F8~~ | `src/debug/` | DONE: mux_waveform_test, button_test, adc_test, sk6812_test, eeprom_test deleted (10 files); only adapterSelfTest and log remain. Also removes main.cpp's unused `debug/eeprom_test.h` include (LY4). Resolves B8's comment rot and C9's doc drift. | S |
 | F9 | `mux_map.h:9` + `mux_map.cpp:5` + `mux.h:4` | "72" hardcoded ×3. Use `MUX_CHANNEL_COUNT`; optional constexpr/static_assert validation. | S |
 | F10 | `result.h:40-54` + `test_runner.cpp:46,51,73` + `host_protocol.cpp:313,322` | Readings-array index rule spread over 3 files. Add `readingsPerDir()`/`reverseBase()` to `result.h`. | S |
 | F11 | `state_machine.cpp:225` | `Serial.println("OK PROVISION")` is the only host-facing line not routed through `HostProtocol`. Add `sendOk()`. | S |
