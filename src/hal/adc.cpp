@@ -21,7 +21,7 @@ void AdcDriver::begin() {
 
 float AdcDriver::readVoltage(AdcChannel channel) {
     uint8_t idx = static_cast<uint8_t>(channel);
-    if (idx >= ADC_CHANNEL_COUNT) { LOG_E("adc: invalid channel %u", idx); return 0.0f; }
+    if (idx >= ADC_CHANNEL_COUNT) { LOG_E("adc: invalid channel %u", idx); return NAN; }  // never 0.0f — a real open reads 0V; NaN classifies as OPEN (every comparison against it is false)
     // discard first sample
     //(void)analogRead(ADC_PINS[idx]);
     return static_cast<float>(analogRead(ADC_PINS[idx])) * ADC_SCALE;

@@ -61,7 +61,20 @@ void StateMachine::update() {
     if (cmd != HostCommand::NONE)
         handleCommand(cmd);
 
-    // Adapter liveness (runtime — removal triggers reset)
+    pollAdapterLiveness(now);
+    pollDut(now);
+    // Consumed unconditionally every cycle (NOT inside pollDut — startPressed()
+    // is a consume-on-read latch, and gating it would let a press during a test
+    // linger and fire a surprise test right after PASS). tryStartTest() no-ops
+    // outside READY/PASS/FAIL on its own.
+    if (_buttons.startPressed())
+        tryStartTest();
+    pollAdapterInsertion(now);
+
+    _ledManager.update(_state);
+}
+
+void StateMachine::pollAdapterLiveness(uint32_t now) {
     if (_state != State::NO_ADAPTER) {
         if (now - _lastAdapterLivePoll >= ADAPTER_POLL_INTERVAL_MS) {
             checkAdapterAlive();
@@ -72,23 +85,24 @@ void StateMachine::update() {
     // Keep the EOL LED blinking even after the adapter is rejected so the operator sees the warning
     if (_state == State::EOL_ADAPTER && _adapter)
         _adapter->tickEolLed();
+}
 
+void StateMachine::pollDut(uint32_t now) {
     // DUT polling — all states except TESTING, NO_ADAPTER, EOL_ADAPTER, FAULT
-    if (_state != State::TESTING &&
-        _state != State::NO_ADAPTER &&
-        _state != State::EOL_ADAPTER &&
-        _state != State::FAULT) {
-        // _dutSettleUntil suppresses re-polling for a short window after insertion to absorb connector bounce
-        if (now >= _dutSettleUntil && now - _lastDutPoll >= DUT_POLL_INTERVAL_MS) {
-            handleDutEvent(_dutDetector.poll());
-            _lastDutPoll = now;
-        }
+    if (_state == State::TESTING ||
+        _state == State::NO_ADAPTER ||
+        _state == State::EOL_ADAPTER ||
+        _state == State::FAULT) {
+        return;
     }
+    // _dutSettleUntil suppresses re-polling for a short window after insertion to absorb connector bounce
+    if (now >= _dutSettleUntil && now - _lastDutPoll >= DUT_POLL_INTERVAL_MS) {
+        handleDutEvent(_dutDetector.poll());
+        _lastDutPoll = now;
+    }
+}
 
-    bool startReq = _buttons.startPressed();
-    if (startReq)
-        tryStartTest();
-
+void StateMachine::pollAdapterInsertion(uint32_t now) {
     // Poll for adapter in NO_ADAPTER state. On first detection, wait out
     // ADAPTER_INSERT_SETTLE_MS before the first EEPROM read: a half-seated
     // connector makes early reads fail or return garbage (a floating SWI line
@@ -96,31 +110,28 @@ void StateMachine::update() {
     // ADAPTER_NOT_PROVISIONED). Init failure retries on the next poll instead of
     // latching FAULT — insertion bounce must not wedge the tester. Only a
     // genuinely blank adapter (read succeeded, header really is blank) latches.
-    if (_state == State::NO_ADAPTER) {
-        if (now - _lastAdapterInsertPoll >= ADAPTER_POLL_INTERVAL_FAST_MS) {
-            _lastAdapterInsertPoll = now;
-            if (_eepromMgr.isPresent()) {
-                if (_adapterSettleUntil == 0)
-                    _adapterSettleUntil = now + ADAPTER_INSERT_SETTLE_MS;  // just detected — let it seat first
-                else if (now >= _adapterSettleUntil) {
-                    if (tryInitAdapter()) {
-                        _adapterSettleUntil = 0;
-                        handleAdapterArrival(true);
-                    } else if (_lastEepromResult == EepromManager::ReadResult::Blank) {
-                        _adapterSettleUntil = 0;
-                        handleAdapterArrival(false);  // fully seated but unprovisioned — permanent
-                    } else {
-                        _adapterSettleUntil = 0;  // transient read failure — retry after another settle
-                        LOG_W("adapter: init failed during detection, retrying");
-                    }
+    if (_state != State::NO_ADAPTER) return;
+    if (now - _lastAdapterInsertPoll >= ADAPTER_POLL_INTERVAL_FAST_MS) {
+        _lastAdapterInsertPoll = now;
+        if (_eepromMgr.isPresent()) {
+            if (_adapterSettleUntil == 0)
+                _adapterSettleUntil = now + ADAPTER_INSERT_SETTLE_MS;  // just detected — let it seat first
+            else if (now >= _adapterSettleUntil) {
+                if (tryInitAdapter()) {
+                    _adapterSettleUntil = 0;
+                    handleAdapterArrival(true);
+                } else if (_lastEepromResult == EepromManager::ReadResult::Blank) {
+                    _adapterSettleUntil = 0;
+                    handleAdapterArrival(false);  // fully seated but unprovisioned — permanent
+                } else {
+                    _adapterSettleUntil = 0;  // transient read failure — retry after another settle
+                    LOG_W("adapter: init failed during detection, retrying");
                 }
-            } else {
-                _adapterSettleUntil = 0;  // contact lost before settle elapsed (bounce) — start over
             }
+        } else {
+            _adapterSettleUntil = 0;  // contact lost before settle elapsed (bounce) — start over
         }
     }
-
-    _ledManager.update(_state);
 }
 
 // ——————————————————————————————————————————————————————————————————————————

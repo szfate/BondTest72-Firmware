@@ -37,6 +37,9 @@ private:
     void handleAdapterArrival(bool initOk);
     void handleDutEvent(DutEvent ev);
     void handleCommand(HostCommand cmd);
+    void pollAdapterLiveness(uint32_t now);
+    void pollDut(uint32_t now);
+    void pollAdapterInsertion(uint32_t now);
     bool tryInitAdapter();
     bool provisionEeprom(uint8_t hwId, const uint8_t padmapIds[4], uint32_t lifespan, uint32_t mfgDate,
                          uint32_t ins, uint32_t tests, uint32_t eol);
