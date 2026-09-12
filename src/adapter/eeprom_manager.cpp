@@ -21,7 +21,7 @@ EepromManager::ReadResult EepromManager::read(EepromData& out) {
     }
     LOG_D("eeprom[0..7]: %02X %02X %02X %02X %02X %02X %02X %02X",
       buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
-    if (buf[0] == 0xFF && buf[1] == 0xFF) {
+    if (eepromHeaderLooksBlank(buf)) {
         // A floating SWI line (marginal contact) also reads as 0xFF and can't be
         // told apart from a genuinely blank header within one read — the device
         // ACKed discovery, so the transport "succeeded". Require the blank to
@@ -29,7 +29,7 @@ EepromManager::ReadResult EepromManager::read(EepromData& out) {
         // blank won't. Anything else is treated as a transient transport failure.
         uint8_t confirm[EepromData::WIRE_BYTES];
         if (_eeprom.ping() && _eeprom.read(0, confirm, EepromData::WIRE_BYTES) &&
-            confirm[0] == 0xFF && confirm[1] == 0xFF) {
+            eepromHeaderLooksBlank(confirm)) {
             return ReadResult::Blank;
         }
         LOG_W("eeprom: blank header did not reproduce — treating as transport failure");

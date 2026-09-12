@@ -244,24 +244,19 @@ void StateMachine::handleCommand(HostCommand cmd) {
             }
             break;
         }
-        case HostCommand::PROVISION:
+        case HostCommand::PROVISION: {
+            const ProvisionRequest& req = _hostProtocol.provisionRequest();
             if (!_eepromMgr.isPresent()) {
                 _hostProtocol.sendError(ErrorCode::NO_ADAPTER, "NO_ADAPTER");
-            } else if (_hostProtocol.provisionHwId() == EepromData::HWID_UNSET) {
+            } else if (!req.hasHw()) {
                 _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_HW");
-            } else if (_hostProtocol.provisionPadmapIds()[0] == EepromData::PADMAP_UNSET) {
+            } else if (!req.hasPadmap()) {
                 _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_PADMAP");
-            } else if (_hostProtocol.provisionLifespan() == EepromData::FIELD_UNSET) {
+            } else if (!req.hasLifespan()) {
                 _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_LIFESPAN");
-            } else if (_hostProtocol.provisionMfgDate() == EepromData::FIELD_UNSET) {
+            } else if (!req.hasDate()) {
                 _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_DATE");
-            } else if (!provisionEeprom(_hostProtocol.provisionHwId(),
-                                        _hostProtocol.provisionPadmapIds(),
-                                        _hostProtocol.provisionLifespan(),
-                                        _hostProtocol.provisionMfgDate(),
-                                        _hostProtocol.provisionIns(),
-                                        _hostProtocol.provisionTests(),
-                                        _hostProtocol.provisionEol())) {
+            } else if (!provisionEeprom(req)) {
                 _hostProtocol.sendError(ErrorCode::PROVISION_FAILED, "PROVISION_FAILED");
             } else {
                 _adapter = nullptr; _padMap = nullptr;
@@ -269,6 +264,7 @@ void StateMachine::handleCommand(HostCommand cmd) {
                 _hostProtocol.sendOk("PROVISION");
             }
             break;
+        }
         case HostCommand::PROVISION_INVALID:
             _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_PADMAP");
             break;
@@ -300,20 +296,10 @@ void StateMachine::handleCommand(HostCommand cmd) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
-bool StateMachine::provisionEeprom(uint8_t hwId, const uint8_t padmapIds[4], uint32_t lifespan, uint32_t mfgDate,
-                                   uint32_t ins, uint32_t tests, uint32_t eol) {
-    EepromData d = {};
-    d.adapterHardware          = (AdapterHardware)hwId;
-    d.rfu        = 0xFF;  // reserved byte: erased-flash convention
-    for (uint8_t i = 0; i < 4; i++) d.supportedPadmapIds[i] = padmapIds[i];
-    d.designedLifespan        = lifespan;
-    d.dateOfManufacture       = mfgDate;
-    d.insertionCount          = (ins    == EepromData::FIELD_UNSET) ? 0 : ins;
-    d.testCount               = (tests  == EepromData::FIELD_UNSET) ? 0 : tests;
-    d.eolReached              = (eol == EepromData::FIELD_UNSET) ? 0u : (eol ? EepromData::EOL_REACHED : 0u);
-
+bool StateMachine::provisionEeprom(const ProvisionRequest& req) {
+    EepromData d = eepromFromProvision(req);  // sentinel→default mapping lives in eeprom_layout
     if (!_eepromMgr.write(d)) { LOG_E("adapter: eeprom provision write failed"); return false; }
-    LOG_I("adapter: eeprom provisioned (Mezzanine70 v1)");
+    LOG_I("adapter: eeprom provisioned (hw=%u)", req.hwId);
     return true;
 }
 

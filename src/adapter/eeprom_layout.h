@@ -27,3 +27,48 @@ void eepromSerialize(const EepromData& data, uint8_t buf[EepromData::WIRE_BYTES]
 
 // Unpack EepromData::WIRE_BYTES into EepromData. Returns false if magic sentinel or CRC-32 is wrong.
 bool eepromDeserialize(const uint8_t buf[EepromData::WIRE_BYTES], EepromData& out);
+
+// True when buf's header looks like an erased (blank, unprovisioned) device:
+// the AT21CS01 reads back all 0xFF when erased, and the first two bytes are
+// the magic — so a header starting 0xFF 0xFF is a blank pending the re-read
+// confirmation done by the caller (eeprom_manager).
+inline bool eepromHeaderLooksBlank(const uint8_t buf[EepromData::WIRE_BYTES]) {
+    return buf[0] == 0xFF && buf[1] == 0xFF;
+}
+
+// A PROVISION request as parsed off the wire (host_protocol fills it in).
+// Fields the host omitted keep their unset sentinels; the required-field
+// checks and the mapping onto EepromData both live here (markUnset /
+// eepromFromProvision), so the sentinels and defaults have one home instead
+// of being re-derived at every call site.
+struct ProvisionRequest {
+    uint8_t  hwId;
+    uint8_t  padmapIds[AdapterBase::PADMAP_ID_COUNT];
+    uint32_t designedLifespan;
+    uint32_t dateOfManufacture;
+    uint32_t insertionCount;
+    uint32_t testCount;
+    uint32_t eol;  // host sends 0|1; FIELD_UNSET if omitted
+
+    // Reset to all-unset before parsing a new PROVISION line.
+    void markUnset() {
+        hwId = EepromData::HWID_UNSET;
+        for (uint8_t i = 0; i < AdapterBase::PADMAP_ID_COUNT; i++)
+            padmapIds[i] = EepromData::PADMAP_UNSET;
+        designedLifespan  = EepromData::FIELD_UNSET;
+        dateOfManufacture = EepromData::FIELD_UNSET;
+        insertionCount    = EepromData::FIELD_UNSET;
+        testCount         = EepromData::FIELD_UNSET;
+        eol               = EepromData::FIELD_UNSET;
+    }
+
+    bool hasHw()       const { return hwId != EepromData::HWID_UNSET; }
+    bool hasPadmap()   const { return padmapIds[0] != EepromData::PADMAP_UNSET; }
+    bool hasLifespan() const { return designedLifespan != EepromData::FIELD_UNSET; }
+    bool hasDate()     const { return dateOfManufacture != EepromData::FIELD_UNSET; }
+};
+
+// Build the EepromData a fresh PROVISION writes: required fields verbatim
+// from the request; optional counters default to 0 when the host omitted
+// them (FIELD_UNSET); eol=1 maps to the EOL_REACHED flag.
+EepromData eepromFromProvision(const ProvisionRequest& req);

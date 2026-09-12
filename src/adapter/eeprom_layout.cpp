@@ -68,3 +68,18 @@ bool eepromDeserialize(const uint8_t buf[EepromData::WIRE_BYTES], EepromData& ou
     out.eolReached        = unpack32(buf + 28);
     return true;
 }
+
+EepromData eepromFromProvision(const ProvisionRequest& req) {
+    EepromData d = {};
+    d.adapterHardware = static_cast<AdapterHardware>(req.hwId);
+    d.rfu = 0xFF;  // reserved byte: erased-flash convention (see EepromData::rfu)
+    for (uint8_t i = 0; i < AdapterBase::PADMAP_ID_COUNT; i++)
+        d.supportedPadmapIds[i] = req.padmapIds[i];
+    d.designedLifespan  = req.designedLifespan;
+    d.dateOfManufacture = req.dateOfManufacture;
+    d.insertionCount = (req.insertionCount == EepromData::FIELD_UNSET) ? 0 : req.insertionCount;
+    d.testCount      = (req.testCount      == EepromData::FIELD_UNSET) ? 0 : req.testCount;
+    d.eolReached     = (req.eol == EepromData::FIELD_UNSET) ? 0u
+                          : (req.eol ? EepromData::EOL_REACHED : 0u);
+    return d;
+}

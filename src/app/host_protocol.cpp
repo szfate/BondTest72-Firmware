@@ -52,30 +52,21 @@ HostCommand HostProtocol::processLine(const char* line) {
     }
 
     if (strncmp(line, "PROVISION ", sizeof("PROVISION ") - 1) == 0) {
-        _provisionMfgDate  = EepromData::FIELD_UNSET;
-        _provisionIns      = EepromData::FIELD_UNSET;
-        _provisionTests    = EepromData::FIELD_UNSET;
-        _provisionEol      = EepromData::FIELD_UNSET;
-        _provisionHwId     = EepromData::HWID_UNSET;
-        _provisionLifespan = EepromData::FIELD_UNSET;
-        for (uint8_t i = 0; i < AdapterBase::PADMAP_ID_COUNT; i++) _provisionPadmapIds[i] = EepromData::PADMAP_UNSET;
+        _provision.markUnset();
         uint32_t hw;
-        bool hasHw = parseKvUint(line + sizeof("PROVISION ") - 1, "hw", hw);
-        if (hasHw) _provisionHwId = (uint8_t)hw;
+        if (parseKvUint(line + sizeof("PROVISION ") - 1, "hw", hw)) _provision.hwId = (uint8_t)hw;
         uint32_t ls;
-        if (parseKvUint(line + sizeof("PROVISION ") - 1, "lifespan", ls)) _provisionLifespan = ls;
-        if (!parseKvUintList(line + sizeof("PROVISION ") - 1, "padmap", _provisionPadmapIds, AdapterBase::PADMAP_ID_COUNT))
+        if (parseKvUint(line + sizeof("PROVISION ") - 1, "lifespan", ls)) _provision.designedLifespan = ls;
+        if (!parseKvUintList(line + sizeof("PROVISION ") - 1, "padmap", _provision.padmapIds, AdapterBase::PADMAP_ID_COUNT))
             return HostCommand::PROVISION_INVALID;
         uint32_t dt;
-        if (parseKvUint(line + sizeof("PROVISION ") - 1, "date", dt)) {
-            _provisionMfgDate = dt;
-        }
+        if (parseKvUint(line + sizeof("PROVISION ") - 1, "date", dt)) _provision.dateOfManufacture = dt;
         uint32_t ins;
-        if (parseKvUint(line + sizeof("PROVISION ") - 1, "ins", ins)) _provisionIns = ins;
+        if (parseKvUint(line + sizeof("PROVISION ") - 1, "ins", ins)) _provision.insertionCount = ins;
         uint32_t tests;
-        if (parseKvUint(line + sizeof("PROVISION ") - 1, "tests", tests)) _provisionTests = tests;
+        if (parseKvUint(line + sizeof("PROVISION ") - 1, "tests", tests)) _provision.testCount = tests;
         uint32_t eol;
-        if (parseKvUint(line + sizeof("PROVISION ") - 1, "eol", eol)) _provisionEol = eol;
+        if (parseKvUint(line + sizeof("PROVISION ") - 1, "eol", eol)) _provision.eol = eol;
         return HostCommand::PROVISION;
     }
 

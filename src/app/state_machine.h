@@ -49,8 +49,7 @@ private:
     void pollDut(uint32_t now);
     void pollAdapterInsertion(uint32_t now);
     bool tryInitAdapter();
-    bool provisionEeprom(uint8_t hwId, const uint8_t padmapIds[4], uint32_t lifespan, uint32_t mfgDate,
-                         uint32_t ins, uint32_t tests, uint32_t eol);
+    bool provisionEeprom(const ProvisionRequest& req);
     void selectPadMap();
     bool checkAdapterAlive();  // returns false and transitions to NO_ADAPTER if adapter gone
     void startTest();
