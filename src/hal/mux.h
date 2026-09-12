@@ -11,6 +11,10 @@ static constexpr uint8_t MUX_CHANNEL_COUNT = 72;
 //   Y2 = COM_C             — 280 kΩ pullup (current injection)
 //   Y3 = COM_D             — 27.4 kΩ pullup (current injection)
 //   Y4 = COM_E             — 2.49 kΩ pullup (current injection)
+//
+// The enumerators are Y-port indices fed straight into the CH446X command
+// encoding (see mux_map / computeAddr) — they are not validated against the
+// PCB routing; that correspondence is by construction, not checked.
 enum class Bus : uint8_t { A = 0, B = 1, C = 2, D = 3, E = 4 };
 
 class MuxController {

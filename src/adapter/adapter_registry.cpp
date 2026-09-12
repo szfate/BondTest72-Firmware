@@ -1,4 +1,6 @@
 #include "adapter_registry.h"
+#include "adapter_base.h"
+#include "eeprom_layout.h"
 #include "mezzanine70.h"
 #include <new>
 #include <algorithm>

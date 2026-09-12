@@ -1,6 +1,9 @@
 #pragma once
 #include "adapter_base.h"
-#include "eeprom_layout.h"
+
+struct EepromData;
+
+static constexpr uint8_t ADAPTER_PIN_COUNT = 70;  // mezzanine die pads on this adapter model
 
 class Mezzanine70 : public AdapterBase {
 public:
@@ -8,7 +11,7 @@ public:
 
     uint8_t      getDutCount()           const override { return 1; }
     void         selectDut(uint8_t)            override { }  // single-DUT, no-op
-    uint8_t      getPadCount()           const override { return 70; }
+    uint8_t      getPadCount()           const override { return ADAPTER_PIN_COUNT; }
     AdapterHardware getAdapterHardware() const override { return AdapterHardware::Mezzanine70; }
     auto getSupportedPadmapIds() const -> const uint8_t (&)[PADMAP_ID_COUNT] override { return _padmapIds; }
     uint8_t      channelForPin(uint8_t adapterPin) const override { return adapterPin - 1; }

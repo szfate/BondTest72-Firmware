@@ -20,7 +20,9 @@ LedManager::LedManager(SK6812Controller& leds)
     }
 }
 
-bool LedManager::blinkOn(uint32_t periodMs) {
+// Free function — touches no members. Static so the name can't collide at
+// link time.
+static bool blinkOn(uint32_t periodMs) {
     return (millis() % periodMs) < (periodMs / 2);
 }
 

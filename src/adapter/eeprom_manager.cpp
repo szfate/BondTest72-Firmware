@@ -1,4 +1,6 @@
 #include "eeprom_manager.h"
+#include "eeprom_layout.h"
+#include "hal/at21cs01.h"
 #include <Arduino.h>
 #include "debug/log.h"
 
@@ -17,8 +19,8 @@ EepromManager::ReadResult EepromManager::read(EepromData& out) {
         LOG_E("eeprom: read failed (transport, not CRC)");
         return ReadResult::IoError;
     }
-    LOG_I("eeprom[0..7]: %02X %02X %02X %02X %02X %02X %02X %02X",
-          buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
+    LOG_D("eeprom[0..7]: %02X %02X %02X %02X %02X %02X %02X %02X",
+      buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
     if (buf[0] == 0xFF && buf[1] == 0xFF) {
         // A floating SWI line (marginal contact) also reads as 0xFF and can't be
         // told apart from a genuinely blank header within one read — the device

@@ -1,6 +1,7 @@
 #pragma once
-#include "adapter_base.h"
-#include "eeprom_layout.h"
+
+class AdapterBase;
+struct EepromData;
 
 class AdapterRegistry {
 public:

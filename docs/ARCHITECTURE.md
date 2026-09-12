@@ -439,10 +439,12 @@ ERROR code=<uint> msg=<string>
 | 1 | NO_ADAPTER | No adapter detected |
 | 2 | BUSY | Tester busy (testing or scanning) |
 | 3 | UNKNOWN_PADMAP | Pad map ID not found |
-| 4 | PROVISION_FAILED | EEPROM write failed |
+| 4 | PROVISION_FAILED | EEPROM write failed (at provision time) |
 | 5 | NOT_IMPLEMENTED | Command not implemented |
 | 6 | MISSING_FIELD | Required PROVISION field omitted |
 | 7 | ADAPTER_NOT_PROVISIONED | Adapter EEPROM present but blank |
+| 8 | WRONG_STATE | Command not valid in current state |
+| 9 | EEPROM_WRITE_FAILED | Runtime counter/EOL flush failed |
 
 ---
 

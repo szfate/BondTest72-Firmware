@@ -1,6 +1,7 @@
 #pragma once
 #include "state.h"
-#include "adapter/eeprom_manager.h"
+#include "adapter/eeprom_layout.h"   // EepromData by value
+#include "adapter/eeprom_manager.h"  // EepromManager::ReadResult
 #include "test/result.h"
 #include "host_protocol.h"
 #include "led_manager.h"

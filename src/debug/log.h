@@ -1,5 +1,5 @@
 #pragma once
-// Requires Arduino.h already included in the translation unit (Serial, millis)
+#include <Arduino.h>  // Serial, millis — the macros below need them
 
 // Log levels — set LOG_LEVEL before including or in build flags.
 // 0 = off, 1 = ERROR, 2 = WARN, 3 = INFO, 4 = DEBUG

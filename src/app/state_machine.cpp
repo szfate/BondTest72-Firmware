@@ -11,21 +11,6 @@
 #include "debug/adapter_self_test.h"
 #include <Arduino.h>
 
-static const char* stateName(State s) {
-    switch (s) {
-        case State::NO_ADAPTER:        return "NO_ADAPTER";
-        case State::ADAPTER_DETECTED:  return "ADAPTER_DETECTED";
-        case State::READY:             return "READY";
-        case State::EOL_ADAPTER:        return "EOL_ADAPTER";
-        case State::WRONG_ORIENTATION: return "WRONG_ORIENTATION";
-        case State::TESTING:           return "TESTING";
-        case State::PASS:              return "PASS";
-        case State::FAIL:              return "FAIL";
-        case State::FAULT:             return "FAULT";
-        default:                        return "?";
-    }
-}
-
 StateMachine::StateMachine(MuxController&    mux,
                            AdcDriver&        adc,
                            SK6812Controller& leds,
@@ -400,7 +385,9 @@ void StateMachine::flushEeprom() {
         _adapter->setEolLed(true);
     }
     if (!_eepromMgr.write(_eepromData)) {
-        _hostProtocol.sendError(ErrorCode::PROVISION_FAILED, "EEPROM_WRITE_FAILED");
+        // Distinct from PROVISION_FAILED: this is a runtime counter/EOL flush,
+        // not a factory provision attempt.
+        _hostProtocol.sendError(ErrorCode::EEPROM_WRITE_FAILED, "EEPROM_WRITE_FAILED");
     }
 }
 

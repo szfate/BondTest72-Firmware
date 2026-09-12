@@ -1,6 +1,8 @@
 #pragma once
-#include "eeprom_layout.h"
-#include "hal/at21cs01.h"
+#include <stdint.h>
+
+struct EepromData;
+class AT21CS01Driver;
 
 class EepromManager {
 public:

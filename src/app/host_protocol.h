@@ -8,11 +8,12 @@ enum class ErrorCode : uint8_t {
     NO_ADAPTER            = 1,
     BUSY                  = 2,
     UNKNOWN_PADMAP        = 3,
-    PROVISION_FAILED      = 4,
+    PROVISION_FAILED      = 4,  // PROVISION rejected — malformed request or refused write at provision time
     NOT_IMPLEMENTED       = 5,
     MISSING_FIELD         = 6,
     ADAPTER_NOT_PROVISIONED = 7,  // EEPROM chip present but blank — needs PROVISION before use
     WRONG_STATE             = 8,  // command not valid in the tester's current state
+    EEPROM_WRITE_FAILED     = 9,  // runtime counter/EOL flush failed — not a PROVISION request
 };
 
 enum class HostCommand : uint8_t {
@@ -36,22 +37,22 @@ public:
     uint8_t     provisionHwId()       const { return _provisionHwId; }
     uint32_t    provisionLifespan()   const { return _provisionLifespan; }
     uint32_t    provisionMfgDate()    const { return _provisionMfgDate; }
-    uint32_t    provisionIns()    const { return _provisionIns; }
-    uint32_t    provisionTests()  const { return _provisionTests; }
-    uint32_t    provisionEol()    const { return _provisionEol; }
+    uint32_t    provisionIns()        const { return _provisionIns; }
+    uint32_t    provisionTests()      const { return _provisionTests; }
+    uint32_t    provisionEol()        const { return _provisionEol; }
 
     void setAdapterUid(const char* uid16);
 
-void sendAdapterInfo(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT],
-                     uint32_t lifespan, uint32_t dateOfManufacture,
-                     uint32_t insertions, uint32_t tests, bool eol,
-                     bool dutPresent);
+    void sendAdapterInfo(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT],
+                         uint32_t lifespan, uint32_t dateOfManufacture,
+                         uint32_t insertions, uint32_t tests, bool eol,
+                         bool dutPresent);
     void sendAdapterDetected(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT]);
     void sendAdapterRemoved();
     void sendDutInserted();
     void sendDutRemoved();
-void sendTestStart(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT], const PadMap* padMap,
-                    uint32_t insertions, uint32_t tests);
+    void sendTestStart(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT], const PadMap* padMap,
+                       uint32_t insertions, uint32_t tests);
     void sendEolWarning(uint32_t insertionCount);
     void sendWrongOrientation();
     void sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad, TestStrategy strategy, const PadResult& r);

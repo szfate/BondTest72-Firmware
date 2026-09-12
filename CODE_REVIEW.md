@@ -109,15 +109,15 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 
 ## Small hygiene (batch opportunistically)
 
-- `at21cs01.cpp`: `readSerial` no retry while `read` retries ×3 — comment if deliberate or unify.
-- `eeprom_manager.cpp:20-21`: hexdumps 8 bytes at INFO on every insertion → LOG_D.
-- `led_manager.cpp`: `blinkOn()` can be static; `stateName()` could live in `state.h`.
-- `host_protocol.h`: declaration alignment drift (:43-46); no `sendOk()`.
-- Forward-decl instead of includes: `adapter_registry.h:3`, `mezzanine70.h:3`, `eeprom_manager.h:3`. `log.h` should include `Arduino.h` itself.
-- `Bus` enum values are Y-port indices, unvalidated — comment.
-- `mezzanine70.h:11` hardcodes `70` alongside `ADAPTER_PIN_COUNT_PLUS_1 = 71` — same fact, two constants.
-- `flushEeprom` reuses `PROVISION_FAILED` for runtime write failures → distinct error code (needs doc table row).
-- `prot doc`: note logs and protocol share one CDC channel — host must tolerate interleaved `[t] [INFO]` lines.
+- ~~`at21cs01.cpp`: `readSerial` no retry while `read` retries ×3~~ DONE: documented as deliberate — a marginal contact should fail adapter arrival visibly so the state machine's settle+retry redoes detection, not get masked behind a valid-looking serial.
+- ~~`eeprom_manager.cpp:20-21`: hexdump~~ DONE: LOG_D.
+- ~~`led_manager.cpp`: `blinkOn()` static; `stateName()`~~ DONE: `blinkOn` is a file-static free function; `stateName` moved to state.h (inline) — also serves the WRONG_STATE msg= path.
+- ~~`host_protocol.h` declaration alignment~~ DONE (sendOk decl already added by F11).
+- ~~Forward-decl instead of includes~~ DONE: adapter_registry.h (both includes → fwd decls), mezzanine70.h (eeprom_layout.h → fwd decl), eeprom_manager.h (both → fwd decls, gaining explicit stdint); consumers (adapter_registry.cpp, eeprom_manager.cpp, mezzanine70.cpp, state_machine.h) now include what they use; log.h includes Arduino.h itself.
+- ~~`Bus` enum values~~ DONE: comment noting they're raw Y-port indices, correspondence to PCB routing is by construction, not validated.
+- ~~`mezzanine70.h` 70/71~~ DONE: `ADAPTER_PIN_COUNT = 70` in mezzanine70.h; `ADAPTER_PIN_COUNT_PLUS_1` derives from it in the .cpp.
+- ~~`flushEeprom` reuses `PROVISION_FAILED`~~ DONE: new `ErrorCode::EEPROM_WRITE_FAILED = 9` + doc table rows (both docs).
+- ~~`prot doc`: CDC interleaving~~ DONE: note added that logs and protocol share one CDC channel and host parsers must skip non-protocol lines.
 
 ---
 

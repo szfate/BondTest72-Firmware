@@ -4,6 +4,8 @@ USB CDC serial protocol, 115200 baud, 8N1. Lines are newline-terminated (`\n` or
 
 All communication is plain ASCII. The host sends commands (uppercase), the tester responds with events and results (uppercase). Key-value pairs use `key=value` format, space-separated.
 
+**One CDC channel carries both the protocol and firmware logs.** Log lines (`[t] [INFO] ...`, `[t] [WARN] ...`, etc.) can be interleaved between any protocol lines — including mid-result-set, since logs are written from the same single-threaded loop. Host-side parsers must skip lines that don't match a known protocol format (the GUI tools do; they key on line prefixes like `PAD `, `EVENT `, `SUMMARY`).
+
 ---
 
 ## Commands
@@ -284,6 +286,7 @@ ERROR code=<code> msg=<message>
 | 6 | `MISSING_FIELD` | Required PROVISION field omitted (msg=MISSING_HW, MISSING_PADMAP, MISSING_LIFESPAN, or MISSING_DATE) |
 | 7 | `ADAPTER_NOT_PROVISIONED` | Adapter EEPROM chip present but blank — needs PROVISION before use |
 | 8 | `WRONG_STATE` | Command not valid in the tester's current state (msg = current state name; see the per-state table below) |
+| 9 | `EEPROM_WRITE_FAILED` | Runtime EEPROM flush failed (counter/EOL update) — distinct from a failed PROVISION request |
 
 ---
 
