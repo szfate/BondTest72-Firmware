@@ -9,5 +9,6 @@ public:
 
 private:
     SK6812Controller& _leds;
+    uint8_t _rendered[LED_PIXEL_COUNT][3];  // last pattern pushed to the strip
     bool blinkOn(uint32_t periodMs);
 };

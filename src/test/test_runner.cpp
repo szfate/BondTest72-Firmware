@@ -79,8 +79,9 @@ PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc) {
     return pr;
 }
 
-TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
-    TestResult result = {};
+void TestRunner::run(AdapterBase& adapter, const PadMap& padMap, TestResult& out) {
+    out = {};
+    TestResult& result = out;
     result.slotCount = adapter.getDutCount();
     result.outcome   = TestOutcome::PASS;
 
@@ -88,7 +89,7 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
         LOG_E("test: invalid slot count %u", result.slotCount);
         result.outcome = TestOutcome::FAIL;
         result.slotCount = 0;
-        return result;
+        return;
     }
 
     for (uint8_t slot = 0; slot < result.slotCount; slot++) {
@@ -120,7 +121,15 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
 
             sr.byChannel[adapter.channelForPin(tc.adapterPin)] = pr;
             sr.testedCount++;
-            if (pr.bond == BondResult::GOOD) sr.goodCount++;
+            if (pr.bond == BondResult::GOOD) {
+                sr.goodCount++;
+            } else {
+                // Folded-in pass/fail verify (was a separate post-sweep loop):
+                // every measured pad must pass individually for the run to PASS.
+                // A later FAIL_DUT_REMOVED still takes precedence — it overwrites
+                // this, same as when the verify loop ran after the sweep.
+                result.outcome = TestOutcome::FAIL;
+            }
         }
 
         if (!_dutDetector.checkNow()) {
@@ -134,22 +143,4 @@ TestResult TestRunner::run(AdapterBase& adapter, const PadMap& padMap) {
     }
 
     _mux.clearAll();
-
-    if (result.outcome == TestOutcome::PASS) {
-        for (uint8_t slot = 0; slot < result.slotCount && result.outcome == TestOutcome::PASS; slot++) {
-            const SlotResult& sr = result.slots[slot];
-            if (!sr.tested) continue;
-
-            // Every pad must pass individually.
-            for (uint8_t i = 0; i < padMap.caseCount && result.outcome == TestOutcome::PASS; i++) {
-                const TestCase& tc = padMap.cases[i];
-                if (tc.strategy == TestStrategy::DISCHARGE) continue;
-                const PadResult& pr = sr.byChannel[adapter.channelForPin(tc.adapterPin)];
-                if (pr.bond != BondResult::GOOD)
-                    result.outcome = TestOutcome::FAIL;
-            }
-        }
-    }
-
-    return result;
 }

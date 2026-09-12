@@ -36,11 +36,7 @@ static constexpr uint16_t IO_SETTLE_US  = 200;
 static constexpr uint16_t CAP_SETTLE_US = 20000;
 
 // IO case shorthand — args: adapterPin, diePad
-#define IO1(m_, d_)  \
-    { .adapterPin=(m_), .gndPin=GND,  \
-      .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
-      .settleUs=IO_SETTLE_US, .thresholds=&kThresh }
-#define IO2(m_, d_)  \
+#define IO(m_, d_)  \
     { .adapterPin=(m_), .gndPin=GND,  \
       .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
       .settleUs=IO_SETTLE_US, .thresholds=&kThresh }
@@ -57,69 +53,69 @@ static constexpr uint16_t CAP_SETTLE_US = 20000;
 
 static const TestCase _pm1Cases[] = {
     // ── die pads  0– 7 (apin 63–70) ─────────────────────────────────────────
-    IO1( 63,  0),
-    IO1( 64,  1),
-    IO1( 65,  2),
-    IO1( 66,  3),
-    IO1( 67,  4),
-    IO1( 68,  5),
-    IO1( 69,  6),
-    IO1( 70,  7),  // [gap: GND die pad 8]
+    IO( 63,  0),
+    IO( 64,  1),
+    IO( 65,  2),
+    IO( 66,  3),
+    IO( 67,  4),
+    IO( 68,  5),
+    IO( 69,  6),
+    IO( 70,  7),  // [gap: GND die pad 8]
     // ── die pads  9–16 (apin  1– 8) ─────────────────────────────────────────
-    IO1(  1,  9),
-    IO1(  2, 10),
-    IO1(  3, 11),
-    IO1(  4, 12),
-    IO1(  5, 13),
-    IO1(  6, 14),
-    IO1(  7, 15),
-    IO1(  8, 16),  // [gap: VDD IO apin9 die pad 17, GND apin10 die pad 18]
+    IO(  1,  9),
+    IO(  2, 10),
+    IO(  3, 11),
+    IO(  4, 12),
+    IO(  5, 13),
+    IO(  6, 14),
+    IO(  7, 15),
+    IO(  8, 16),  // [gap: VDD IO apin9 die pad 17, GND apin10 die pad 18]
     // ── die pads 19–24 (apin 11–16) ─────────────────────────────────────────
-    IO1( 11, 19),
-    IO1( 12, 20),
-    IO1( 13, 21),
-    IO1( 14, 22),
-    IO1( 15, 23),
-    IO1( 16, 24),  // [gap: PWR Aux apin17 die pad 25, GND apin18 die pad 26]
+    IO( 11, 19),
+    IO( 12, 20),
+    IO( 13, 21),
+    IO( 14, 22),
+    IO( 15, 23),
+    IO( 16, 24),  // [gap: PWR Aux apin17 die pad 25, GND apin18 die pad 26]
     // ── die pads 27–32 (apin 19–24) ─────────────────────────────────────────
-    IO1( 19, 27),
-    IO1( 20, 28),
-    IO1( 21, 29),
-    IO1( 22, 30),
-    IO1( 23, 31),
-    IO1( 24, 32),  // [gap: VDD Core apin25 die pad 34, VDD IO apin27 die pad 36]
+    IO( 19, 27),
+    IO( 20, 28),
+    IO( 21, 29),
+    IO( 22, 30),
+    IO( 23, 31),
+    IO( 24, 32),  // [gap: VDD Core apin25 die pad 34, VDD IO apin27 die pad 36]
     // ── die pads 37–44 (apin 28–35) ─────────────────────────────────────────
-    IO1( 28, 37),
-    IO1( 29, 38),
-    IO1( 30, 39),
-    IO1( 31, 40),
-    IO1( 32, 41),
-    IO1( 33, 42),
-    IO1( 34, 43),
-    IO1( 35, 44),
+    IO( 28, 37),
+    IO( 29, 38),
+    IO( 30, 39),
+    IO( 31, 40),
+    IO( 32, 41),
+    IO( 33, 42),
+    IO( 34, 43),
+    IO( 35, 44),
     // ── die pads 46–55 (apin 36–45) ─────────────────────────────────────────
-    IO1( 36, 46),
-    IO1( 37, 47),
-    IO1( 38, 48),
-    IO1( 39, 49),
-    IO1( 40, 50),
-    IO1( 41, 51),
-    IO1( 42, 52),
-    IO1( 43, 53),
-    IO1( 44, 54),
-    IO1( 45, 55),  // [gap: GND apin46 die pad 56, VDD IO apin47 die pad 57]
+    IO( 36, 46),
+    IO( 37, 47),
+    IO( 38, 48),
+    IO( 39, 49),
+    IO( 40, 50),
+    IO( 41, 51),
+    IO( 42, 52),
+    IO( 43, 53),
+    IO( 44, 54),
+    IO( 45, 55),  // [gap: GND apin46 die pad 56, VDD IO apin47 die pad 57]
     // ── die pads 58–61 (apin 48–51) ─────────────────────────────────────────
-    IO1( 48, 58),
-    IO1( 49, 59),
-    IO1( 50, 60),
-    IO1( 51, 61),  // [gap: GND apin53 die pad 62, PWR Aux apin52 die pad 63]
+    IO( 48, 58),
+    IO( 49, 59),
+    IO( 50, 60),
+    IO( 51, 61),  // [gap: GND apin53 die pad 62, PWR Aux apin52 die pad 63]
     // ── die pads 64–69 (apin 54–59) ─────────────────────────────────────────
-    IO1( 54, 64),
-    IO1( 55, 65),
-    IO1( 56, 66),
-    IO1( 57, 67),
-    IO1( 58, 68),
-    IO1( 59, 69),  // [gap: ring wraps through GND apin61 die pad 72]
+    IO( 54, 64),
+    IO( 55, 65),
+    IO( 56, 66),
+    IO( 57, 67),
+    IO( 58, 68),
+    IO( 59, 69),  // [gap: ring wraps through GND apin61 die pad 72]
     // ── VDD/PWR ──────────────────────────────────────────────────────────────
     { .adapterPin =  9, .gndPin = GND, .diePad = 17, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 17 VDD IO
     { .adapterPin = 17, .gndPin = GND, .diePad = 25, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::PWR_AUX,  .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 25 PWR Aux
@@ -136,69 +132,69 @@ static_assert(sizeof(_pm1Cases) / sizeof(_pm1Cases[0]) == 63, "pm1 case count mi
 
 static const TestCase _pm2Cases[] = {
     // ── die pads  0– 7 (apin 63–70) ─────────────────────────────────────────
-    IO2( 63,  0),
-    IO2( 64,  1),
-    IO2( 65,  2),
-    IO2( 66,  3),
-    IO2( 67,  4),
-    IO2( 68,  5),
-    IO2( 69,  6),
-    IO2( 70,  7),  // [gap: GND die pad 8]
+    IO( 63,  0),
+    IO( 64,  1),
+    IO( 65,  2),
+    IO( 66,  3),
+    IO( 67,  4),
+    IO( 68,  5),
+    IO( 69,  6),
+    IO( 70,  7),  // [gap: GND die pad 8]
     // ── die pads  9–16 (apin  1– 8) ─────────────────────────────────────────
-    IO2(  1,  9),
-    IO2(  2, 10),
-    IO2(  3, 11),
-    IO2(  4, 12),
-    IO2(  5, 13),
-    IO2(  6, 14),
-    IO2(  7, 15),
-    IO2(  8, 16),  // [gap: VDD IO apin9 die pad 17, GND apin10 die pad 18]
+    IO(  1,  9),
+    IO(  2, 10),
+    IO(  3, 11),
+    IO(  4, 12),
+    IO(  5, 13),
+    IO(  6, 14),
+    IO(  7, 15),
+    IO(  8, 16),  // [gap: VDD IO apin9 die pad 17, GND apin10 die pad 18]
     // ── die pads 19–24 (apin 11–16) ─────────────────────────────────────────
-    IO2( 11, 19),
-    IO2( 12, 20),
-    IO2( 13, 21),
-    IO2( 14, 22),
-    IO2( 15, 23),
-    IO2( 16, 24),  // [gap: PWR Aux apin17 die pad 25, GND apin18 die pad 26]
+    IO( 11, 19),
+    IO( 12, 20),
+    IO( 13, 21),
+    IO( 14, 22),
+    IO( 15, 23),
+    IO( 16, 24),  // [gap: PWR Aux apin17 die pad 25, GND apin18 die pad 26]
     // ── die pads 27–32 (apin 19–24) ─────────────────────────────────────────
-    IO2( 19, 27),
-    IO2( 20, 28),
-    IO2( 21, 29),
-    IO2( 22, 30),
-    IO2( 23, 31),
-    IO2( 24, 32),  // [gap: VDD Core apin25 die pad 34, VDD IO apin27 die pad 36]
+    IO( 19, 27),
+    IO( 20, 28),
+    IO( 21, 29),
+    IO( 22, 30),
+    IO( 23, 31),
+    IO( 24, 32),  // [gap: VDD Core apin25 die pad 34, VDD IO apin27 die pad 36]
     // ── die pads 37–44 (apin 28–35) — apin34/die pad 43 connected in v2 ─────
-    IO2( 28, 37),
-    IO2( 29, 38),
-    IO2( 30, 39),
-    IO2( 31, 40),
-    IO2( 32, 41),
-    IO2( 33, 42),
-    IO2( 34, 43),  // die pad 43 / apin34 — connected in v2
-    IO2( 35, 44),
+    IO( 28, 37),
+    IO( 29, 38),
+    IO( 30, 39),
+    IO( 31, 40),
+    IO( 32, 41),
+    IO( 33, 42),
+    IO( 34, 43),  // die pad 43 / apin34 — connected in v2
+    IO( 35, 44),
     // ── die pads 46–55 (apin 36–45) ─────────────────────────────────────────
-    IO2( 36, 46),
-    IO2( 37, 47),
-    IO2( 38, 48),
-    IO2( 39, 49),
-    IO2( 40, 50),
-    IO2( 41, 51),
-    IO2( 42, 52),
-    IO2( 43, 53),
-    IO2( 44, 54),
-    IO2( 45, 55),  // [gap: GND apin46 die pad 56, VDD IO apin47 die pad 57]
+    IO( 36, 46),
+    IO( 37, 47),
+    IO( 38, 48),
+    IO( 39, 49),
+    IO( 40, 50),
+    IO( 41, 51),
+    IO( 42, 52),
+    IO( 43, 53),
+    IO( 44, 54),
+    IO( 45, 55),  // [gap: GND apin46 die pad 56, VDD IO apin47 die pad 57]
     // ── die pads 58–61 (apin 48–51) ─────────────────────────────────────────
-    IO2( 48, 58),
-    IO2( 49, 59),
-    IO2( 50, 60),
-    IO2( 51, 61),  // [gap: GND apin53 die pad 62, PWR Aux apin52 die pad 63]
+    IO( 48, 58),
+    IO( 49, 59),
+    IO( 50, 60),
+    IO( 51, 61),  // [gap: GND apin53 die pad 62, PWR Aux apin52 die pad 63]
     // ── die pads 64–69 (apin 54–59) ─────────────────────────────────────────
-    IO2( 54, 64),
-    IO2( 55, 65),
-    IO2( 56, 66),
-    IO2( 57, 67),
-    IO2( 58, 68),
-    IO2( 59, 69),  // [gap: ring wraps through GND apin61 die pad 72]
+    IO( 54, 64),
+    IO( 55, 65),
+    IO( 56, 66),
+    IO( 57, 67),
+    IO( 58, 68),
+    IO( 59, 69),  // [gap: ring wraps through GND apin61 die pad 72]
     // ── VDD/PWR ──────────────────────────────────────────────────────────────
     { .adapterPin =  9, .gndPin = GND, .diePad = 17, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 17 VDD IO
     { .adapterPin = 17, .gndPin = GND, .diePad = 25, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::PWR_AUX,  .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 25 PWR Aux

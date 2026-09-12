@@ -408,7 +408,7 @@ void StateMachine::startTest() {
     _ledManager.update(_state);
 
     _lastResultPadMap = _padMap;
-    _lastResult = _testRunner.run(*_adapter, *_padMap);
+    _testRunner.run(*_adapter, *_padMap, _lastResult);
     _eepromData.testCount++;
     flushEeprom();
 

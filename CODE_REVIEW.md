@@ -53,7 +53,7 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 | ~~F2~~ |  `state_machine.cpp:93-102` vs `:182-188` | Button-start and host-RUN-start are identical. Extract `tryStartTest()`. | S |
 | ~~F3~~ |  `host_protocol.cpp:141-149`, `:163-171`, `:196-204` | Padmap-list printing ×3. Extract `printPadmapList()`. | S |
 | F4 | `host_protocol.cpp:53-80` + `state_machine.cpp:203-228` + `eeprom_test.cpp:45-52` | Provision defaults ×3 (already drifted), blank-detection ×2. Hoist into `eeprom_layout`: `PADMAP_ID_SLOTS`, `eepromHeaderLooksBlank()`, `eepromDefaults(hw)`. Replaces 7 scattered raw sentinels with a `ProvisionRequest` struct. Properly fixes B1. | M |
-| F5 | `test_runner.cpp:138-152` vs `state_machine.cpp:409-414` | Pass/fail verify loop duplicates `sendResults()` pad iteration. Fold verify into the main measurement loop (behavior-identical) + shared `forEachTestedCase()`. | M |
+| ~~F5~~ | `test_runner.cpp:138-152` vs `state_machine.cpp:409-414` | DONE: verify loop folded into the measurement loop (FAIL set at the first non-GOOD pad; FAIL_DUT_REMOVED later still overwrites, outcome precedence unchanged). `forEachTestedCase()` skipped — with the verify loop gone only `sendResults()` walks that shape, so the helper would be one-consumer indirection, not dedup. | M |
 | ~~F6~~ | `dut_detector.cpp:28-32` vs `:44-49` | DONE: private `senseCandidate()` extracted; `prime()` and `poll()` both use it. | S |
 | ~~F7~~ | `mezzanine70.cpp:93-110` | DONE: private `kelvinPresence()` helper extracted; `senseDutPresent`/`senseDutFlipped` are now one-liners mirroring it (LOG_D tags preserved). | S |
 | ~~F8~~ | `src/debug/` | DONE: mux_waveform_test, button_test, adc_test, sk6812_test, eeprom_test deleted (10 files); only adapterSelfTest and log remain. Also removes main.cpp's unused `debug/eeprom_test.h` include (LY4). Resolves B8's comment rot and C9's doc drift. | S |
@@ -95,12 +95,12 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 
 | ID | Fix | Impact |
 |----|-----|--------|
-| **S1** | `TestResult` = 44 664 B (verified). `TestRunner::run()` puts the whole thing on the stack **and** copies by value into the static `_lastResult`. Change to `run(adapter, padMap, TestResult& out)`. | Kills ~44 KB stack frame + 44 KB copy. Risk: none (callers already hold a static). |
-| **S2** | `pad_map_registry.cpp:27-34`: `IO1` ≡ `IO2` (byte-identical bodies, verified by diff). Merge into one `IO(gnd_, apin_, die_)`. Optional: a `CS(...)` shorthand for the 23 CAP rows. | -~30 lines, removes a drift trap. |
-| **S3** | `sendTestStart()` is 70 lines / 3 jobs. Extract threshold + CAP-schedule printers; convert integer fields to `Serial.printf`. | Readability; no behavior change. |
+| ~~**S1**~~ | DONE (note: TestResult is ~8.9 KB since MAX_DUT_SLOTS=1, not 44 KB). `run(adapter, padMap, TestResult& out)` writes into caller-owned storage — no stack frame, no by-value copy. | Kills the whole-struct stack frame + copy. Risk: none (caller already holds a static). |
+| ~~**S2**~~ | DONE: `IO1`/`IO2` merged into single `IO(...)` (byte-identical bodies). Optional `CS(...)` shorthand for CAP rows skipped — rows carry per-case padType/comments, shorthand saves little. | -~10 lines, removes a drift trap. |
+| ~~**S3**~~ | DONE: `printBondThreshold()` / `printCapSchedule()` extracted; header line converted to `Serial.printf` (integer fields; float fields kept on `Serial.print(x, 0)`). Wire output byte-identical. | Readability; no behavior change. |
 | **S4** | Spec's per-state command table (`docs/…:322-328`) is not enforced — only RUN and DISCOVERY_SCAN are gated. PROVISION/SET_PADMAP accepted in any state. Add a per-state bitmask in `handleCommand()`. **Host-visible change** — coordinate with tools. | Closes B3's root cause (prevents SET_PADMAP between run and GET_RESULTS). |
 | **S5** | `update()` is 7 jobs in 67 lines. Decompose into `pollAdapterLiveness()` / `pollDut()` / `pollAdapterInsertion()` after F1/F2. | Readability. |
-| **S6** | LED strip redrawn every loop: `clear()+show()` unconditionally ≈340 µs interrupts-off per iteration. Render on change only (blink phase derives from `millis()`). **Bench-verify** — changes hal-call interleaving. | Frees IRQ headroom. |
+| ~~**S6**~~ | DONE: `LedManager` renders into a 3-pixel pattern cache and only pushes `clear()+show()` when it differs (`_rendered` sentinel forces the first render). Blink phase still derives from `millis()` → redraws only at blink edges. NO_ADAPTER/EOL dim-red now via 3× `setPixel` (was `setAll` — visually identical). **Bench-verify pending** — changes hal-call interleaving. | Frees IRQ headroom (~340 µs → 0 µs between blink edges). |
 | **S7** | `AdcDriver::readVoltage` invalid channel returns `0.0f` — indistinguishable from a real 0 V open. Return `NAN` (threshold comparisons all fail safely). | Never taken today; safety default. |
 | **S8** | EEPROM layout has no version byte. `buf[8..11]` reserved/zeroed — designate `layout_version=1` (accept {0,1}) for future evolution. | Future-proofing; backward-compatible. |
 

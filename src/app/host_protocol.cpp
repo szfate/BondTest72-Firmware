@@ -192,15 +192,46 @@ void HostProtocol::sendDutRemoved() {
     Serial.println("EVENT DUT_REMOVED");
 }
 
+// thresholds is per-TestCase (pad_map.h) but every case in a padmap
+// currently shares one TestThresholds instance (see kThresh in
+// pad_map_registry.cpp), so a single value here is valid today. Taken
+// from the first case with non-null thresholds; omitted if none.
+void HostProtocol::printBondThreshold(const PadMap* padMap) {
+    if (!padMap) return;
+    for (uint8_t i = 0; i < padMap->caseCount; i++) {
+        if (padMap->cases[i].thresholds) {
+            Serial.print(" max_bond_r_ohms=");
+            Serial.print(padMap->cases[i].thresholds->maxBondResistanceOhms, 0);
+            return;
+        }
+    }
+}
+
+// settleUs is per-TestCase (pad_map.h), not a firmware-wide constant like
+// PULLUP_LEVELS, so this is only valid as a single list because every
+// CAP_SENSE case in a padmap currently shares one settleUs. Taken from
+// the first CAP_SENSE case found; omitted if the padmap has none.
+void HostProtocol::printCapSchedule(const PadMap* padMap) {
+    if (!padMap) return;
+    for (uint8_t i = 0; i < padMap->caseCount; i++) {
+        if (padMap->cases[i].strategy != TestStrategy::CAP_SENSE) continue;
+        uint16_t times[CAP_SENSE_SAMPLE_COUNT];
+        curveSampleTimesUs(padMap->cases[i].settleUs, times);
+        Serial.print(" cap_time_list_us=");
+        for (uint8_t k = 0; k < CAP_SENSE_SAMPLE_COUNT; k++) {
+            if (k > 0) Serial.print(',');
+            Serial.print(times[k]);
+        }
+        return;
+    }
+}
+
 void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const PadMap* padMap,
                                   uint32_t insertions, uint32_t tests) {
-    Serial.print("EVENT TEST_START ");
-    Serial.print("aid=");     Serial.print(_adapterUid);
-    Serial.print(" ahw=");    Serial.print(hwId);
     // Counts as of this insertion/before this test's run — testCount excludes
     // the test currently starting (incremented only after it completes).
-    Serial.print(" ins=");     Serial.print(insertions);
-    Serial.print(" tests=");   Serial.print(tests);
+    Serial.printf("EVENT TEST_START aid=%s ahw=%u ins=%lu tests=%lu",
+                  _adapterUid, hwId, (unsigned long)insertions, (unsigned long)tests);
     printPadmapList(padmapIds);
 
     // Order matches PULLUP_LEVELS / rf,rr,vf,vr in PAD lines, low-current-first.
@@ -212,47 +243,8 @@ void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t* padmapIds, const P
         Serial.print(pullupCurrentUA(PULLUP_LEVELS[i].ohms), 0);
     }
 
-    // thresholds is per-TestCase (pad_map.h) but every case in a padmap
-    // currently shares one TestThresholds instance (see kThresh in
-    // pad_map_registry.cpp), so a single value here is valid today. Taken
-    // from the first case with non-null thresholds; omitted if none.
-    if (padMap) {
-        const TestThresholds* thresh = nullptr;
-        for (uint8_t i = 0; i < padMap->caseCount; i++) {
-            if (padMap->cases[i].thresholds != nullptr) {
-                thresh = padMap->cases[i].thresholds;
-                break;
-            }
-        }
-        if (thresh) {
-            Serial.print(" max_bond_r_ohms=");
-            Serial.print(thresh->maxBondResistanceOhms, 0);
-        }
-    }
-
-    // settleUs is per-TestCase (pad_map.h), not a firmware-wide constant like
-    // PULLUP_LEVELS, so this is only valid as a single list because every
-    // CAP_SENSE case in a padmap currently shares one settleUs. Taken from
-    // the first CAP_SENSE case found; omitted if the padmap has none.
-    if (padMap) {
-        const TestCase* capCase = nullptr;
-        for (uint8_t i = 0; i < padMap->caseCount; i++) {
-            if (padMap->cases[i].strategy == TestStrategy::CAP_SENSE) {
-                capCase = &padMap->cases[i];
-                break;
-            }
-        }
-        if (capCase) {
-            uint16_t times[CAP_SENSE_SAMPLE_COUNT];
-            curveSampleTimesUs(capCase->settleUs, times);
-            Serial.print(" cap_time_list_us=");
-            for (uint8_t i = 0; i < CAP_SENSE_SAMPLE_COUNT; i++) {
-                if (i > 0) Serial.print(',');
-                Serial.print(times[i]);
-            }
-        }
-    }
-
+    printBondThreshold(padMap);
+    printCapSchedule(padMap);
     Serial.println();
 }
 

@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
 
+constexpr uint8_t LED_PIXEL_COUNT = 3;
+
 class SK6812Controller {
 public:
     void begin();
