@@ -7,6 +7,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+static constexpr uint16_t LINE_OVERFLOW_WARN_LEN = 250;  // warn as the line approaches the 256-byte _lineBuf
+
 void HostProtocol::begin() {
     _lineLen = 0;
     memset(_adapterUid, 0, sizeof(_adapterUid));
@@ -25,7 +27,7 @@ HostCommand HostProtocol::poll() {
             }
         } else if (_lineLen < sizeof(_lineBuf) - 1) {
             _lineBuf[_lineLen++] = c;
-            if (_lineLen >= 250 && !_overflowWarned) {
+            if (_lineLen >= LINE_OVERFLOW_WARN_LEN && !_overflowWarned) {
                 _overflowWarned = true;
                 LOG_W("host: command line approaching buffer limit");
             }
@@ -41,40 +43,40 @@ HostCommand HostProtocol::processLine(const char* line) {
     if (strcmp(line, "DISCOVERY_SCAN") == 0)    return HostCommand::DISCOVERY_SCAN;
     if (strcmp(line, "HELLO") == 0)             return HostCommand::HELLO;
 
-    if (strncmp(line, "SET_PADMAP ", 11) == 0) {
+    if (strncmp(line, "SET_PADMAP ", sizeof("SET_PADMAP ") - 1) == 0) {
         uint32_t id;
-        if (parseKvUint(line + 11, "id", id)) {
+        if (parseKvUint(line + sizeof("SET_PADMAP ") - 1, "id", id)) {
             _setPadmapId = (uint8_t)id;
             return HostCommand::SET_PADMAP;
         }
         return HostCommand::NONE;
     }
 
-    if (strncmp(line, "PROVISION ", 10) == 0) {
-        _provisionMfgDate  = 0xFFFFFFFF;
-        _provisionIns    = 0xFFFFFFFF;
-        _provisionTests  = 0xFFFFFFFF;
-        _provisionEol    = 0xFFFFFFFF;
-        _provisionHwId     = 0xFF;
-        _provisionLifespan = 0xFFFFFFFF;
-        for (uint8_t i = 0; i < 4; i++) _provisionPadmapIds[i] = 0xFF;
+    if (strncmp(line, "PROVISION ", sizeof("PROVISION ") - 1) == 0) {
+        _provisionMfgDate  = EepromData::FIELD_UNSET;
+        _provisionIns      = EepromData::FIELD_UNSET;
+        _provisionTests    = EepromData::FIELD_UNSET;
+        _provisionEol      = EepromData::FIELD_UNSET;
+        _provisionHwId     = EepromData::HWID_UNSET;
+        _provisionLifespan = EepromData::FIELD_UNSET;
+        for (uint8_t i = 0; i < 4; i++) _provisionPadmapIds[i] = EepromData::PADMAP_UNSET;
         uint32_t hw;
-        bool hasHw = parseKvUint(line + 10, "hw", hw);
+        bool hasHw = parseKvUint(line + sizeof("PROVISION ") - 1, "hw", hw);
         if (hasHw) _provisionHwId = (uint8_t)hw;
         uint32_t ls;
-        if (parseKvUint(line + 10, "lifespan", ls)) _provisionLifespan = ls;
-        if (!parseKvUintList(line + 10, "padmap", _provisionPadmapIds, 4))
+        if (parseKvUint(line + sizeof("PROVISION ") - 1, "lifespan", ls)) _provisionLifespan = ls;
+        if (!parseKvUintList(line + sizeof("PROVISION ") - 1, "padmap", _provisionPadmapIds, 4))
             return HostCommand::PROVISION_INVALID;
         uint32_t dt;
-        if (parseKvUint(line + 10, "date", dt)) {
+        if (parseKvUint(line + sizeof("PROVISION ") - 1, "date", dt)) {
             _provisionMfgDate = dt;
         }
         uint32_t ins;
-        if (parseKvUint(line + 10, "ins", ins)) _provisionIns = ins;
+        if (parseKvUint(line + sizeof("PROVISION ") - 1, "ins", ins)) _provisionIns = ins;
         uint32_t tests;
-        if (parseKvUint(line + 10, "tests", tests)) _provisionTests = tests;
+        if (parseKvUint(line + sizeof("PROVISION ") - 1, "tests", tests)) _provisionTests = tests;
         uint32_t eol;
-        if (parseKvUint(line + 10, "eol", eol)) _provisionEol = eol;
+        if (parseKvUint(line + sizeof("PROVISION ") - 1, "eol", eol)) _provisionEol = eol;
         return HostCommand::PROVISION;
     }
 
@@ -115,7 +117,7 @@ bool HostProtocol::parseKvUintList(const char* kv, const char* key, uint8_t* out
                 }
                 break;
             }
-            while (count < maxCount) out[count++] = 0xFF;
+            while (count < maxCount) out[count++] = EepromData::PADMAP_UNSET;
             return true;
         }
         while (*p && *p != ' ') p++;
@@ -140,11 +142,11 @@ void HostProtocol::setAdapterUid(const char* uid16) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
-// Prints " pm=<id>[,<id>...]" for a 0xFF-terminated padmap id list; prints
+// Prints " pm=<id>[,<id>...]" for a PADMAP_UNSET-terminated padmap id list; prints
 // nothing if the list is empty. Shared by ADAPTER, ADAPTER_DETECTED, TEST_START.
 void HostProtocol::printPadmapList(const uint8_t* padmapIds) {
     uint8_t pmCount = 0;
-    for (uint8_t i = 0; i < 4 && padmapIds[i] != 0xFF; i++) pmCount++;
+    for (uint8_t i = 0; i < 4 && padmapIds[i] != EepromData::PADMAP_UNSET; i++) pmCount++;
     if (pmCount == 0) return;
     Serial.print(" pm=");
     for (uint8_t i = 0; i < pmCount; i++) {

@@ -19,13 +19,15 @@ void AdcDriver::begin() {
           r.sense, r.prevNeighbour, r.nextNeighbour);
 }
 
-float AdcDriver::readVoltage(uint8_t channel) {
-    if (channel >= ADC_CHANNEL_COUNT) { LOG_E("adc: invalid channel %u", channel); return 0.0f; }
+float AdcDriver::readVoltage(AdcChannel channel) {
+    uint8_t idx = static_cast<uint8_t>(channel);
+    if (idx >= ADC_CHANNEL_COUNT) { LOG_E("adc: invalid channel %u", idx); return 0.0f; }
     // discard first sample
-    //(void)analogRead(ADC_PINS[channel]);
-    return static_cast<float>(analogRead(ADC_PINS[channel])) * ADC_SCALE;
+    //(void)analogRead(ADC_PINS[idx]);
+    return static_cast<float>(analogRead(ADC_PINS[idx])) * ADC_SCALE;
 }
 
 AdcReadings AdcDriver::readAll() {
-    return { readVoltage(0), readVoltage(1), readVoltage(2) };
+    return { readVoltage(AdcChannel::ComD), readVoltage(AdcChannel::KelvinSense),
+             readVoltage(AdcChannel::ComC) };
 }

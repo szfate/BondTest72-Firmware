@@ -112,7 +112,7 @@ PadReading measureKelvin(MuxController& mux, AdcDriver& adc,
     mux.setChannel(forceCh, pullupBus);
     mux.setChannel(forceCh, Bus::A);
     delayMicroseconds(settleUs);
-    float v = adc.readVoltage(1);  // COM_A
+    float v = adc.readVoltage(AdcChannel::KelvinSense);
     drainAndRelease(mux, forceCh);
 
     return classifyVoltage(v, pullupOhms, maxResistanceOhms);
@@ -134,7 +134,7 @@ void measureKelvinCurve(MuxController& mux, AdcDriver& adc,
     for (uint8_t i = 0; i < CAP_SENSE_SAMPLE_COUNT; i++) {
         delayMicroseconds(times[i] - elapsed);
         elapsed = times[i];
-        out[i] = classifyVoltage(adc.readVoltage(1), pullupOhms, maxResistanceOhms);
+        out[i] = classifyVoltage(adc.readVoltage(AdcChannel::KelvinSense), pullupOhms, maxResistanceOhms);
     }
     drainAndRelease(mux, forceCh);
 }

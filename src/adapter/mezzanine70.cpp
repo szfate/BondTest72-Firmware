@@ -18,6 +18,7 @@ Mezzanine70::Mezzanine70(const EepromData& eeprom)
 }
 
 static constexpr float ISOLATION_SHORT_THRESHOLD_V = 1.5f;
+static constexpr uint16_t SELF_TEST_SETTLE_US = 200;  // settle before every self-test/probe reading
 
 bool Mezzanine70::connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
                                            const PadMap& padMap) const {
@@ -26,7 +27,7 @@ bool Mezzanine70::connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
     for (uint8_t i = 0; i < padMap.caseCount; i++) {
         const TestCase& tc = padMap.cases[i];
         PadReading r = measureKelvin(mux, adc, channelForPin(tc.gndPin), channelForPin(tc.adapterPin),
-                                      PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, 200, 0.0f);
+                                      PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, SELF_TEST_SETTLE_US, 0.0f);
         if (r.voltageV < ISOLATION_SHORT_THRESHOLD_V) {
             LOG_W("connector isolation: apin%u sense=%.3fV SHORT?", tc.adapterPin, r.voltageV);
             ok = false;
@@ -57,9 +58,9 @@ static constexpr float   DIODE_REV_MIN = 2.5f;
 
 bool Mezzanine70::selfTest(MuxController& mux, AdcDriver& adc) const {
     PadReading fwd = measureKelvin(mux, adc, DIODE_ANODE_CH, DIODE_CATHODE_CH,
-                                    PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, 200, 0.0f);  // anode = Vf
+                                    PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, SELF_TEST_SETTLE_US, 0.0f);  // anode = Vf
     PadReading rev = measureKelvin(mux, adc, DIODE_CATHODE_CH, DIODE_ANODE_CH,
-                                    PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, 200, 0.0f);  // cathode ≈ 3.3V (blocking)
+                                    PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, SELF_TEST_SETTLE_US, 0.0f);  // cathode ≈ 3.3V (blocking)
 
     LOG_I("adapter self-test: fwd=%.3fV rev=%.3fV", fwd.voltageV, rev.voltageV);
     return fwd.voltageV > DIODE_FWD_MIN && fwd.voltageV < DIODE_FWD_MAX && rev.voltageV > DIODE_REV_MIN;
@@ -76,7 +77,7 @@ static constexpr float RESISTOR_TOLERANCE     = 0.20f;  // ±20%, sanity check n
 
 bool Mezzanine70r2::selfTest(MuxController& mux, AdcDriver& adc) const {
     PadReading r = measureKelvin(mux, adc, DIODE_ANODE_CH, DIODE_CATHODE_CH,
-                                  PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, 200, 0.0f);
+                                  PULLUP_LEVELS[1].bus, PULLUP_LEVELS[1].ohms, SELF_TEST_SETTLE_US, 0.0f);
 
     float deviation = (r.resistanceOhms - RESISTOR_EXPECTED_OHMS) / RESISTOR_EXPECTED_OHMS;
     LOG_I("adapter self-test: measured=%.0fohm expected=%.0fohm dev=%.1f%%",
@@ -95,7 +96,7 @@ bool Mezzanine70r2::selfTest(MuxController& mux, AdcDriver& adc) const {
 bool Mezzanine70::kelvinPresence(MuxController& mux, AdcDriver& adc,
                                   uint8_t pinA, uint8_t pinB, float thresholdV, const char* tag) const {
     bool connected = kelvinAnyLevelBelow(mux, adc, channelForPin(pinA),
-                                         channelForPin(pinB), thresholdV, 200);
+                                         channelForPin(pinB), thresholdV, SELF_TEST_SETTLE_US);
     LOG_D("%s: apin%u<->apin%u: %s", tag, pinA, pinB, connected ? "yes" : "no");
     return connected;
 }

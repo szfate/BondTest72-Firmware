@@ -22,7 +22,7 @@ void DiscoveryScanner::run() {
             _mux.setChannel(snk - 1, Bus::B);  // ground reference first — see groundAndDischarge in hal/kelvin.cpp
             _mux.setChannel(src - 1, Bus::D);
             delay(1);
-            float v = _adc.readVoltage(0);
+            float v = _adc.readVoltage(AdcChannel::ComD);
             _host.sendDiscoveryScanPoint(src, snk, v);
         }
     }

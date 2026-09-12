@@ -5,17 +5,23 @@
 static constexpr uint8_t DIN_PIN    = 1;  // GP1 — docs/RP2350 PINMAP.md
 static constexpr uint8_t NUM_PIXELS = 3;
 
+// Boot animation look-and-feel (cosmetic; timing not functional)
+static constexpr uint8_t  BOOT_BRIGHTNESS  = 80;
+static constexpr uint32_t BOOT_STEP_MS     = 150;  // per-pixel chase step
+static constexpr uint32_t BOOT_WHITE_MS    = 350;
+static constexpr uint8_t  BOOT_WHITE_LEVEL = 200;  // per-channel white intensity
+
 static Adafruit_NeoPixel strip(NUM_PIXELS, DIN_PIN, NEO_GRB + NEO_KHZ800);
 
 void SK6812Controller::begin() {
     strip.begin();
-    strip.setBrightness(80);
+    strip.setBrightness(BOOT_BRIGHTNESS);
     strip.clear();
     strip.show();
 }
 
 void SK6812Controller::bootShow() {
-    // Chase each colour (R→G→B) across all 3 pixels: 9 × 150 ms = 1350 ms
+    // Chase each colour (R→G→B) across all 3 pixels: 9 × BOOT_STEP_MS = 1350 ms
     static const uint8_t COLORS[3][3] = {
         {255,   0,   0},  // red
         {  0, 255,   0},  // green
@@ -26,14 +32,14 @@ void SK6812Controller::bootShow() {
             strip.clear();
             strip.setPixelColor(i, strip.Color(COLORS[c][0], COLORS[c][1], COLORS[c][2]));
             strip.show();
-            delay(150);
+            delay(BOOT_STEP_MS);
         }
     }
-    // All white for 350 ms, then off
+    // All white for BOOT_WHITE_MS, then off
     for (uint8_t i = 0; i < NUM_PIXELS; i++)
-        strip.setPixelColor(i, strip.Color(200, 200, 200));
+        strip.setPixelColor(i, strip.Color(BOOT_WHITE_LEVEL, BOOT_WHITE_LEVEL, BOOT_WHITE_LEVEL));
     strip.show();
-    delay(350);
+    delay(BOOT_WHITE_MS);
     strip.clear();
     strip.show();
 }

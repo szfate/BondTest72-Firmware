@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "test/result.h"
 #include "test/pad_map.h"
+#include "adapter/eeprom_layout.h"
 
 enum class ErrorCode : uint8_t {
     NO_ADAPTER            = 1,
@@ -73,12 +74,13 @@ private:
     uint16_t _lineLen           = 0;
     bool     _overflowWarned    = false;
     uint8_t  _setPadmapId       = 0;
-    uint8_t  _provisionPadmapIds[4] = {0xFF, 0xFF, 0xFF, 0xFF};
-    uint8_t  _provisionHwId     = 0xFF;
-    uint32_t _provisionLifespan = 0xFFFFFFFF;
-    uint32_t _provisionMfgDate = 0xFFFFFFFF;
-    uint32_t _provisionIns    = 0xFFFFFFFF;
-    uint32_t _provisionTests  = 0xFFFFFFFF;
-    uint32_t _provisionEol    = 0xFFFFFFFF;
+    uint8_t  _provisionPadmapIds[4] = {EepromData::PADMAP_UNSET, EepromData::PADMAP_UNSET,
+                                       EepromData::PADMAP_UNSET, EepromData::PADMAP_UNSET};
+    uint8_t  _provisionHwId     = EepromData::HWID_UNSET;
+    uint32_t _provisionLifespan = EepromData::FIELD_UNSET;
+    uint32_t _provisionMfgDate  = EepromData::FIELD_UNSET;
+    uint32_t _provisionIns      = EepromData::FIELD_UNSET;
+    uint32_t _provisionTests    = EepromData::FIELD_UNSET;
+    uint32_t _provisionEol      = EepromData::FIELD_UNSET;
     char     _adapterUid[17]    = {};  // aid= on the wire — adapter's AT21CS01 serial (HELLO's uid= is the tester's own board ID)
 };

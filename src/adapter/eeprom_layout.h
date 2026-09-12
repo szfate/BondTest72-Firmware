@@ -4,6 +4,8 @@
 
 struct EepromData {
     static constexpr uint8_t  PADMAP_UNSET = 0xFF;            // unused pad map slot
+    static constexpr uint8_t  HWID_UNSET   = 0xFF;            // no adapter hardware provisioned
+    static constexpr uint32_t FIELD_UNSET  = 0xFFFFFFFFu;     // unset 32-bit field (lifespan, mfg_date, ins, tests)
     static constexpr uint32_t EOL_REACHED  = 0xFFFFFFFFu;     // eolReached flag value
     static constexpr uint8_t  WIRE_BYTES   = 36;              // total on-wire size (32 header + 4 CRC)
 

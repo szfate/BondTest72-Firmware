@@ -214,13 +214,13 @@ void StateMachine::handleCommand(HostCommand cmd) {
         case HostCommand::PROVISION:
             if (!_eepromMgr.isPresent()) {
                 _hostProtocol.sendError(ErrorCode::NO_ADAPTER, "NO_ADAPTER");
-            } else if (_hostProtocol.provisionHwId() == 0xFF) {
+            } else if (_hostProtocol.provisionHwId() == EepromData::HWID_UNSET) {
                 _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_HW");
-            } else if (_hostProtocol.provisionPadmapIds()[0] == 0xFF) {
+            } else if (_hostProtocol.provisionPadmapIds()[0] == EepromData::PADMAP_UNSET) {
                 _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_PADMAP");
-            } else if (_hostProtocol.provisionLifespan() == 0xFFFFFFFF) {
+            } else if (_hostProtocol.provisionLifespan() == EepromData::FIELD_UNSET) {
                 _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_LIFESPAN");
-            } else if (_hostProtocol.provisionMfgDate() == 0xFFFFFFFF) {
+            } else if (_hostProtocol.provisionMfgDate() == EepromData::FIELD_UNSET) {
                 _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_DATE");
             } else if (!provisionEeprom(_hostProtocol.provisionHwId(),
                                         _hostProtocol.provisionPadmapIds(),
@@ -280,13 +280,13 @@ bool StateMachine::provisionEeprom(uint8_t hwId, const uint8_t padmapIds[4], uin
                                    uint32_t ins, uint32_t tests, uint32_t eol) {
     EepromData d = {};
     d.adapterHardware          = (AdapterHardware)hwId;
-    d.rfu        = 0xFF;
+    d.rfu        = 0xFF;  // reserved byte: erased-flash convention
     for (uint8_t i = 0; i < 4; i++) d.supportedPadmapIds[i] = padmapIds[i];
     d.designedLifespan        = lifespan;
     d.dateOfManufacture       = mfgDate;
-    d.insertionCount          = (ins    == 0xFFFFFFFF) ? 0 : ins;
-    d.testCount               = (tests  == 0xFFFFFFFF) ? 0 : tests;
-    d.eolReached              = (eol == 0xFFFFFFFF) ? 0u : (eol ? EepromData::EOL_REACHED : 0u);
+    d.insertionCount          = (ins    == EepromData::FIELD_UNSET) ? 0 : ins;
+    d.testCount               = (tests  == EepromData::FIELD_UNSET) ? 0 : tests;
+    d.eolReached              = (eol == EepromData::FIELD_UNSET) ? 0u : (eol ? EepromData::EOL_REACHED : 0u);
 
     if (!_eepromMgr.write(d)) { LOG_E("adapter: eeprom provision write failed"); return false; }
     LOG_I("adapter: eeprom provisioned (Mezzanine70 v1)");

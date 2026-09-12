@@ -67,14 +67,14 @@ Items are grouped by **effort to fix** (S = minutes, M = an hour or two, L = hal
 
 ## P3 — Magic numbers → named constants (all S, timing-neutral)
 
-- **N1** `AdcChannel` enum `{ComD=0, KelvinSense=1, ComC=2}` (`kelvin.cpp:108,130`; `discovery_scanner.cpp:25`).
-- **N2** `PullupLevelIdx` (`mezzanine70.cpp:29,59,61,77` use `PULLUP_LEVELS[1]`; `test_runner.cpp:37` uses `COUNT-1`).
-- **N3** Isolation/standard settle times: 200 µs ×6 in `mezzanine70.cpp`; 20 000 µs ×23 in `pad_map_registry.cpp`.
-- **N4** `DRAIN_SETTLE_US` = 1000 (`kelvin.cpp:75,96`) — **timing-sensitive**, extraction only.
-- **N5** `READ_ATTEMPTS` = 3 (`at21cs01.cpp:191,196`).
-- **N6** sk6812 boot: brightness 80, delays 150/350 ms, white 200 → named.
-- **N7** `computeAddr` constants 0x18/0x20/6 (`mux.cpp:15-18`).
-- **N8** Parser literals: 250 warn len, 11/10 prefix lens, raw `0xFF` vs `EepromData::PADMAP_UNSET`.
+- ~~**N1**~~ DONE: `enum class AdcChannel {ComD, KelvinSense, ComC}` in adc.h; `readVoltage(AdcChannel)`; call sites use the enum.
+- ~~**N2**~~ WONTFIX (user): index names don't scale to 4/6 future pullup levels — `PULLUP_LEVELS[1]` / `COUNT-1` stay, ordering documented in pad_map.h.
+- ~~**N3**~~ DONE: `SELF_TEST_SETTLE_US` (mezzanine70.cpp), `IO_SETTLE_US`/`CAP_SETTLE_US` (pad_map_registry.cpp).
+- ~~**N4**~~ DONE earlier (B5).
+- ~~**N5**~~ DONE: `READ_ATTEMPTS = 3` in at21cs01.cpp (readSerial stays single-shot — separate hygiene item).
+- ~~**N6**~~ DONE: `BOOT_BRIGHTNESS`/`BOOT_STEP_MS`/`BOOT_WHITE_MS`/`BOOT_WHITE_LEVEL` in sk6812.cpp.
+- ~~**N7**~~ DONE: `Y4_BASE`/`Y4_GROUP_STRIDE`/`Y4_GROUP_SIZE` in mux.cpp.
+- ~~**N8**~~ DONE: `LINE_OVERFLOW_WARN_LEN`; prefix lengths via `sizeof("...") - 1`; sentinels `EepromData::HWID_UNSET`/`FIELD_UNSET` (eeprom_layout.h) used across host_protocol/state_machine. Blank-flash check in eeprom_manager stays raw `0xFF` (physical erased state, deliberate).
 
 ---
 

@@ -12,9 +12,13 @@ static constexpr uint8_t RST_PIN     = 7;
 // CH446X serial address encoding.
 // Y0–Y3: each Y occupies a contiguous block of 32 addresses (24 valid, 8 unused).
 // Y4: its 24 X channels are split into four groups of 6, interleaved after Y0–Y3.
+static constexpr uint8_t Y4_GROUP_SIZE   = 6;     // X channels per interleaved group
+static constexpr uint8_t Y4_GROUP_STRIDE = 0x20;  // 32 addresses per group block
+static constexpr uint8_t Y4_BASE         = 0x18;  // start of the Y4 region
+
 static uint8_t computeAddr(uint8_t y, uint8_t x) {
     if (y <= 3) return (y << 5) | x;
-    return 0x18u + (x / 6u) * 0x20u + (x % 6u);
+    return Y4_BASE + (x / Y4_GROUP_SIZE) * Y4_GROUP_STRIDE + (x % Y4_GROUP_SIZE);
 }
 
 // Shift 7-bit address into chip, set switch data, then commit with STB.

@@ -24,6 +24,7 @@ static constexpr uint32_t T_WR_MS    = 6;   // write cycle margin         (spec 
 static constexpr uint8_t SLAVE_ADDR = 0x00;
 static constexpr uint8_t DEV_EEPROM = 0xA0 | (SLAVE_ADDR << 1);  // opcode Ah
 static constexpr uint8_t DEV_SECREG = 0xB0 | (SLAVE_ADDR << 1);  // opcode Bh
+static constexpr uint8_t READ_ATTEMPTS = 3;  // read() retries; readSerial() is single-shot (see hygiene note)
 
 // Open-drain: output latch is permanently 0; toggling direction drives/releases the line.
 // Direct SIO OE register manipulation was unreliable on RP2350 A4 silicon.
@@ -188,12 +189,12 @@ bool AT21CS01Driver::readSerial(uint8_t serial[8]) {
 }
 
 bool AT21CS01Driver::read(uint8_t addr, uint8_t* buf, uint8_t len) {
-    for (uint8_t attempt = 0; attempt < 3; attempt++) {
+    for (uint8_t attempt = 0; attempt < READ_ATTEMPTS; attempt++) {
         if (resetAndDiscover() && readTransaction(DEV_EEPROM, addr, buf, len))
             return true;
         LOG_W("eeprom: read attempt %u failed, retrying", attempt + 1);
     }
-    LOG_E("eeprom: read() failed after 3 attempts");
+    LOG_E("eeprom: read() failed after %u attempts", READ_ATTEMPTS);
     return false;
 }
 

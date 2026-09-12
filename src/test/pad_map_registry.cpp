@@ -29,19 +29,25 @@ static constexpr TestThresholds kThresh = { 60000.0f };
 static constexpr uint8_t GND  = 10;  // adapter pin 10, die pad 18; all GND pins equivalent (1x1)
 static constexpr uint8_t GND3 = 26;  // adapter pin 26, die pad 41; all GND pins equivalent (1x0p5)
 
+// STANDARD settle: short (bond readings settle within the 6-reading sweep).
+// CAP_SENSE settle: the post-discharge settle for the 2.49k-only charging
+// curve (see pad_map.h TestStrategy::CAP_SENSE for the τ analysis).
+static constexpr uint16_t IO_SETTLE_US  = 200;
+static constexpr uint16_t CAP_SETTLE_US = 20000;
+
 // IO case shorthand — args: adapterPin, diePad
 #define IO1(m_, d_)  \
     { .adapterPin=(m_), .gndPin=GND,  \
       .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
-      .settleUs=200, .thresholds=&kThresh }
+      .settleUs=IO_SETTLE_US, .thresholds=&kThresh }
 #define IO2(m_, d_)  \
     { .adapterPin=(m_), .gndPin=GND,  \
       .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
-      .settleUs=200, .thresholds=&kThresh }
+      .settleUs=IO_SETTLE_US, .thresholds=&kThresh }
 #define IO3(m_, d_)  \
     { .adapterPin=(m_), .gndPin=GND3, \
       .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
-      .settleUs=200, .thresholds=&kThresh }
+      .settleUs=IO_SETTLE_US, .thresholds=&kThresh }
 
 // — Pad map 1: Mezzanine70 v1 ——————————————————————————————————————————————
 // 56 IO + 7 VDD/PWR = 63 cases. Source: docs/DUT_PADMAP_1X1.md.
@@ -115,13 +121,13 @@ static const TestCase _pm1Cases[] = {
     IO1( 58, 68),
     IO1( 59, 69),  // [gap: ring wraps through GND apin61 die pad 72]
     // ── VDD/PWR ──────────────────────────────────────────────────────────────
-    { .adapterPin =  9, .gndPin = GND, .diePad = 17, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = 20000, .thresholds = &kThresh    },  // die pad 17 VDD IO
-    { .adapterPin = 17, .gndPin = GND, .diePad = 25, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::PWR_AUX,  .settleUs = 20000, .thresholds = &kThresh },  // die pad 25 PWR Aux
-    { .adapterPin = 25, .gndPin = GND, .diePad = 34, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = 20000, .thresholds = &kThresh    },  // die pad 34 VDD Core
-    { .adapterPin = 27, .gndPin = GND, .diePad = 36, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = 20000, .thresholds = &kThresh    },  // die pad 36 VDD IO
-    { .adapterPin = 47, .gndPin = GND, .diePad = 57, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = 20000, .thresholds = &kThresh    },  // die pad 57 VDD IO
-    { .adapterPin = 60, .gndPin = GND, .diePad = 71, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = 20000, .thresholds = &kThresh    },  // die pad 71 VDD Core
-    { .adapterPin = 62, .gndPin = GND, .diePad = 73, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = 20000, .thresholds = &kThresh    },  // die pad 73 VDD IO
+    { .adapterPin =  9, .gndPin = GND, .diePad = 17, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 17 VDD IO
+    { .adapterPin = 17, .gndPin = GND, .diePad = 25, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::PWR_AUX,  .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 25 PWR Aux
+    { .adapterPin = 25, .gndPin = GND, .diePad = 34, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 34 VDD Core
+    { .adapterPin = 27, .gndPin = GND, .diePad = 36, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 36 VDD IO
+    { .adapterPin = 47, .gndPin = GND, .diePad = 57, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 57 VDD IO
+    { .adapterPin = 60, .gndPin = GND, .diePad = 71, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 71 VDD Core
+    { .adapterPin = 62, .gndPin = GND, .diePad = 73, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 73 VDD IO
 };
 static_assert(sizeof(_pm1Cases) / sizeof(_pm1Cases[0]) == 63, "pm1 case count mismatch");
 
@@ -194,14 +200,14 @@ static const TestCase _pm2Cases[] = {
     IO2( 58, 68),
     IO2( 59, 69),  // [gap: ring wraps through GND apin61 die pad 72]
     // ── VDD/PWR ──────────────────────────────────────────────────────────────
-    { .adapterPin =  9, .gndPin = GND, .diePad = 17, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = 20000, .thresholds = &kThresh    },  // die pad 17 VDD IO
-    { .adapterPin = 17, .gndPin = GND, .diePad = 25, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::PWR_AUX,  .settleUs = 20000, .thresholds = &kThresh },  // die pad 25 PWR Aux
-    { .adapterPin = 25, .gndPin = GND, .diePad = 34, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = 20000, .thresholds = &kThresh    },  // die pad 34 VDD Core
-    { .adapterPin = 27, .gndPin = GND, .diePad = 36, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = 20000, .thresholds = &kThresh    },  // die pad 36 VDD IO
-    { .adapterPin = 47, .gndPin = GND, .diePad = 57, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = 20000, .thresholds = &kThresh    },  // die pad 57 VDD IO
-    { .adapterPin = 52, .gndPin = GND, .diePad = 63, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::PWR_AUX,  .settleUs = 20000, .thresholds = &kThresh },  // die pad 63 PWR Aux
-    { .adapterPin = 60, .gndPin = GND, .diePad = 71, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = 20000, .thresholds = &kThresh    },  // die pad 71 VDD Core
-    { .adapterPin = 62, .gndPin = GND, .diePad = 73, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = 20000, .thresholds = &kThresh    },  // die pad 73 VDD IO
+    { .adapterPin =  9, .gndPin = GND, .diePad = 17, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 17 VDD IO
+    { .adapterPin = 17, .gndPin = GND, .diePad = 25, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::PWR_AUX,  .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 25 PWR Aux
+    { .adapterPin = 25, .gndPin = GND, .diePad = 34, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 34 VDD Core
+    { .adapterPin = 27, .gndPin = GND, .diePad = 36, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 36 VDD IO
+    { .adapterPin = 47, .gndPin = GND, .diePad = 57, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 57 VDD IO
+    { .adapterPin = 52, .gndPin = GND, .diePad = 63, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::PWR_AUX,  .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 63 PWR Aux
+    { .adapterPin = 60, .gndPin = GND, .diePad = 71, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 71 VDD Core
+    { .adapterPin = 62, .gndPin = GND, .diePad = 73, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 73 VDD IO
 };
 static_assert(sizeof(_pm2Cases) / sizeof(_pm2Cases[0]) == 64, "pm2 case count mismatch");
 
@@ -275,14 +281,14 @@ static const TestCase _pm3Cases[] = {
     IO3( 57, 68),  // in_2
     IO3( 56, 69),  // in_3      [gap: VDD IO 3 apin62 die pad 70, GND(no adapter pin) die pad 71]
     // ── VDD / PWR ─────────────────────────────────────────────────────────────
-    { .adapterPin =  9, .gndPin = GND3, .diePad = 19, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = 20000, .thresholds = &kThresh    },  // die pad 19 VDD IO 0
-    { .adapterPin = 17, .gndPin = GND3, .diePad = 25, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::PWR_AUX,  .settleUs = 20000, .thresholds = &kThresh },  // die pad 25 PWR Aux 0
-    { .adapterPin = 25, .gndPin = GND3, .diePad = 40, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = 20000, .thresholds = &kThresh    },  // die pad 40 VDD CORE
-    { .adapterPin = 27, .gndPin = GND3, .diePad = 35, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = 20000, .thresholds = &kThresh    },  // die pad 35 VDD IO 1
-    { .adapterPin = 47, .gndPin = GND3, .diePad = 54, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = 20000, .thresholds = &kThresh    },  // die pad 54 VDD IO 2
-    { .adapterPin = 52, .gndPin = GND3, .diePad = 60, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::PWR_AUX,  .settleUs = 20000, .thresholds = &kThresh },  // die pad 60 PWR Aux 1
-    { .adapterPin = 60, .gndPin = GND3, .diePad =  5, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = 20000, .thresholds = &kThresh    },  // die pad  5 VDD CORE 1
-    { .adapterPin = 62, .gndPin = GND3, .diePad = 70, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = 20000, .thresholds = &kThresh    },  // die pad 70 VDD IO 3
+    { .adapterPin =  9, .gndPin = GND3, .diePad = 19, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 19 VDD IO 0
+    { .adapterPin = 17, .gndPin = GND3, .diePad = 25, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::PWR_AUX,  .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 25 PWR Aux 0
+    { .adapterPin = 25, .gndPin = GND3, .diePad = 40, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 40 VDD CORE
+    { .adapterPin = 27, .gndPin = GND3, .diePad = 35, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 35 VDD IO 1
+    { .adapterPin = 47, .gndPin = GND3, .diePad = 54, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 54 VDD IO 2
+    { .adapterPin = 52, .gndPin = GND3, .diePad = 60, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::PWR_AUX,  .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 60 PWR Aux 1
+    { .adapterPin = 60, .gndPin = GND3, .diePad =  5, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad  5 VDD CORE 1
+    { .adapterPin = 62, .gndPin = GND3, .diePad = 70, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh    },  // die pad 70 VDD IO 3
 };
 static_assert(sizeof(_pm3Cases) / sizeof(_pm3Cases[0]) == 64, "pm3 case count mismatch");
 
