@@ -298,6 +298,7 @@ ERROR code=<code> msg=<message>
 | 5 | `NOT_IMPLEMENTED` | Feature not yet implemented |
 | 6 | `MISSING_FIELD` | Required PROVISION field omitted (msg=MISSING_HW, MISSING_PADMAP, MISSING_LIFESPAN, or MISSING_DATE) |
 | 7 | `ADAPTER_NOT_PROVISIONED` | Adapter EEPROM chip present but blank — needs PROVISION before use |
+| 8 | `WRONG_STATE` | Command not valid in the tester's current state (msg = current state name; see the per-state table below) |
 
 ---
 
@@ -318,14 +319,20 @@ The tester operates as a state machine. Some commands are only valid in certain 
 
 | State | Valid commands |
 |-------|---------------|
-| `NO_ADAPTER` | HELLO |
-| `ADAPTER_DETECTED` | HELLO, SET_PADMAP, GET_ADAPTER, DISCOVERY_SCAN |
-| `READY` | HELLO, RUN, SET_PADMAP, GET_ADAPTER, DISCOVERY_SCAN |
-| `TESTING` | HELLO |
-| `PASS` / `FAIL` | HELLO, RUN, GET_RESULTS |
-| `EOL_ADAPTER` | HELLO, PROVISION |
-| `WRONG_ORIENTATION` | HELLO |
-| `FAULT` | HELLO |
+| `NO_ADAPTER` | HELLO, GET_ADAPTER, PROVISION |
+| `FAULT` | HELLO, GET_ADAPTER, PROVISION |
+| `ADAPTER_DETECTED` | HELLO, GET_ADAPTER, SET_PADMAP, GET_RESULTS, DISCOVERY_SCAN, PROVISION |
+| `READY` | HELLO, GET_ADAPTER, RUN, SET_PADMAP, GET_RESULTS, DISCOVERY_SCAN, PROVISION |
+| `TESTING` | HELLO, GET_ADAPTER |
+| `PASS` / `FAIL` | HELLO, GET_ADAPTER, RUN, GET_RESULTS |
+| `EOL_ADAPTER` | HELLO, GET_ADAPTER, PROVISION |
+| `WRONG_ORIENTATION` | HELLO, GET_ADAPTER |
+
+`HELLO` and `GET_ADAPTER` are pure queries — valid in every state. `PROVISION`
+is allowed everywhere except `TESTING`: a freshly manufactured (blank) adapter
+latches the tester into `FAULT`, and provisioning from there is the normal
+entry path — the old "EOL_ADAPTER only" rule was wrong. Commands outside a
+state's set are answered with `ERROR 8 WRONG_STATE` naming the current state.
 
 ---
 

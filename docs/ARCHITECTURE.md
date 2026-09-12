@@ -110,7 +110,8 @@ Offset  Size  Field
 ──────  ────  ──────────────────────────────────────────────────
 0       2     magic sentinel
 2       1     hwId  (AdapterHardware enum: 0x01=Mezzanine70, 0x02=Mezzanine70r2)
-3       1     rfu    (reserved, 0xFF)
+3       1     rfu    (reserved, 0xFF — earmarked as layout_version if a
+                      second header layout ever exists)
 4       4     supported_padmap_ids[4]  (0xFF-terminated list; first match against
                                         PadMapRegistry wins — see PadMap Selection Priority)
 8       4     reserved

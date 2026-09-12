@@ -11,4 +11,5 @@ enum class State : uint8_t {
     PASS,
     FAIL,
     FAULT,
+    COUNT,  // sentinel — array sizing only
 };

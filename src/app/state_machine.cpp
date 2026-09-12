@@ -193,7 +193,39 @@ void StateMachine::handleDutEvent(DutEvent ev) {
     }
 }
 
+// Per-state command permission table (docs/BONDTEST72_HOST_PROTOCOL.md
+// "State Machine"), enforced in handleCommand. HELLO and GET_ADAPTER are pure
+// queries — valid in every state (provision.py and live_serial_viewer.py both
+// GET_ADAPTER from FAULT/NO_ADAPTER). PROVISION is allowed everywhere except
+// TESTING: a fresh blank adapter latches FAULT, and provision.py works from
+// there — the old spec table's "EOL_ADAPTER only" row was wrong. The
+// SET_PADMAP gate closes B3's root cause (mid-test padmap swap invalidating
+// the result's pad labels).
+constexpr uint16_t cmdBit(HostCommand c) { return 1u << static_cast<uint8_t>(c); }
+
+static constexpr uint16_t CMD_MASK[static_cast<uint8_t>(State::COUNT)] = {
+    /* NO_ADAPTER        */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER) | cmdBit(HostCommand::PROVISION),
+    /* EOL_ADAPTER       */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER) | cmdBit(HostCommand::PROVISION),
+    /* ADAPTER_DETECTED  */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER) | cmdBit(HostCommand::SET_PADMAP) |
+                            cmdBit(HostCommand::GET_RESULTS) | cmdBit(HostCommand::DISCOVERY_SCAN) | cmdBit(HostCommand::PROVISION),
+    /* READY             */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER) | cmdBit(HostCommand::RUN) |
+                            cmdBit(HostCommand::SET_PADMAP) | cmdBit(HostCommand::GET_RESULTS) |
+                            cmdBit(HostCommand::DISCOVERY_SCAN) | cmdBit(HostCommand::PROVISION),
+    /* WRONG_ORIENTATION */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER),
+    /* TESTING           */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER),
+    /* PASS              */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER) | cmdBit(HostCommand::RUN) | cmdBit(HostCommand::GET_RESULTS),
+    /* FAIL              */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER) | cmdBit(HostCommand::RUN) | cmdBit(HostCommand::GET_RESULTS),
+    /* FAULT             */ cmdBit(HostCommand::HELLO) | cmdBit(HostCommand::GET_ADAPTER) | cmdBit(HostCommand::PROVISION),
+};
+
 void StateMachine::handleCommand(HostCommand cmd) {
+    // PROVISION_INVALID only reports a malformed PROVISION line — same gate as PROVISION.
+    HostCommand gated = cmd == HostCommand::PROVISION_INVALID ? HostCommand::PROVISION : cmd;
+    if (!(CMD_MASK[static_cast<uint8_t>(_state)] & cmdBit(gated))) {
+        _hostProtocol.sendError(ErrorCode::WRONG_STATE, stateName(_state));
+        return;
+    }
+
     switch (cmd) {
         case HostCommand::RUN:
             tryStartTest();

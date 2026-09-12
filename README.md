@@ -231,7 +231,7 @@ Each adapter carries an AT21CS01 EEPROM that stores lifetime and configuration d
 |--------|------|-------|
 | 0 | 2 | Magic: `{ 0xB7, 0x72 }` |
 | 2 | 1 | `adapter_hardware` (0x01 = Mezzanine70 r1, 0x02 = Mezzanine70 r2) |
-| 3 | 1 | `rfu` (reserved, write 0xFF) |
+| 3 | 1 | `rfu` (reserved, write 0xFF; earmarked as `layout_version` if a second header layout ever exists) |
 | 4 | 4 | `supported_padmap_ids` (0xFF-terminated list, up to 4 IDs; first match against the pad map registry wins) |
 | 8 | 4 | reserved (all zeros) |
 | 12 | 4 | `designed_lifespan` — max insertions before EOL |
