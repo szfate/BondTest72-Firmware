@@ -45,11 +45,23 @@ EepromManager::ReadResult EepromManager::read(EepromData& out) {
 bool EepromManager::write(const EepromData& data) {
     uint8_t buf[EepromData::WIRE_BYTES];
     eepromSerialize(data, buf);
-    if (!_eeprom.write(0, buf, EepromData::WIRE_BYTES)) {
-        LOG_E("eeprom: write failed");
-        return false;
+    // ACK per byte only means "received", not "committed" — a power dip
+    // mid-page leaves a torn image the next read CRC-rejects. So verify
+    // every write by reading back and byte-comparing, and retry once
+    // before giving up. (AT21CS01Driver::read/write redo bus discovery
+    // internally, so no extra ping between attempts.)
+    for (uint8_t attempt = 1; attempt <= MAX_WRITE_ATTEMPTS; attempt++) {
+        bool ok = _eeprom.write(0, buf, EepromData::WIRE_BYTES);
+        if (ok) {
+            uint8_t back[EepromData::WIRE_BYTES];
+            ok = _eeprom.read(0, back, EepromData::WIRE_BYTES) &&
+                 memcmp(buf, back, EepromData::WIRE_BYTES) == 0;
+        }
+        if (ok) return true;
+        LOG_E("eeprom: write did not verify (attempt %u/%u)",
+              (unsigned)attempt, (unsigned)MAX_WRITE_ATTEMPTS);
     }
-    return true;
+    return false;
 }
 
 bool EepromManager::readSerialUid(char* buf, uint8_t bufLen) {

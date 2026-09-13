@@ -13,7 +13,7 @@ enum class ErrorCode : uint8_t {
     MISSING_FIELD         = 6,
     ADAPTER_NOT_PROVISIONED = 7,  // EEPROM chip present but blank — needs PROVISION before use
     WRONG_STATE             = 8,  // command not valid in the tester's current state
-    EEPROM_WRITE_FAILED     = 9,  // runtime counter/EOL flush failed — not a PROVISION request
+    EEPROM_WRITE_FAILED     = 9,  // RESERVED — superseded by EVENT FAULT (R2 escalation); never emitted since
 };
 
 enum class HostCommand : uint8_t {

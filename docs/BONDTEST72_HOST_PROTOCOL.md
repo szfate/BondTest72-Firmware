@@ -286,7 +286,7 @@ ERROR code=<code> msg=<message>
 | 6 | `MISSING_FIELD` | Required PROVISION field omitted (msg=MISSING_HW, MISSING_PADMAP, MISSING_LIFESPAN, or MISSING_DATE) |
 | 7 | `ADAPTER_NOT_PROVISIONED` | Adapter EEPROM chip present but blank — needs PROVISION before use |
 | 8 | `WRONG_STATE` | Command not valid in the tester's current state (msg = current state name; see the per-state table below) |
-| 9 | `EEPROM_WRITE_FAILED` | Runtime EEPROM flush failed (counter/EOL update) — distinct from a failed PROVISION request |
+| 9 | `EEPROM_WRITE_FAILED` | **Reserved** — never emitted. A runtime flush that fails even after write-verify + one retry now escalates to `EVENT FAULT msg=EEPROM_WRITE_FAILED` and the FAULT state instead |
 
 ---
 

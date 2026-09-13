@@ -170,7 +170,9 @@ void StateMachine::handleDutEvent(DutEvent ev) {
         case DutEvent::INSERTED:
             _hostProtocol.sendDutInserted();
             _eepromData.insertionCount++;
-            flushEeprom();  // flushEeprom sets EOL_REACHED flag if the new count hit the lifespan limit
+            // flushEeprom sets EOL_REACHED flag if the new count hit the lifespan limit;
+            // on failure it escalates to FAULT — skip the READY/EOL transition then.
+            if (!flushEeprom()) return;
             if (_eepromData.eolReached == EepromData::EOL_REACHED)
                 transition(State::EOL_ADAPTER);
             else
@@ -357,7 +359,7 @@ void StateMachine::selectPadMap() {
     _dutDetector.setPadMap(_padMap);
 }
 
-void StateMachine::flushEeprom() {
+bool StateMachine::flushEeprom() {
     // Only mutable fields are ever modified: insertionCount, testCount, eolReached.
     // Read-only fields (hwId, padmapId, lifespan, dateOfManufacture) are
     // loaded once in tryInitAdapter() and never changed, so a full write is safe.
@@ -370,11 +372,15 @@ void StateMachine::flushEeprom() {
     if (_adapter && _eepromData.eolReached == EepromData::EOL_REACHED) {
         _adapter->setEolLed(true);
     }
-    if (!_eepromMgr.write(_eepromData)) {
-        // Distinct from PROVISION_FAILED: this is a runtime counter/EOL flush,
-        // not a factory provision attempt.
-        _hostProtocol.sendError(ErrorCode::EEPROM_WRITE_FAILED, "EEPROM_WRITE_FAILED");
-    }
+    if (_eepromMgr.write(_eepromData))
+        return true;
+    // EepromManager already retried once with read-back verify. A flush that
+    // still fails means the counters on the wire disagree with what the host
+    // was told (and possibly a torn image) — escalate for operator attention
+    // instead of reporting per-flush errors forever (R2).
+    _hostProtocol.sendFault("EEPROM_WRITE_FAILED");
+    transition(State::FAULT);
+    return false;
 }
 
 bool StateMachine::checkAdapterAlive() {
@@ -422,7 +428,8 @@ void StateMachine::startTest() {
     _lastResultPadMap = _padMap;
     _testRunner.run(*_adapter, *_padMap, _lastResult);
     _eepromData.testCount++;
-    flushEeprom();
+    // On flush failure the machine is in FAULT — skip results/host reporting.
+    if (!flushEeprom()) return;
 
     static const char* const outcomeStr[] = { "PASS", "FAIL", "FAIL_DUT_REMOVED", "WRONG_ORIENTATION" };
     uint8_t oi = (uint8_t)_lastResult.outcome;

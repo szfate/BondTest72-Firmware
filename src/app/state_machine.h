@@ -55,7 +55,9 @@ private:
     void startTest();
     void tryStartTest();
     void sendResults();
-    void flushEeprom();
+    // Returns false (after escalating to EVENT FAULT + FAULT state) if the
+    // write did not verify even after EepromManager's retry.
+    bool flushEeprom();
 
     MuxController&    _mux;
     AdcDriver&        _adc;

@@ -444,7 +444,7 @@ ERROR code=<uint> msg=<string>
 | 6 | MISSING_FIELD | Required PROVISION field omitted |
 | 7 | ADAPTER_NOT_PROVISIONED | Adapter EEPROM present but blank |
 | 8 | WRONG_STATE | Command not valid in current state |
-| 9 | EEPROM_WRITE_FAILED | Runtime counter/EOL flush failed |
+| 9 | EEPROM_WRITE_FAILED | Reserved — never emitted; a failed runtime flush escalates to EVENT FAULT + FAULT state |
 
 ---
 
