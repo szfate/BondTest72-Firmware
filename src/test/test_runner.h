@@ -16,7 +16,7 @@ public:
     void run(AdapterBase& adapter, const PadMap& padMap, TestResult& out);
 
 private:
-    PadResult sweepPad(AdapterBase& adapter, const TestCase& tc);
+    PadResult sweepPad(AdapterBase& adapter, const TestCase& tc, MeasureDirections dirs);
 
     MuxController& _mux;
     AdcDriver&     _adc;

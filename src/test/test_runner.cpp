@@ -10,14 +10,14 @@ TestRunner::TestRunner(MuxController& mux, AdcDriver& adc, DutDetector& dutDetec
 {
 }
 
-PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc) {
+PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc, MeasureDirections dirs) {
     PadResult pr = {};
 
     if (tc.strategy == TestStrategy::CAP_SENSE) {
         // Only the strongest (2.49k) pullup is fast enough to fully settle a
         // real cap in practical time — τ = R·C, so at 1µF the 280k/27.4k
         // levels would need hundreds/tens of ms, impractical per-pad. In the
-        // reverse-only sweep (MEASURE_DIRECTIONS, result.h) the DUT bypass
+        // reverse-only sweep (the default PadMap::directions) the DUT bypass
         // cap sits on the grounded sink side and never charges; the node
         // being charged is the die-side net, whose capacitance is
         // DUT-dependent (~0.7µF on the 1x1 die; τ≈1.8ms at the 2.49k level —
@@ -37,18 +37,18 @@ PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc) {
         uint8_t gndCh     = adapter.channelForPin(tc.gndPin);
         const PullupLevel& lvl = PULLUP_LEVELS[PULLUP_LEVEL_COUNT - 1];  // 2.49k — weakest R, strongest current
 
-        if (measuresForward(MEASURE_DIRECTIONS)) {
+        if (measuresForward(dirs)) {
             // forward: adapterPin driven + Kelvin-sensed, gndPin sinks
             measureKelvinCurve(_mux, _adc, adapterCh, gndCh, lvl.bus, lvl.ohms, tc.settleUs, maxOhms, pr.fwd);
         }
-        if (measuresReverse(MEASURE_DIRECTIONS)) {
+        if (measuresReverse(dirs)) {
             // reverse: gndPin driven + Kelvin-sensed, adapterPin sinks
             measureKelvinCurve(_mux, _adc, gndCh, adapterCh, lvl.bus, lvl.ohms, tc.settleUs, maxOhms, pr.rev);
         }
 
         // Classify on the last (most-settled) sample of each direction — the earlier samples are curve-shape only.
-        bool fwdConducted = measuresForward(MEASURE_DIRECTIONS) && pr.fwd[readingsPerDir(tc.strategy) - 1].conducted;
-        bool revConducted = measuresReverse(MEASURE_DIRECTIONS) && pr.rev[readingsPerDir(tc.strategy) - 1].conducted;
+        bool fwdConducted = measuresForward(dirs) && pr.fwd[readingsPerDir(tc.strategy) - 1].conducted;
+        bool revConducted = measuresReverse(dirs) && pr.rev[readingsPerDir(tc.strategy) - 1].conducted;
         pr.bond = (fwdConducted || revConducted) ? BondResult::GOOD : BondResult::OPEN;
         return pr;
     }
@@ -59,14 +59,14 @@ PadResult TestRunner::sweepPad(AdapterBase& adapter, const TestCase& tc) {
 
     bool anyConducted = false;
     for (uint8_t i = 0; i < PULLUP_LEVEL_COUNT; i++) {
-        if (measuresForward(MEASURE_DIRECTIONS)) {
+        if (measuresForward(dirs)) {
             // forward: adapterPin driven + Kelvin-sensed, gndPin sinks
             PadReading fwd = measureKelvin(_mux, _adc, adapterCh, gndCh,
                                             PULLUP_LEVELS[i].bus, PULLUP_LEVELS[i].ohms, tc.settleUs, maxOhms);
             pr.fwd[i] = fwd;
             anyConducted |= fwd.conducted;
         }
-        if (measuresReverse(MEASURE_DIRECTIONS)) {
+        if (measuresReverse(dirs)) {
             // reverse: gndPin driven + Kelvin-sensed, adapterPin sinks
             PadReading rev = measureKelvin(_mux, _adc, gndCh, adapterCh,
                                             PULLUP_LEVELS[i].bus, PULLUP_LEVELS[i].ohms, tc.settleUs, maxOhms);
@@ -113,7 +113,7 @@ void TestRunner::run(AdapterBase& adapter, const PadMap& padMap, TestResult& out
                 _mux.clearAll();
                 continue;
             }
-            PadResult pr = sweepPad(adapter, tc);
+            PadResult pr = sweepPad(adapter, tc, padMap.directions);
 
             // Full per-reading detail goes out via sendPadResult; keep this to a summary.
             LOG_I("slot%u apin%u die%u: result=%s", slot, tc.adapterPin, tc.diePad,

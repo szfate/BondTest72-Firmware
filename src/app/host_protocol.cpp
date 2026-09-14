@@ -261,13 +261,13 @@ static void printReadingGroupCsv(const PadReading* group, uint8_t count, bool re
 }
 
 void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad,
-                                 TestStrategy strategy, const PadResult& r) {
+                                  TestStrategy strategy, MeasureDirections dirs, const PadResult& r) {
     // method= encodes which direction group(s) the line carries (see
-    // MEASURE_DIRECTIONS in result.h): STD/CAP = both, *_FW = forward only,
+    // PadMap::directions in pad_map.h): STD/CAP = both, *_FW = forward only,
     // *_REV = reverse only. Unmeasured groups are omitted from the wire —
     // zeroed 0Ω/0V values would read as a dead short to keyword consumers.
-    const bool fwdMeasured = measuresForward(MEASURE_DIRECTIONS);
-    const bool revMeasured = measuresReverse(MEASURE_DIRECTIONS);
+    const bool fwdMeasured = measuresForward(dirs);
+    const bool revMeasured = measuresReverse(dirs);
     const char* dirSuffix = (fwdMeasured && revMeasured) ? "" : (fwdMeasured ? "_FW" : "_REV");
 
     Serial.print("PAD ");

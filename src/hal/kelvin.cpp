@@ -19,7 +19,8 @@ float pullupCurrentUA(float pullupOhms) {
     return VCC / pullupOhms * 1.0e6f;
 }
 
-// Schedule front-loaded for the reverse-only sweep (MEASURE_DIRECTIONS —
+// Schedule front-loaded for the reverse-only sweep (the default
+// PadMap::directions —
 // result.h): the only charging curve left is the die-side net on OPEN pads.
 // Sized around a ~1µF die-side net (τ≈2.5ms through the 2.49k; ~0.75µF /
 // τ≈1.9ms measured on the 1x1 die — at the previous 3.3k pullup the measured

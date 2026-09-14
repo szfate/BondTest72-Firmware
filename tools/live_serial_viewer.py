@@ -44,12 +44,14 @@ PADMAP_NAMES = {
     "1": "1x1 v1",
     "2": "1x1 v2",
     "3": "1x0p5",
+    "4": "MOSB",
 }
 
 PADMAP_SHAPES = {
     1: shape_1x1,
     2: shape_1x1,
     3: shape_1x0p5,
+    4: shape_1x1,
 }
 
 

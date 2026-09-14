@@ -97,7 +97,7 @@ bool Mezzanine70r2::selfTest(MuxController& mux, AdcDriver& adc) const {
 bool Mezzanine70::kelvinPresence(MuxController& mux, AdcDriver& adc,
                                   uint8_t pinA, uint8_t pinB, float thresholdV, const char* tag) const {
     bool connected = kelvinAnyLevelBelow(mux, adc, channelForPin(pinA),
-                                         channelForPin(pinB), thresholdV, SELF_TEST_SETTLE_US);
+                                          channelForPin(pinB), thresholdV, SELF_TEST_SETTLE_US);
     LOG_D("%s: apin%u<->apin%u: %s", tag, pinA, pinB, connected ? "yes" : "no");
     return connected;
 }

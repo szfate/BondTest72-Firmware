@@ -28,6 +28,7 @@ static constexpr TestThresholds kThresh = { 60000.0f };
 
 static constexpr uint8_t GND  = 10;  // adapter pin 10, die pad 18; all GND pins equivalent (1x1)
 static constexpr uint8_t GND3 = 26;  // adapter pin 26, die pad 41; all GND pins equivalent (1x0p5)
+static constexpr uint8_t GNDM = 28;  // adapter pin 28, die pad 54 — the ONLY GND connection (MOSB)
 
 // STANDARD settle: short (bond readings settle within the 6-reading sweep).
 // CAP_SENSE settle: the post-discharge settle for the 2.49k-only charging
@@ -42,6 +43,10 @@ static constexpr uint16_t CAP_SETTLE_US = 20000;
       .settleUs=IO_SETTLE_US, .thresholds=&kThresh }
 #define IO3(m_, d_)  \
     { .adapterPin=(m_), .gndPin=GND3, \
+      .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
+      .settleUs=IO_SETTLE_US, .thresholds=&kThresh }
+#define IOM(m_, d_)  \
+    { .adapterPin=(m_), .gndPin=GNDM, \
       .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
       .settleUs=IO_SETTLE_US, .thresholds=&kThresh }
 
@@ -288,9 +293,101 @@ static const TestCase _pm3Cases[] = {
 };
 static_assert(sizeof(_pm3Cases) / sizeof(_pm3Cases[0]) == 64, "pm3 case count mismatch");
 
+// — Pad map 4: MOSB —————————————————————————————————————————————————————————
+// 68 IO + 1 VDD = 69 cases. Source: docs/DUT_PADMAP_MOSB.md (verified against
+// PCB). Same 74-pad ring as 1x1 but a completely different pinout — nothing
+// is derived from the 1x1 maps. Single GND (adapter pin 28, die pad 54);
+// die pads 17/36/73 are GND-plane-only (no adapter pin). Die pad 9 (VDD) is
+// NOT tested — it shares adapter pin 1 with die pad 8, one measurement covers
+// both bonds. No bypass caps on this chip+PCB: the VDD case uses STANDARD IO
+// sense, not CAP_SENSE.
+
+static const TestCase _pm4Cases[] = {
+    // ── die pads  0– 7 (apin  9– 2) ─────────────────────────────────────────
+    IOM( 9,  0),
+    IOM( 8,  1),
+    IOM( 7,  2),
+    IOM( 6,  3),
+    IOM( 5,  4),
+    IOM( 4,  5),
+    IOM( 3,  6),
+    IOM( 2,  7),  // [gap: VDD die pads 8/9 → apin 1; dp9 untested — shared net]
+    // ── die pads 10–16 (apin 70–64) ─────────────────────────────────────────
+    IOM(70, 10),
+    IOM(69, 11),
+    IOM(68, 12),
+    IOM(67, 13),
+    IOM(66, 14),
+    IOM(65, 15),
+    IOM(64, 16),  // [gap: GND die pad 17]
+    // ── die pads 18–35 (apin 63–46) ─────────────────────────────────────────
+    IOM(63, 18),
+    IOM(62, 19),
+    IOM(61, 20),
+    IOM(60, 21),
+    IOM(59, 22),
+    IOM(58, 23),
+    IOM(57, 24),
+    IOM(56, 25),
+    IOM(55, 26),
+    IOM(54, 27),
+    IOM(53, 28),
+    IOM(52, 29),
+    IOM(51, 30),
+    IOM(50, 31),
+    IOM(49, 32),
+    IOM(48, 33),
+    IOM(47, 34),
+    IOM(46, 35),  // [gap: GND die pad 36]
+    // ── die pads 37–53 (apin 45–29) ─────────────────────────────────────────
+    IOM(45, 37),
+    IOM(44, 38),
+    IOM(43, 39),
+    IOM(42, 40),
+    IOM(41, 41),
+    IOM(40, 42),
+    IOM(39, 43),
+    IOM(38, 44),
+    IOM(37, 45),
+    IOM(36, 46),
+    IOM(35, 47),
+    IOM(34, 48),
+    IOM(33, 49),
+    IOM(32, 50),
+    IOM(31, 51),
+    IOM(30, 52),
+    IOM(29, 53),  // [gap: GND die pad 54 → apin 28]
+    // ── die pads 55–63 (apin 27–19) ─────────────────────────────────────────
+    IOM(27, 55),
+    IOM(26, 56),
+    IOM(25, 57),
+    IOM(24, 58),
+    IOM(23, 59),
+    IOM(22, 60),
+    IOM(21, 61),
+    IOM(20, 62),
+    IOM(19, 63),
+    // ── die pads 64–71 (apin 18–11) — extrapolated, verified at both ends ───
+    IOM(18, 64),
+    IOM(17, 65),
+    IOM(16, 66),
+    IOM(15, 67),
+    IOM(14, 68),
+    IOM(13, 69),
+    IOM(12, 70),
+    IOM(11, 71),
+    // ── die pad  72    (apin 10) ─────────────────────────────────────────────
+    IOM(10, 72),  // [gap: GND die pad 73]
+    // NOTE: no standalone VDD case — VDD↔GND and VDD→IO both have no DC path
+    // on this die (bench-verified); dp8's bond is exercised as the shared
+    // return if/when upper-diode (forward, VDD-sink) cases are added.
+};
+static_assert(sizeof(_pm4Cases) / sizeof(_pm4Cases[0]) == 68, "pm4 case count mismatch");
+
 #undef IO1
 #undef IO2
 #undef IO3
+#undef IOM
 
 static const PadMap _maps[] = {
     {
@@ -301,6 +398,8 @@ static const PadMap _maps[] = {
         .presencePadA       = 10,
         .presencePadB       = 53,
         .presenceThresholdV = 0.3f,
+        .checkOrientation   = true,
+        .directions         = MeasureDirections::REVERSE_ONLY,
     },
     {
         .id                 = 2,
@@ -310,6 +409,8 @@ static const PadMap _maps[] = {
         .presencePadA       = 10,
         .presencePadB       = 53,
         .presenceThresholdV = 0.3f,
+        .checkOrientation   = true,
+        .directions         = MeasureDirections::REVERSE_ONLY,
     },
     {
         .id                 = 3,
@@ -319,6 +420,28 @@ static const PadMap _maps[] = {
         .presencePadA       = 10,
         .presencePadB       = 53,
         .presenceThresholdV = 0.3f,
+        .checkOrientation   = true,
+        .directions         = MeasureDirections::REVERSE_ONLY,
+    },
+    {
+        .id                 = 4,
+        .name               = "MOSB",
+        .cases              = _pm4Cases,
+        .caseCount          = 68,
+        .presencePadA       = 28,   // GND pad — forced + Kelvin-sensed
+        .presencePadB       = 70,   // die pad 10 (IO) — most stable GND conduction on
+                                     // MOSB (~0.63V vs GND, bench-observed, vs the weak/
+                                     // drifting VDD path on apin 1)
+        .presenceThresholdV = 1.5f, // bench: present 0.50-0.85 V, absent >=3.1 V —
+                                     // mid-window, margin against contact aging
+        .checkOrientation   = false, // no reliable flipped-open pair: the mirror
+                                     // (apin 43↔1, IO↔VDD) conducts through on-die
+                                     // diode chains that drift across any threshold
+        .directions         = MeasureDirections::BOTH,  // capless DUT: no adapter-side
+                                     // bypass cap for forward drive to charge, so the
+                                     // CH446X latch-up trigger sequence is absent.
+                                     // Forward data also probes the IO→VDD upper
+                                     // diode — bench investigation in progress.
     },
 };
 static constexpr uint8_t MAP_COUNT = sizeof(_maps) / sizeof(_maps[0]);

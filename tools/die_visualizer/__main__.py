@@ -11,6 +11,7 @@ PADMAP_SHAPES = {
     1: shape_1x1,
     2: shape_1x1,
     3: shape_1x0p5,
+    4: shape_1x1,
 }
 
 

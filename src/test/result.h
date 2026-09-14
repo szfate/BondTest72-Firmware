@@ -9,27 +9,15 @@ enum class BondResult : uint8_t {
     OPEN,   // every reading sat at ~VCC — no conduction detected at all
 };
 
-// Which sweep direction(s) to measure. Selects the method= field on PAD
-// lines (STD/CAP = both, STD_FW/CAP_FW = forward only, STD_REV/CAP_REV =
-// reverse only) so the host knows which direction group(s) to expect — see
-// sendPadResult in host_protocol.cpp.
-enum class MeasureDirections : uint8_t {
-    BOTH,
-    REVERSE_ONLY,
-    FORWARD_ONLY,
-};
-
-constexpr bool measuresForward(MeasureDirections d) { return d != MeasureDirections::REVERSE_ONLY; }
-constexpr bool measuresReverse(MeasureDirections d) { return d != MeasureDirections::FORWARD_ONLY; }
-
-// LATCHUP INVESTIGATION: REVERSE_ONLY is the current build. Forward is the
-// only sweep step that charges the adapter-side bypass cap to ~VCC (forceCh =
-// adapterCh, hard-grounded afterwards in drainAndRelease) — the charged-node
-// sequence implicated in the CH446X latch-up (see hal/kelvin.cpp); in
-// reverse, adapterCh sits on Bus::B for the whole measurement, so that cap
-// never charges. FORWARD_ONLY is kept available for root-cause isolation.
-// Whichever direction group isn't measured stays zeroed.
-constexpr MeasureDirections MEASURE_DIRECTIONS = MeasureDirections::REVERSE_ONLY;
+// LATCHUP INVESTIGATION: per-pad-map since the MOSB bring-up — the sweep
+// direction lives in PadMap::directions (pad_map.h). REVERSE_ONLY remains the
+// setting for cap-equipped DUTs: forward is the only sweep step that charges
+// the adapter-side bypass cap to ~VCC (forceCh = adapterCh, hard-grounded
+// afterwards in drainAndRelease) — the charged-node sequence implicated in
+// the CH446X latch-up (see hal/kelvin.cpp); in reverse, adapterCh sits on
+// Bus::B for the whole measurement, so that cap never charges. BOTH /
+// FORWARD_ONLY are safe only for capless DUTs (MOSB). Whichever direction
+// group isn't measured stays zeroed.
 
 // Each direction group is sized for the strategy with the most per-direction
 // samples, even though STANDARD and CAP_SENSE use different per-direction
@@ -59,7 +47,7 @@ constexpr uint8_t readingsPerDir(TestStrategy s) {
 
 struct PadResult {
     BondResult  bond;
-    PadReading  fwd[READINGS_PER_DIR];  // forward measurements (zeroed unless forward is measured — see MEASURE_DIRECTIONS)
+    PadReading  fwd[READINGS_PER_DIR];  // forward measurements (zeroed unless forward is measured — see PadMap::directions)
     PadReading  rev[READINGS_PER_DIR];  // reverse measurements
 };
 

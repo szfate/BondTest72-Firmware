@@ -49,7 +49,8 @@ public:
                        uint32_t insertions, uint32_t tests);
     void sendEolWarning(uint32_t insertionCount);
     void sendWrongOrientation();
-    void sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad, TestStrategy strategy, const PadResult& r);
+    void sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad, TestStrategy strategy,
+                       MeasureDirections dirs, const PadResult& r);
     void sendSlotStatus(uint8_t slot, bool present, bool tested);
     void sendSummary(const TestResult& result);
     void sendError(ErrorCode code, const char* msg);

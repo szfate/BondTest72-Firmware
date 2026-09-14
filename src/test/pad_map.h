@@ -28,13 +28,27 @@ struct TestThresholds {
     float maxBondResistanceOhms;
 };
 
+// Which sweep direction(s) to measure for a pad map. Selects the method=
+// field on PAD lines (STD/CAP = both, *_FW = forward only, *_REV = reverse
+// only) so the host knows which direction group(s) to expect — see
+// sendPadResult in host_protocol.cpp.
+enum class MeasureDirections : uint8_t {
+    BOTH,
+    REVERSE_ONLY,
+    FORWARD_ONLY,
+};
+
+constexpr bool measuresForward(MeasureDirections d) { return d != MeasureDirections::REVERSE_ONLY; }
+constexpr bool measuresReverse(MeasureDirections d) { return d != MeasureDirections::FORWARD_ONLY; }
+
 enum class TestStrategy : uint8_t {
-    STANDARD,    // Kelvin resistance sweep: {280k,27.4k,2.49k} per MEASURE_DIRECTIONS (see result.h)
+    STANDARD,    // Kelvin resistance sweep: {280k,27.4k,2.49k} per the pad map's directions
     DISCHARGE,   // nop: short adapterPin+gndPin to Bus::B for settleUs; discharges cap, no result
     CAP_SENSE,   // For pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX) where
                  // STANDARD's 280k/27.4k levels can never settle in practical time (τ = R·C —
                  // at 1µF, 280k gives τ≈280ms, 27.4k gives τ≈27ms, impractical per-pad). Uses
-                 // only the 2.49k level, one direction per MEASURE_DIRECTIONS (result.h) — in
+                 // only the 2.49k level, one direction per the pad map's
+                 // MeasureDirections — in
                  // the reverse-only sweep the DUT bypass cap is on the grounded sink side and
                  // the charged node is the die-side net (τ is DUT-dependent, ~1.8ms at the
                  // 2.49k level on the 1x1 die; ~2.3ms was measured at the previous 3.3k). `settleUs` here is the post-discharge settle time (want ≥~3τ of
@@ -76,4 +90,10 @@ struct PadMap {
     uint8_t          presencePadA;        // adapter GND pin → Bus::D (27.4k pull-up) + Bus::A (Kelvin sense)
     uint8_t          presencePadB;        // adapter GND pin → Bus::B (GND return)
     float            presenceThresholdV;  // COM_A below this → DUT present
+    bool             checkOrientation;    // false = skip WRONG_ORIENTATION detection
+                                          // (only safe when a flipped DUT reads all-open —
+                                          //  e.g. MOSB has no pair whose mirror is reliably open)
+    MeasureDirections directions;         // BOTH only safe for capless DUTs: forward drive is what
+                                          // charges the adapter-side bypass cap — the CH446X
+                                          // latch-up trigger sequence (see result.h history)
 };

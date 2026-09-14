@@ -456,7 +456,8 @@ void StateMachine::sendResults() {
             const TestCase& tc = _lastResultPadMap->cases[i];
             if (tc.strategy == TestStrategy::DISCHARGE) continue;
             uint8_t channel = _adapter->channelForPin(tc.adapterPin);
-            _hostProtocol.sendPadResult(slot, tc.adapterPin, tc.diePad, tc.strategy, sr.byChannel[channel]);
+            _hostProtocol.sendPadResult(slot, tc.adapterPin, tc.diePad, tc.strategy,
+                                        _lastResultPadMap->directions, sr.byChannel[channel]);
         }
     }
     _hostProtocol.sendSummary(_lastResult);
