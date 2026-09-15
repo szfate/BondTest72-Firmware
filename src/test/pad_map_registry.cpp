@@ -28,8 +28,8 @@ static constexpr TestThresholds kThresh = { 60000.0f };
 
 static constexpr uint8_t GND  = 10;  // adapter pin 10, die pad 18; all GND pins equivalent (1x1)
 static constexpr uint8_t GND3 = 26;  // adapter pin 26, die pad 41; all GND pins equivalent (1x0p5)
-static constexpr uint8_t GND5 = 45;  // adapter pin 45, die pad 32; all GND pins equivalent (0p5x1)
-static constexpr uint8_t GNDM = 28;  // adapter pin 28, die pad 54 — the ONLY GND connection (MOSB)
+static constexpr uint8_t GND5 = 26;  // adapter pin 26, die pad 32; all GND pins equivalent (0p5x1)
+static constexpr uint8_t GNDM = 43;  // adapter pin 43, die pad 54 — the ONLY GND connection (MOSB)
 
 // STANDARD settle: short (bond readings settle within the 6-reading sweep).
 // CAP_SENSE settle: the post-discharge settle for the 2.49k-only charging
@@ -300,89 +300,92 @@ static_assert(sizeof(_pm3Cases) / sizeof(_pm3Cases[0]) == 64, "pm3 case count mi
 
 // — Pad map 4: MOSB —————————————————————————————————————————————————————————
 // 68 IO + 1 VDD = 69 cases. Source: docs/DUT_PADMAP_MOSB.md (verified against
-// PCB). Same 74-pad ring as 1x1 but a completely different pinout — nothing
-// is derived from the 1x1 maps. Single GND (adapter pin 28, die pad 54);
-// die pads 17/36/73 are GND-plane-only (no adapter pin). Die pad 9 (VDD) is
-// NOT tested — it shares adapter pin 1 with die pad 8, one measurement covers
-// both bonds. No bypass caps on this chip+PCB: the VDD case uses STANDARD IO
-// sense, not CAP_SENSE.
+// PCB) — the source numbers were DUT pins and are converted here via
+// adapter_pin = 71 − dut_pin (same formula as 1x1/1x0p5/0p5x1; the converted
+// map is near-sequential, corroborating the correction). Same 74-pad ring as
+// 1x1 but a completely different pinout — nothing is derived from the 1x1
+// maps. Single GND (adapter pin 43, die pad 54); die pads 17/36/73 are
+// GND-plane-only (no adapter pin). Die pad 9 (VDD) is NOT tested — it shares
+// adapter pin 70 with die pad 8, one measurement covers both bonds. No
+// bypass caps on this chip+PCB: the VDD case uses STANDARD IO sense, not
+// CAP_SENSE.
 
 static const TestCase _pm4Cases[] = {
-    // ── die pads  0– 7 (apin  9– 2) ─────────────────────────────────────────
-    IOM( 9,  0),
-    IOM( 8,  1),
-    IOM( 7,  2),
-    IOM( 6,  3),
-    IOM( 5,  4),
-    IOM( 4,  5),
-    IOM( 3,  6),
-    IOM( 2,  7),  // [gap: VDD die pads 8/9 → apin 1; dp9 untested — shared net]
-    // ── die pads 10–16 (apin 70–64) ─────────────────────────────────────────
-    IOM(70, 10),
-    IOM(69, 11),
-    IOM(68, 12),
-    IOM(67, 13),
-    IOM(66, 14),
-    IOM(65, 15),
-    IOM(64, 16),  // [gap: GND die pad 17]
-    // ── die pads 18–35 (apin 63–46) ─────────────────────────────────────────
-    IOM(63, 18),
-    IOM(62, 19),
-    IOM(61, 20),
-    IOM(60, 21),
-    IOM(59, 22),
-    IOM(58, 23),
-    IOM(57, 24),
-    IOM(56, 25),
-    IOM(55, 26),
-    IOM(54, 27),
-    IOM(53, 28),
-    IOM(52, 29),
-    IOM(51, 30),
-    IOM(50, 31),
-    IOM(49, 32),
-    IOM(48, 33),
-    IOM(47, 34),
-    IOM(46, 35),  // [gap: GND die pad 36]
-    // ── die pads 37–53 (apin 45–29) ─────────────────────────────────────────
-    IOM(45, 37),
-    IOM(44, 38),
-    IOM(43, 39),
-    IOM(42, 40),
-    IOM(41, 41),
-    IOM(40, 42),
-    IOM(39, 43),
-    IOM(38, 44),
-    IOM(37, 45),
-    IOM(36, 46),
-    IOM(35, 47),
-    IOM(34, 48),
-    IOM(33, 49),
-    IOM(32, 50),
-    IOM(31, 51),
-    IOM(30, 52),
-    IOM(29, 53),  // [gap: GND die pad 54 → apin 28]
-    // ── die pads 55–63 (apin 27–19) ─────────────────────────────────────────
-    IOM(27, 55),
-    IOM(26, 56),
-    IOM(25, 57),
-    IOM(24, 58),
-    IOM(23, 59),
-    IOM(22, 60),
-    IOM(21, 61),
-    IOM(20, 62),
-    IOM(19, 63),
-    // ── die pads 64–71 (apin 18–11) — extrapolated, verified at both ends ───
-    IOM(18, 64),
-    IOM(17, 65),
-    IOM(16, 66),
-    IOM(15, 67),
-    IOM(14, 68),
-    IOM(13, 69),
-    IOM(12, 70),
-    IOM(11, 71),
-    // ── die pad  72    (apin 10) ─────────────────────────────────────────────
-    IOM(10, 72),  // [gap: GND die pad 73]
+    // ── die pads  0– 7 (apin 62–69) ─────────────────────────────────────────
+    IOM(62,  0),
+    IOM(63,  1),
+    IOM(64,  2),
+    IOM(65,  3),
+    IOM(66,  4),
+    IOM(67,  5),
+    IOM(68,  6),
+    IOM(69,  7),  // [gap: VDD die pads 8/9 → apin 70; dp9 untested — shared net]
+    // ── die pads 10–16 (apin 1–7) ─────────────────────────────────────────
+    IOM( 1, 10),
+    IOM( 2, 11),
+    IOM( 3, 12),
+    IOM( 4, 13),
+    IOM( 5, 14),
+    IOM( 6, 15),
+    IOM( 7, 16),  // [gap: GND die pad 17]
+    // ── die pads 18–35 (apin 8–25) ─────────────────────────────────────────
+    IOM( 8, 18),
+    IOM( 9, 19),
+    IOM(10, 20),
+    IOM(11, 21),
+    IOM(12, 22),
+    IOM(13, 23),
+    IOM(14, 24),
+    IOM(15, 25),
+    IOM(16, 26),
+    IOM(17, 27),
+    IOM(18, 28),
+    IOM(19, 29),
+    IOM(20, 30),
+    IOM(21, 31),
+    IOM(22, 32),
+    IOM(23, 33),
+    IOM(24, 34),
+    IOM(25, 35),  // [gap: GND die pad 36]
+    // ── die pads 37–53 (apin 26–42) ─────────────────────────────────────────
+    IOM(26, 37),
+    IOM(27, 38),
+    IOM(28, 39),
+    IOM(29, 40),
+    IOM(30, 41),
+    IOM(31, 42),
+    IOM(32, 43),
+    IOM(33, 44),
+    IOM(34, 45),
+    IOM(35, 46),
+    IOM(36, 47),
+    IOM(37, 48),
+    IOM(38, 49),
+    IOM(39, 50),
+    IOM(40, 51),
+    IOM(41, 52),
+    IOM(42, 53),  // [gap: GND die pad 54 → apin 43]
+    // ── die pads 55–63 (apin 44–52) ─────────────────────────────────────────
+    IOM(44, 55),
+    IOM(45, 56),
+    IOM(46, 57),
+    IOM(47, 58),
+    IOM(48, 59),
+    IOM(49, 60),
+    IOM(50, 61),
+    IOM(51, 62),
+    IOM(52, 63),
+    // ── die pads 64–71 (apin 53–60) — extrapolated, verified at both ends ───
+    IOM(53, 64),
+    IOM(54, 65),
+    IOM(55, 66),
+    IOM(56, 67),
+    IOM(57, 68),
+    IOM(58, 69),
+    IOM(59, 70),
+    IOM(60, 71),
+    // ── die pad  72    (apin 61) ─────────────────────────────────────────────
+    IOM(61, 72),  // [gap: GND die pad 73]
     // NOTE: no standalone VDD case — VDD↔GND and VDD→IO both have no DC path
     // on this die (bench-verified); dp8's bond is exercised as the shared
     // return if/when upper-diode (forward, VDD-sink) cases are added.
@@ -390,90 +393,92 @@ static const TestCase _pm4Cases[] = {
 static_assert(sizeof(_pm4Cases) / sizeof(_pm4Cases[0]) == 68, "pm4 case count mismatch");
 
 // — Pad map 5: 0p5x1 Mezzanine70 v1 —————————————————————————————————————————
-// 56 IO + 8 VDD = 64 cases. Source: user-provided die-pad→adapter-pin map
-// (docs/DUT_PADMAP_0P5X1.md); "..." gaps between listed pads continue
-// linearly — the completed map uses adapter pins 1–70 exactly once.
-// GND adapter pins (equivalent): 61, 53, 45, 25, 18, 10. Using adapter pin 45
+// 56 IO + 8 VDD = 64 cases. Source: user-provided die-pad→DUT-pin map
+// (docs/DUT_PADMAP_0P5X1.md) — the source numbers were DUT pins and are
+// converted here via adapter_pin = 71 − dut_pin (same formula as 1x1/1x0p5);
+// "..." gaps between listed pads continue linearly — the completed map uses
+// adapter pins 1–70 exactly once.
+// GND adapter pins (equivalent): 10, 18, 26, 46, 53, 61. Using adapter pin 26
 // (die pad 32) as gndPin — near geometric centre of the bond ring, same
 // convention as 1x0p5. Die pads 3 and 40 are GND-plane-only (no adapter pin),
 // like 1x0p5's 34/71. All 8 VDD pads carry bypass caps and are labelled VDDIO
 // pending die documentation that distinguishes the rails.
 
 static const TestCase _pm5Cases[] = {
-    // ── die pads  0– 2 (apin  8– 6) ─────────────────────────────────────────
-    IO5(  8,  0),
-    IO5(  7,  1),
-    IO5(  6,  2),  // [gap: GND die pad 3 (GND plane — no adapter pin), VDD apin9 die pad 4]
-    // ── die pads  5– 9 (apin  5– 1) ─────────────────────────────────────────
-    IO5(  5,  5),
-    IO5(  4,  6),
-    IO5(  3,  7),
-    IO5(  2,  8),
-    IO5(  1,  9),  // [gap: GND apin61 die pad 10, VDD apin62 die pad 11]
-    // ── die pads 12–20 (apin 70,69,68,67,66,65,64,63,60) ─────────────────────
-    IO5( 70, 12),
-    IO5( 69, 13),
-    IO5( 68, 14),
-    IO5( 67, 15),
-    IO5( 66, 16),
-    IO5( 65, 17),
-    IO5( 64, 18),
-    IO5( 63, 19),
-    IO5( 60, 20),  // [gap: GND apin53 die pad 21, VDD apin54 die pad 22]
-    // ── die pads 23–31 (apin 59–55, 52–49) ────────────────────────────────────
-    IO5( 59, 23),
-    IO5( 58, 24),
-    IO5( 57, 25),
-    IO5( 56, 26),
-    IO5( 55, 27),
-    IO5( 52, 28),
-    IO5( 51, 29),
-    IO5( 50, 30),
-    IO5( 49, 31),  // [gap: GND apin45 die pad 32, VDD apin46 die pad 33]
-    // ── die pads 34–38 (apin 48,47,43,42,41) ──────────────────────────────────
-    IO5( 48, 34),
-    IO5( 47, 35),
-    IO5( 43, 36),
-    IO5( 42, 37),
-    IO5( 41, 38),  // [gap: VDD apin44 die pad 39, GND die pad 40 (GND plane — no adapter pin)]
-    // ── die pads 41–45 (apin 40–36) ───────────────────────────────────────────
-    IO5( 40, 41),
-    IO5( 39, 42),
-    IO5( 38, 43),
-    IO5( 37, 44),
-    IO5( 36, 45),  // [gap: VDD apin24 die pad 46, GND apin25 die pad 47]
-    // ── die pads 48–56 (apin 35–27) ───────────────────────────────────────────
-    IO5( 35, 48),
-    IO5( 34, 49),
-    IO5( 33, 50),
-    IO5( 32, 51),
-    IO5( 31, 52),
-    IO5( 30, 53),
-    IO5( 29, 54),
-    IO5( 28, 55),
-    IO5( 27, 56),  // [gap: VDD apin19 die pad 57, GND apin18 die pad 58]
-    // ── die pads 59–66 (apin 26, 23–15) ───────────────────────────────────────
-    IO5( 26, 59),
-    IO5( 23, 60),
-    IO5( 22, 61),
-    IO5( 21, 62),
-    IO5( 20, 63),
-    IO5( 17, 64),
-    IO5( 16, 65),
-    IO5( 15, 66),  // [gap: VDD apin11 die pad 67, GND apin10 die pad 68]
-    // ── die pads 69–71 (apin 14–12) ───────────────────────────────────────────
-    IO5( 14, 69),
-    IO5( 13, 70),
-    IO5( 12, 71),
+    // ── die pads  0– 2 (apin 63–65) ─────────────────────────────────────────
+    IO5( 63,  0),
+    IO5( 64,  1),
+    IO5( 65,  2),  // [gap: GND die pad 3 (GND plane — no adapter pin), VDD apin62 die pad 4]
+    // ── die pads  5– 9 (apin 66–70) ─────────────────────────────────────────
+    IO5( 66,  5),
+    IO5( 67,  6),
+    IO5( 68,  7),
+    IO5( 69,  8),
+    IO5( 70,  9),  // [gap: GND apin10 die pad 10, VDD apin9 die pad 11]
+    // ── die pads 12–20 (apin 1–8, 11) ─────────────────────────────────────────
+    IO5(  1, 12),
+    IO5(  2, 13),
+    IO5(  3, 14),
+    IO5(  4, 15),
+    IO5(  5, 16),
+    IO5(  6, 17),
+    IO5(  7, 18),
+    IO5(  8, 19),
+    IO5( 11, 20),  // [gap: GND apin18 die pad 21, VDD apin17 die pad 22]
+    // ── die pads 23–31 (apin 12–16, 19–22) ────────────────────────────────────
+    IO5( 12, 23),
+    IO5( 13, 24),
+    IO5( 14, 25),
+    IO5( 15, 26),
+    IO5( 16, 27),
+    IO5( 19, 28),
+    IO5( 20, 29),
+    IO5( 21, 30),
+    IO5( 22, 31),  // [gap: GND apin26 die pad 32, VDD apin25 die pad 33]
+    // ── die pads 34–38 (apin 23, 24, 28–30) ──────────────────────────────────
+    IO5( 23, 34),
+    IO5( 24, 35),
+    IO5( 28, 36),
+    IO5( 29, 37),
+    IO5( 30, 38),  // [gap: VDD apin27 die pad 39, GND die pad 40 (GND plane — no adapter pin)]
+    // ── die pads 41–45 (apin 31–35) ───────────────────────────────────────────
+    IO5( 31, 41),
+    IO5( 32, 42),
+    IO5( 33, 43),
+    IO5( 34, 44),
+    IO5( 35, 45),  // [gap: VDD apin47 die pad 46, GND apin46 die pad 47]
+    // ── die pads 48–56 (apin 36–44) ───────────────────────────────────────────
+    IO5( 36, 48),
+    IO5( 37, 49),
+    IO5( 38, 50),
+    IO5( 39, 51),
+    IO5( 40, 52),
+    IO5( 41, 53),
+    IO5( 42, 54),
+    IO5( 43, 55),
+    IO5( 44, 56),  // [gap: VDD apin52 die pad 57, GND apin53 die pad 58]
+    // ── die pads 59–66 (apin 45, 48–51, 54–56) ─────────────────────────────────
+    IO5( 45, 59),
+    IO5( 48, 60),
+    IO5( 49, 61),
+    IO5( 50, 62),
+    IO5( 51, 63),
+    IO5( 54, 64),
+    IO5( 55, 65),
+    IO5( 56, 66),  // [gap: VDD apin60 die pad 67, GND apin61 die pad 68]
+    // ── die pads 69–71 (apin 57–59) ───────────────────────────────────────────
+    IO5( 57, 69),
+    IO5( 58, 70),
+    IO5( 59, 71),
     // ── VDD (all carry bypass caps; VDDIO label pending rail documentation) ───
-    { .adapterPin =  9, .gndPin = GND5, .diePad =  4, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad  4
-    { .adapterPin = 62, .gndPin = GND5, .diePad = 11, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 11
-    { .adapterPin = 54, .gndPin = GND5, .diePad = 22, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 22
-    { .adapterPin = 46, .gndPin = GND5, .diePad = 33, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 33
-    { .adapterPin = 44, .gndPin = GND5, .diePad = 39, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 39
-    { .adapterPin = 24, .gndPin = GND5, .diePad = 46, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 46
-    { .adapterPin = 19, .gndPin = GND5, .diePad = 57, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 57
-    { .adapterPin = 11, .gndPin = GND5, .diePad = 67, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 67
+    { .adapterPin = 62, .gndPin = GND5, .diePad =  4, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad  4
+    { .adapterPin =  9, .gndPin = GND5, .diePad = 11, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 11
+    { .adapterPin = 17, .gndPin = GND5, .diePad = 22, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 22
+    { .adapterPin = 25, .gndPin = GND5, .diePad = 33, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 33
+    { .adapterPin = 27, .gndPin = GND5, .diePad = 39, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 39
+    { .adapterPin = 47, .gndPin = GND5, .diePad = 46, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 46
+    { .adapterPin = 52, .gndPin = GND5, .diePad = 57, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 57
+    { .adapterPin = 60, .gndPin = GND5, .diePad = 67, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // die pad 67
 };
 static_assert(sizeof(_pm5Cases) / sizeof(_pm5Cases[0]) == 64, "pm5 case count mismatch");
 
@@ -522,14 +527,14 @@ static const PadMap _maps[] = {
         .name               = "MOSB",
         .cases              = _pm4Cases,
         .caseCount          = 68,
-        .presencePadA       = 28,   // GND pad — forced + Kelvin-sensed
-        .presencePadB       = 70,   // die pad 10 (IO) — most stable GND conduction on
+        .presencePadA       = 43,   // GND pad — forced + Kelvin-sensed
+        .presencePadB       = 70,    // die pad 10 (IO) — most stable GND conduction on
                                      // MOSB (~0.63V vs GND, bench-observed, vs the weak/
-                                     // drifting VDD path on apin 1)
+                                     // drifting VDD path on apin 70)
         .presenceThresholdV = 1.5f, // bench: present 0.50-0.85 V, absent >=3.1 V —
                                      // mid-window, margin against contact aging
         .checkOrientation   = false, // no reliable flipped-open pair: the mirror
-                                     // (apin 43↔1, IO↔VDD) conducts through on-die
+                                     // (apin 28↔70, IO↔VDD) conducts through on-die
                                      // diode chains that drift across any threshold
         .directions         = MeasureDirections::BOTH,  // capless DUT: no adapter-side
                                      // bypass cap for forward drive to charge, so the
@@ -542,8 +547,8 @@ static const PadMap _maps[] = {
         .name               = "0p5x1 Mezzanine70 v1",
         .cases              = _pm5Cases,
         .caseCount          = 64,
-        .presencePadA       = 10,
-        .presencePadB       = 53,
+        .presencePadA       = 61,  // die pad 68 (gnd_7)
+        .presencePadB       = 18,  // die pad 21 (gnd_2)
         .presenceThresholdV = 0.3f,
         .checkOrientation   = true,
         .directions         = MeasureDirections::REVERSE_ONLY,
