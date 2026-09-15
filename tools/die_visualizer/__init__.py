@@ -1,5 +1,5 @@
 from .result_types import BondResult, PadRole, PadResult, SlotResult, TestResult
-from .die_shapes import DieShape, PadInfo, shape_1x1, shape_1x0p5
+from .die_shapes import DieShape, PadInfo, shape_1x1, shape_1x0p5, shape_0p5x1
 from .log_parser import parse_log
 
 
@@ -18,7 +18,7 @@ def __getattr__(name):
 
 __all__ = [
     "BondResult", "PadRole", "PadResult", "SlotResult", "TestResult",
-    "DieShape", "PadInfo", "shape_1x1", "shape_1x0p5",
+    "DieShape", "PadInfo", "shape_1x1", "shape_1x0p5", "shape_0p5x1",
     "DieMapWidget", "build_results_table", "create_main_layout",
     "parse_log",
 ]

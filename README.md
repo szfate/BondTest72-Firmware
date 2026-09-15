@@ -74,9 +74,10 @@ The adapter board is specific to a die form factor (e.g. 1×0.5, 1×1) and conne
 | Adapter | Sticker | Pad map ID | Die | Notes |
 |---------|---------|-----------|-----|-------|
 | Mezzanine70 r1 | COB v1  | 1 | 1x1   | Early die samples with an unconnected trace |
-| Mezzanine70 r1 | COB v2+ | 2 | 1x1   | Fixed COB boards |
-| Mezzanine70 r1 | 1x0p5       | 3 | 1x0p5 | First 1x0p5 die adapter |
-| MOSB | MOSB | 4 | 1x1 ring | Unique pinout; single GND; no bypass caps — VDD pad via STANDARD IO sense; presence via VDD↔GND diode |
+| Mezzanine70 r2 | 1x1 v2+ | 2 | 1x1   | Fixed COB boards |
+| Mezzanine70 r2 | 1x0p5       | 3 | 1x0p5 | First 1x0p5 die adapter |
+| Mezzanine70 r2 | MOSB | 4 | 1x1 ring | Unique pinout; single GND; no bypass caps — VDD pad via STANDARD IO sense; presence via VDD↔GND diode |
+| Mezzanine70 r2 | 0p5x1       | 5 | 0p5x1 | 0.5×1 die orientation; mirror counterpart of 1x0p5 |
 
 Hardware IDs (`ahw` / EEPROM byte 2): `0x01` = Mezzanine70 r1, `0x02` = Mezzanine70 r2. The r2 board is identical except the onboard self-test diode is replaced with a 1 kΩ precision resistor, so `selfTest()` checks measured resistance instead of diode asymmetry.
 
@@ -266,6 +267,7 @@ docs/
 ├── DUT_PADMAP_TEMPLATE.md  pad map template for new adapters
 ├── DUT_PADMAP_1X1.md       pad map — 1x1 die (Mezzanine70)
 ├── DUT_PADMAP_1X0P5.md     pad map — 1x0p5 die
+├── DUT_PADMAP_0P5X1.md     pad map — 0p5x1 die
 ├── DUT_PADMAP_MOSB.md      pad map — MOSB die (no bypass caps)
 ├── GLOSSARY.md           shared vocabulary
 └── RP2350 PINMAP.md      MCU GPIO assignments

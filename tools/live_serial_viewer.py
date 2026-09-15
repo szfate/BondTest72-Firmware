@@ -23,7 +23,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from die_visualizer.die_shapes import shape_1x1, shape_1x0p5
+from die_visualizer.die_shapes import shape_1x1, shape_1x0p5, shape_0p5x1
 from die_visualizer.die_map_widget import DieMapWidget, build_results_table
 from die_visualizer.result_types import BondResult, PadResult, SlotResult
 
@@ -45,6 +45,7 @@ PADMAP_NAMES = {
     "2": "1x1 v2",
     "3": "1x0p5",
     "4": "MOSB",
+    "5": "0p5x1",
 }
 
 PADMAP_SHAPES = {
@@ -52,6 +53,7 @@ PADMAP_SHAPES = {
     2: shape_1x1,
     3: shape_1x0p5,
     4: shape_1x1,
+    5: shape_0p5x1,
 }
 
 

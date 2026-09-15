@@ -36,6 +36,7 @@ PAD_MAPS = {
     2: "1x1 v2 COB (64 cases — die44 connected)",
     3: "1x0.5  (64 cases — 1×0.5 die)",
     4: "MOSB (69 cases — unique pinout, single GND, no bypass caps)",
+    5: "0p5x1 (64 cases — 0.5×1 die)",
 }
 
 ADAPTER_HW_NAMES = {
