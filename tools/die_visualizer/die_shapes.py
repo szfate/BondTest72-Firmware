@@ -122,24 +122,26 @@ shape_1x0p5 = DieShape(
 
 # Source: docs/DUT_PADMAP_0P5X1.md cross-reference table
 # 72 die pads in physical ring order (DP 0–71, counter-clockwise from top-right)
-# 1x0p5 die rotated 90°: short sides (N/S) have 12 pads, long sides (E/W) have 24
-# Die is 1.94 mm (N/S width) × 5.12 mm (E/W height)
+# Die is 1.94 mm (N/S width) × 5.12 mm (E/W height): short sides (N/S) have
+# 8 pads each, long sides (E/W) have 28 pads each (corrected 2026-09-15 —
+# was 12/24/12/24 from the un-rotated 1x0p5 assumption)
 # All 8 VCC pads are labelled VDDIO pending die rail documentation (see doc notes)
 shape_0p5x1 = DieShape(
     name="0p5x1 Mezzanine70",
     padmap_id=5,
-    north_count=12,
-    east_count=24,
-    south_count=12,
-    west_count=24,
+    north_count=8,
+    east_count=28,
+    south_count=8,
+    west_count=28,
     aspect_ratio=1.94 / 5.12,
     ring=[
-        # North (DP 0–11)
+        # North (DP 0–7)
         _io(0), _io(1), _io(2),
         _bus(3), _vdd(4),
-        _io(5), _io(6), _io(7), _io(8), _io(9),
+        _io(5), _io(6), _io(7),
+        # East (DP 8–35)
+        _io(8), _io(9),
         _gnd(10), _vdd(11),
-        # East (DP 12–35)
         _io(12), _io(13), _io(14), _io(15), _io(16), _io(17), _io(18), _io(19),
         _io(20),
         _gnd(21), _vdd(22),
@@ -147,12 +149,13 @@ shape_0p5x1 = DieShape(
         _io(31),
         _gnd(32), _vdd(33),
         _io(34), _io(35),
-        # South (DP 36–47)
+        # South (DP 36–43)
         _io(36), _io(37), _io(38),
         _vdd(39), _bus(40),
-        _io(41), _io(42), _io(43), _io(44), _io(45),
+        _io(41), _io(42), _io(43),
+        # West (DP 44–71)
+        _io(44), _io(45),
         _vdd(46), _gnd(47),
-        # West (DP 48–71)
         _io(48), _io(49), _io(50), _io(51), _io(52), _io(53), _io(54), _io(55),
         _io(56),
         _vdd(57), _gnd(58), _io(59),

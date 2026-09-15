@@ -17,6 +17,22 @@ Die pad 0 is at the top-right corner; numbers increase counter-clockwise.
 | DUT Pin → Adapter Pin | `adapter_pin = 71 − dut_pin` | DUT PCB (connector orientation) |
 | Adapter Pin → Tester Ch | `tester_ch = adapter_pin − 1` | adapter — see `ADAPTER_MEZ70.md` |
 
+> ⚠️ **WARNING — DUT PIN ≠ ADAPTER PIN.** Pin numbers from the DUT PCB
+> documentation/verification are **DUT connector pins**, NOT adapter pins.
+> This is the single most error-prone step of building a pad map: two pad maps
+> (0p5x1, MOSB, 2026-09) were built with DUT pins recorded as adapter pins,
+> and every measurement result was garbage until converted with
+> `adapter_pin = 71 − dut_pin`. Before writing any firmware:
+> >
+> > 1. Record the **DUT Pin** column as given by the source (do not "fix" it).
+> > 2. Derive **Adapter Pin = 71 − dut_pin** — never the other way around.
+> > 3. **Self-consistency check:** the completed map must use adapter pins
+> >    1–70 exactly once. If a number is missing or duplicated, a pin was
+> >    mislabeled. A near-sequential result (consecutive die pads → consecutive
+> >    adapter pins) is a good sign; a scrambled result is a red flag.
+> > 4. If the source is ambiguous about which numbering it uses, STOP and
+> >    verify against the physical PCB before proceeding.
+
 > **DUT Pin is reference only.** It traces the physical bond wire path and is
 > not used in firmware. Only Adapter Pin values appear in `pad_map_registry.cpp`.
 > See `GLOSSARY.md` for definitions.
@@ -33,6 +49,10 @@ Die pad 0 is at the top-right corner; numbers increase counter-clockwise.
 ---
 
 ## Die Pad to Adapter Pin Cross-Reference
+
+Fill DUT Pin from the source verbatim; compute Adapter Pin = 71 − dut_pin.
+⚠️ See the WARNING above — wrong numbering here silently produces all-garbage
+measurement results.
 
 | Die Pad | Signal | DUT Pin | Adapter Pin | Role |
 |---------|--------|---------|---------|------|
