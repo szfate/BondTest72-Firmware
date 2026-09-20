@@ -51,6 +51,10 @@ def _pwr(dp: int) -> PadInfo:
     return PadInfo(die_pad=dp, role=PadRole.PWR_AUX)
 
 
+def _nc(dp: int) -> PadInfo:
+    return PadInfo(die_pad=dp, role=PadRole.NC)
+
+
 def _bus(dp: int) -> PadInfo:
     return PadInfo(die_pad=dp, role=PadRole.GND)
 
@@ -162,5 +166,37 @@ shape_0p5x1 = DieShape(
         _io(60), _io(61), _io(62), _io(63), _io(64), _io(65), _io(66),
         _vdd(67), _gnd(68),
         _io(69), _io(70), _io(71),
+    ],
+)
+
+# Source: docs/DUT_PADMAP_TQVA.md cross-reference table
+# Die pad ring numbering for the two GND dut pins 61 (apin 10) and 53 (apin 18)
+# was not in the source — placeholders dp 56/57 below sit between dp17/dp18 and
+# dp24/dp25 in dut numbering and are never referenced by test results (the
+# firmware only uses known die pads 0–50). PLACEHOLDER GEOMETRY: die dimensions
+# and side counts are unknown, so a square 14/14/14/14 layout is assumed —
+# replace with real numbers once the die drawing is available.
+shape_tqva = DieShape(
+    name="TQVA",
+    padmap_id=6,
+    north_count=14,
+    east_count=15,
+    south_count=14,
+    west_count=15,
+    aspect_ratio=1.0,
+    ring=[
+        _io(0), _io(1), _gnd(2), _vdd(3),
+        _io(4), _io(5), _io(6), _io(7), _io(8), _io(9),
+        _io(10), _io(11), _io(12), _io(13), _io(14), _io(15), _io(16), _io(17),
+        _gnd(56),
+        _io(18), _io(19), _io(20), _io(21), _io(22), _io(23),
+        _gnd(57),
+        _io(24), _io(25), _gnd(26), _vdd(27),
+        _io(28), _io(29), _io(30), _io(31), _io(32), _nc(33), _nc(34), _vdd(35),
+        _gnd(36), _nc(37), _nc(38),
+        _io(39), _io(40), _vdd_core(41), _gnd(42),
+        _nc(43), _nc(44),
+        _io(45), _io(46), _io(47), _io(48), _io(49), _io(50),
+        _nc(51), _nc(52), _nc(53), _nc(54), _nc(55),
     ],
 )

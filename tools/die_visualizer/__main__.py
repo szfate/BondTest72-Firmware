@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from die_visualizer.die_shapes import shape_1x1, shape_1x0p5, shape_0p5x1
+from die_visualizer.die_shapes import shape_1x1, shape_1x0p5, shape_0p5x1, shape_tqva
 from die_visualizer.die_map_widget import DieMapWidget, create_main_layout, build_top_bar
 from die_visualizer.log_parser import parse_log
 
@@ -13,6 +13,7 @@ PADMAP_SHAPES = {
     3: shape_1x0p5,
     4: shape_1x1,
     5: shape_0p5x1,
+    6: shape_tqva,
 }
 
 

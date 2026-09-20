@@ -29,6 +29,7 @@ static constexpr TestThresholds kThresh = { 60000.0f };
 static constexpr uint8_t GND  = 10;  // adapter pin 10, die pad 18; all GND pins equivalent (1x1)
 static constexpr uint8_t GND3 = 26;  // adapter pin 26, die pad 41; all GND pins equivalent (1x0p5)
 static constexpr uint8_t GND5 = 26;  // adapter pin 26, die pad 32; all GND pins equivalent (0p5x1)
+static constexpr uint8_t GND6 = 53;  // adapter pin 53, die pad 42; all GND pins equivalent (TQVA)
 static constexpr uint8_t GNDM = 43;  // adapter pin 43, die pad 54 — the ONLY GND connection (MOSB)
 
 // STANDARD settle: short (bond readings settle within the 6-reading sweep).
@@ -48,6 +49,10 @@ static constexpr uint16_t CAP_SETTLE_US = 20000;
       .settleUs=IO_SETTLE_US, .thresholds=&kThresh }
 #define IO5(m_, d_)  \
     { .adapterPin=(m_), .gndPin=GND5, \
+      .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
+      .settleUs=IO_SETTLE_US, .thresholds=&kThresh }
+#define IO6(m_, d_)  \
+    { .adapterPin=(m_), .gndPin=GND6, \
       .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
       .settleUs=IO_SETTLE_US, .thresholds=&kThresh }
 #define IOM(m_, d_)  \
@@ -482,10 +487,77 @@ static const TestCase _pm5Cases[] = {
 };
 static_assert(sizeof(_pm5Cases) / sizeof(_pm5Cases[0]) == 64, "pm5 case count mismatch");
 
+// — Pad map 6: TQVA ———————————————————————————————————————————————————————————
+// 37 IO + 4 VDD = 41 cases. Source: docs/DUT_PADMAP_TQVA.md (die-pad → DUT-pin
+// list, 2026-09-20; "..." gaps continued linearly). DUT pins converted via
+// adapter_pin = 71 − dut_pin (same formula as all other maps; the converted GND
+// set 10/18/26/46/53/61 matches the mezzanine set exactly, corroborating it).
+// GND adapter pins (equivalent): 10, 18, 26, 46, 53, 61. Using adapter pin 53
+// (die pad 42) as gndPin. Die pads for GND dut pins 61 (apin 10) and 53
+// (apin 18) were not in the source — GND is used only via adapter pins in
+// firmware, so that does not block anything. All 4 VDD pads carry bypass caps
+// (CAP_SENSE); dp3 and dp35 are each bonded to TWO dut pins (shared net — one
+// case per pad, sibling noted in the doc).
+
+static const TestCase _pm6Cases[] = {
+    // ── die pads  0, 1, 4– 9 (apin 63–70) ──────────────────────────────────
+    IO6( 63,  0),
+    IO6( 64,  1),  // [gap: GND dp2 → apin61, VDDIO dp3 → apins 62&60 (shared net)]
+    IO6( 65,  4),
+    IO6( 66,  5),
+    IO6( 67,  6),
+    IO6( 68,  7),
+    IO6( 69,  8),
+    IO6( 70,  9),
+    // ── die pads 10–17 (apin  1– 8) ────────────────────────────────────────
+    IO6(  1, 10),
+    IO6(  2, 11),
+    IO6(  3, 12),
+    IO6(  4, 13),
+    IO6(  5, 14),
+    IO6(  6, 15),
+    IO6(  7, 16),
+    IO6(  8, 17),  // [gap: NC dut 62 → apin9, GND dut 61 → apin10 (die pad unknown)]
+    // ── die pads 18–23 (apin 11–16) ────────────────────────────────────────
+    IO6( 11, 18),
+    IO6( 12, 19),
+    IO6( 13, 20),
+    IO6( 14, 21),
+    IO6( 15, 22),
+    IO6( 16, 23),
+    // ── die pads 24–25 (apin 19–20) ────────────────────────────────────────
+    IO6( 19, 24),
+    IO6( 20, 25),  // [gap: GND dut 53 → apin18 (die pad unknown), VDDIO dp27 → apin17]
+    // ── die pads 28–31 (apin 21–24) ────────────────────────────────────────
+    IO6( 21, 28),
+    IO6( 22, 29),
+    IO6( 23, 30),
+    IO6( 24, 31),  // [gap: GND dp26 → apin26]
+    // ── die pad 32 (apin 28) ───────────────────────────────────────────────
+    IO6( 28, 32),  // [gap: NC dp33/34, VDDIO dp35 → apins 25&27 (shared net), GND dp36 → apin46]
+    // ── die pads 39–40 (apin 59–58) ────────────────────────────────────────
+    IO6( 59, 39),
+    IO6( 58, 40),  // [gap: VDD_CORE dp41 → apin47, GND dp42 → apin53]
+    // ── die pads 45–50 (apin 29–34) ────────────────────────────────────────
+    IO6( 29, 45),
+    IO6( 30, 46),
+    IO6( 31, 47),
+    IO6( 32, 48),
+    IO6( 33, 49),
+    IO6( 34, 50),  // [gap: NC dp51–55]
+    // ── VDD (all carry bypass caps) ────────────────────────────────────────
+    { .adapterPin = 62, .gndPin = GND6, .diePad =  3, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // dp3, bonded to dut 9&11 (apins 62&60, shared net)
+    { .adapterPin = 17, .gndPin = GND6, .diePad = 27, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // dp27
+    { .adapterPin = 25, .gndPin = GND6, .diePad = 35, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDDIO,    .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // dp35, bonded to dut 46&44 (apins 25&27, shared net)
+    { .adapterPin = 47, .gndPin = GND6, .diePad = 41, .strategy = TestStrategy::CAP_SENSE, .padType = PadType::VDD_CORE, .settleUs = CAP_SETTLE_US, .thresholds = &kThresh },  // dp41
+};
+static_assert(sizeof(_pm6Cases) / sizeof(_pm6Cases[0]) == 41, "pm6 case count mismatch");
+
 #undef IO1
 #undef IO2
 #undef IO3
 #undef IO5
+#undef IO6
 #undef IOM
 
 static const PadMap _maps[] = {
@@ -549,6 +621,18 @@ static const PadMap _maps[] = {
         .caseCount          = 64,
         .presencePadA       = 61,  // die pad 68 (gnd_7)
         .presencePadB       = 18,  // die pad 21 (gnd_2)
+        .presenceThresholdV = 0.3f,
+        .checkOrientation   = true,
+        .directions         = MeasureDirections::REVERSE_ONLY,
+    },
+    {
+        .id                 = 6,
+        .name               = "TQVA",
+        .cases              = _pm6Cases,
+        .caseCount          = 41,
+        .presencePadA       = 61,  // dut pin 61 (die pad unknown in source)
+        .presencePadB       = 53,  // dut pin 53 (die pad unknown in source) —
+                                    // same pair as 1x1/1x0p5
         .presenceThresholdV = 0.3f,
         .checkOrientation   = true,
         .directions         = MeasureDirections::REVERSE_ONLY,
