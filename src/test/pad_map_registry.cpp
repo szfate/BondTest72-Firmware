@@ -630,9 +630,12 @@ static const PadMap _maps[] = {
         .name               = "TQVA",
         .cases              = _pm6Cases,
         .caseCount          = 41,
-        .presencePadA       = 61,  // dut pin 61 (die pad unknown in source)
-        .presencePadB       = 53,  // dut pin 53 (die pad unknown in source) —
-                                    // same pair as 1x1/1x0p5
+        .presencePadA       = 26,  // dp26 GND (dut 45). Flipped mirror sees dut 26
+        .presencePadB       = 46,  // dp36 GND (dut 25) — unconnected → open, so the
+                                    // orientation check can fire. (Do NOT use the
+                                    // 1x1 pair 61/53: TQVA's GND dut set {10,18,53,61}
+                                    // is mirror-closed under 71−dut, so a flipped DUT
+                                    // still conducts GND↔GND and reads PRESENT.)
         .presenceThresholdV = 0.3f,
         .checkOrientation   = true,
         .directions         = MeasureDirections::REVERSE_ONLY,

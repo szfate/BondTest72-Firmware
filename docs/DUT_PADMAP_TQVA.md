@@ -153,13 +153,22 @@ ioAdapterPinsInRingOrder = [
 ## Presence Detection
 
 Six GND adapter pins are available (10, 18, 26, 46, 53, 61). Proposed pair —
-same as the 1x1/1x0p5 maps; verify at bring-up that both are always connected
-and that the flipped mirror pair reads open (for the orientation check):
+verify at bring-up that both are always connected and that the flipped mirror
+pair reads open (for the orientation check):
 
 | Die Pad | Signal | DUT Pin | Adapter Pin |
 |---------|--------|---------|-------------|
-| —  | GND | 10 | 61 |
-| —  | GND | 18 | 53 |
+| 26 | GND | 45 | 26 |
+| 36 | GND | 25 | 46 |
+
+**Do NOT use the 1x1/1x0p5 presence pair (apins 61/53) here.** TQVA's GND
+dut-pin set is mirror-closed under the flip mapping `71 − dut`: 10↔61 and
+18↔53 are mirror pairs, all four GND. A DUT installed backwards therefore
+still conducts apin 61↔apin 53 through the die ground network (apin 61 sees
+dut 10, apin 53 sees dut 18) and reads PRESENT — the orientation check can
+never fire. Bench-confirmed 2026-09. Apins 26/46 avoid this: their flipped
+mirrors see dut 26 (unconnected) and dut 46 (VDDIO sibling, no GND↔GND path),
+so the flipped pair is open and WRONG_ORIENTATION fires.
 
 ```
 presenceThresholdV = 0.3  // default — calibrate in Phase 3 if needed
