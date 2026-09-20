@@ -5,6 +5,9 @@ Source: user-provided die-pad → DUT pin list, 2026-09-20 (sparse — "..." gap
 between listed pads were filled by linear continuation; verify at bring-up)
 
 Die pad 0 is at the top-right corner; numbers increase counter-clockwise.
+Die size 1936 × 2531 µm (portrait); N/S sides have 11 die pads each, E/W
+sides 18 each (11+18+11+18 = 58 slots; 56 known pads + the 2 unaccounted GND
+die pads below close the ring).
 
 **Mapping layers:**
 

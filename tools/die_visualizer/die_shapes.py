@@ -170,33 +170,38 @@ shape_0p5x1 = DieShape(
 )
 
 # Source: docs/DUT_PADMAP_TQVA.md cross-reference table
+# Die is 1936 µm wide (N/S) × 2531 µm tall (E/W): N/S sides have 11 pads each,
+# E/W sides have 18 pads each (die dimensions confirmed 2026-09). 11+18+11+18
+# = 58 slots; 56 known die pads + 2 unaccounted (see below) close the ring.
 # Die pad ring numbering for the two GND dut pins 61 (apin 10) and 53 (apin 18)
-# was not in the source — placeholders dp 56/57 below sit between dp17/dp18 and
-# dp24/dp25 in dut numbering and are never referenced by test results (the
-# firmware only uses known die pads 0–50). PLACEHOLDER GEOMETRY: die dimensions
-# and side counts are unknown, so a square 14/14/14/14 layout is assumed —
-# replace with real numbers once the die drawing is available.
+# was not in the source — placeholders dp 56/57 are appended to the west tail
+# and are never referenced by test results (the firmware only uses die pads 0–50).
 shape_tqva = DieShape(
     name="TQVA",
     padmap_id=6,
-    north_count=14,
-    east_count=15,
-    south_count=14,
-    west_count=15,
-    aspect_ratio=1.0,
+    north_count=11,
+    east_count=18,
+    south_count=11,
+    west_count=18,
+    aspect_ratio=1936 / 2531,
     ring=[
+        # North (DP 0–10)
         _io(0), _io(1), _gnd(2), _vdd(3),
-        _io(4), _io(5), _io(6), _io(7), _io(8), _io(9),
-        _io(10), _io(11), _io(12), _io(13), _io(14), _io(15), _io(16), _io(17),
-        _gnd(56),
+        _io(4), _io(5), _io(6), _io(7), _io(8), _io(9), _io(10),
+        # East (DP 11–28)
+        _io(11), _io(12), _io(13), _io(14), _io(15), _io(16), _io(17),
         _io(18), _io(19), _io(20), _io(21), _io(22), _io(23),
-        _gnd(57),
-        _io(24), _io(25), _gnd(26), _vdd(27),
-        _io(28), _io(29), _io(30), _io(31), _io(32), _nc(33), _nc(34), _vdd(35),
-        _gnd(36), _nc(37), _nc(38),
-        _io(39), _io(40), _vdd_core(41), _gnd(42),
+        _io(24), _io(25), _gnd(26), _vdd(27), _io(28),
+        # South (DP 29–39)
+        _io(29), _io(30), _io(31), _io(32), _nc(33), _nc(34), _vdd(35),
+        _gnd(36), _nc(37), _nc(38), _io(39),
+        # West (DP 40–57)
+        _io(40), _vdd_core(41), _gnd(42),
         _nc(43), _nc(44),
         _io(45), _io(46), _io(47), _io(48), _io(49), _io(50),
         _nc(51), _nc(52), _nc(53), _nc(54), _nc(55),
+        # dp 56/57: placeholder ring slots for the two GND dut pins 61/53 whose
+        # die pads were not in the source (never referenced by test results)
+        _gnd(56), _gnd(57),
     ],
 )
