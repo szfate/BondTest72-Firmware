@@ -1,5 +1,6 @@
 # PlatformIO
 .pio/
+activate-pio.sh
 
 # Editor
 .vscode/

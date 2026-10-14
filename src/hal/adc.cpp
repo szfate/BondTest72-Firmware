@@ -16,7 +16,7 @@ void AdcDriver::begin() {
 
     AdcReadings r = readAll();
     LOG_I("adc init: COM_D=%.3fV COM_A=%.3fV COM_C=%.3fV",
-          r.sense, r.prevNeighbour, r.nextNeighbour);
+          r.comD, r.kelvinSense, r.comC);
 }
 
 float AdcDriver::readVoltage(AdcChannel channel) {

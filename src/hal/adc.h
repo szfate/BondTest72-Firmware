@@ -14,9 +14,9 @@ inline constexpr float VCC = 3.3f;
 enum class AdcChannel : uint8_t { ComD = 0, KelvinSense = 1, ComC = 2 };
 
 struct AdcReadings {
-    float sense;         // ADC0/GP26 — COM_D, unused by test path (debug only)
-    float prevNeighbour; // ADC1/GP27 — COM_A, Kelvin sense (the one that matters)
-    float nextNeighbour; // ADC2/GP28 — COM_C, unused by test path (debug only)
+    float comD;          // ADC0/GP26 — COM_D (27.4k pullup node), unused by test path (debug only)
+    float kelvinSense;   // ADC1/GP27 — COM_A, Kelvin sense (the one that matters)
+    float comC;          // ADC2/GP28 — COM_C (280k pullup node), unused by test path (debug only)
 };
 
 class AdcDriver {

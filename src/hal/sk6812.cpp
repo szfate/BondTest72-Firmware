@@ -20,7 +20,7 @@ void SK6812Controller::begin() {
 }
 
 void SK6812Controller::bootShow() {
-    // Chase each colour (R→G→B) across all 3 pixels: 9 × BOOT_STEP_MS = 1350 ms
+    // Chase each colour (R→G→B) across all pixels: 3 × LED_PIXEL_COUNT × BOOT_STEP_MS
     static const uint8_t COLORS[3][3] = {
         {255,   0,   0},  // red
         {  0, 255,   0},  // green

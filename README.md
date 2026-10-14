@@ -45,7 +45,7 @@ The system is a two-board design:
 │                                  │     │                          │
 │  RP2350 (Raspberry Pi Pico 2)    │     │  DUT connector (70-pin)  │
 │  3× CH446X matrix analog MUX ───────── │  AT21CS01 EEPROM         │
-│  3× SK6812 RGB LED               │     │  (carries pad map ID)    │
+│  2× SK6812 RGB LED               │     │  (carries pad map ID)    │
 │  Start button                    │     │                          │
 │  USB CDC to host PC              │     └──────────────────────────┘
 └──────────────────────────────────┘
@@ -57,7 +57,7 @@ The adapter board is specific to a die form factor (e.g. 1×0.5, 1×1) and conne
 |-----------|------|-------|
 | MCU | RP2350 (Raspberry Pi Pico 2) | Dual-core Cortex-M33, 520 kB SRAM |
 | Muxes | 3× CH446X 24:5 matrix | 72 channels total |
-| LEDs | 3× SK6812 addressable RGB | Single-GPIO series chain |
+| LEDs | 2× SK6812 addressable RGB | Single-GPIO series chain (D1 status, D2 result) |
 | EEPROM | AT21CS01 | Microchip Single-Wire Interface (SWI) — **not** Dallas/Maxim 1-Wire |
 | Host interface | USB CDC serial | 115200 baud, line-oriented text |
 
@@ -130,16 +130,16 @@ Result LEDs stay lit after the DUT is removed. They clear only when the next DUT
 
 ### LED states
 
-| State | LED 0 — Ready | LED 1 — Pass | LED 2 — Fail |
-|-------|--------------|-------------|-------------|
-| No adapter / EOL adapter | dim red | dim red | dim red |
-| Adapter detected | yellow slow blink | off | off |
-| Ready | yellow solid | off | off |
-| Testing | yellow solid | off | off |
-| Wrong orientation | red slow blink | off | off |
-| Pass | off | green solid | off |
-| Fail | off | off | red solid |
-| Fault | off | off | red fast blink |
+| State | LED 0 (D1) — Status | LED 1 (D2) — Result |
+|-------|--------------------|---------------------|
+| No adapter / EOL adapter | dim red | dim red |
+| Adapter detected | yellow slow blink | off |
+| Ready | yellow solid | off |
+| Testing | yellow solid | off |
+| Wrong orientation | red slow blink | off |
+| Pass | off | green solid |
+| Fail | off | red solid |
+| Fault | red fast blink | off |
 
 ---
 

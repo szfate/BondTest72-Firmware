@@ -18,11 +18,14 @@ Fixed bus wiring (from schematic):
 
 | CH446X Bus | COM pin | Role |
 |------------|---------|------|
-| BUS_D | COM_D | Injection + sense (27.4 kΩ pullup → GP26 / ADC0) |
-| BUS_A | COM_A | Left neighbour sense (1 MΩ divider → GP27 / ADC1) |
-| BUS_C | COM_C | Right neighbour sense (1 MΩ divider → GP28 / ADC2) |
-| BUS_B | — | Tester GND (return path, no ADC) |
-| BUS_E | — | Spare |
+| BUS_A | COM_A | Kelvin sense → GP27 / ADC1 (no pullup, 120 pF to GND) |
+| BUS_B | COM_B | Tester GND (return path via JP4, no ADC) |
+| BUS_C | COM_C | 280 kΩ pullup (~10 µA) → also GP28 / ADC2 (debug only) |
+| BUS_D | COM_D | 27.4 kΩ pullup (~100 µA) → also GP26 / ADC0 (debug only) |
+| BUS_E | COM_E | 2.49 kΩ pullup (~1 mA), also on breakout J1 pin 7; no ADC |
+
+Wiring per the BondTest72 r2 schematic. Channel routing (the table below) is
+unchanged from r1. CH446X VEE is ≈ −5 V on r2 (ICL7660), GND on r1.
 
 ---
 

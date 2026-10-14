@@ -9,9 +9,10 @@
 | Item | Detail |
 |------|--------|
 | MCU | RP2350 (Raspberry Pi Pico 2) |
-| Muxes | 3× CH446X (24:5 matrix), covering 72 channels |
-| LEDs | 3× SK6812 addressable RGB, single GPIO, series chain |
-| Buttons | 2× start, 1× reset |
+| Tester board | BondTest72 r2 (hardware repo: `../bondtest72`) |
+| Muxes | 3× CH446X (24:5 matrix), covering 72 channels; VEE ≈ −5 V from an ICL7660 (r2) |
+| LEDs | 2× SK6812 addressable RGB, single GPIO, series chain (D1 status, D2 result) |
+| Buttons | 1× start (10 kΩ external pullup), 1× reset |
 | EEPROM | AT21CS01 (Microchip Single-Wire Interface — **not** Dallas/Maxim 1-Wire) |
 | ADC | Internal RP2350 ADC; reads COM_D (ADC0/GP26), COM_A (ADC1/GP27), COM_C (ADC2/GP28) — only COM_A (Kelvin sense) is used by the production bond-test path; COM_D/COM_C are debug-only |
 | USB | CDC serial to host PC |
@@ -55,7 +56,7 @@ src/
 │   ├── mux_map.h / mux_map.cpp      # MUX_MAP[72]: logical pad → (chip, channel); filled from schematic
 │   ├── adc.h / adc.cpp              # ADC wrapper: readVoltage()
 │   ├── kelvin.h / kelvin.cpp        # Kelvin resistance-sweep primitives (measureKelvin, measureKelvinCurve)
-│   ├── sk6812.h / sk6812.cpp        # addressable LED driver, 3 pixels, single GPIO
+│   ├── sk6812.h / sk6812.cpp        # addressable LED driver, 2 pixels, single GPIO
 │   ├── buttons.h / buttons.cpp      # debounced start button input
 │   └── at21cs01.h / at21cs01.cpp    # Microchip SWI EEPROM driver (NOT Dallas 1-Wire)
 │
@@ -375,19 +376,25 @@ READY ──── button pressed ──► TESTING ─┤             │
 
 ---
 
-## LED Behaviour (3× SK6812, positions 0–2)
+## LED Behaviour (2× SK6812, positions 0–1)
 
-| State | LED 0 — Ready | LED 1 — Pass | LED 2 — Fail |
-|-------|--------------|-------------|-------------|
-| NO_ADAPTER | off | off | off |
-| ADAPTER_DETECTED | yellow slow blink | off | off |
-| READY | yellow solid | off | off |
-| TESTING | yellow fast blink | off | off |
-| PASS | off | green solid | off |
-| FAIL | off | off | red solid |
-| FAULT | off | off | red fast blink |
+| State | LED 0 (D1) — Status | LED 1 (D2) — Result |
+|-------|--------------------|---------------------|
+| NO_ADAPTER / EOL_ADAPTER | dim red | dim red |
+| ADAPTER_DETECTED | yellow slow blink | off |
+| READY | yellow solid | off |
+| TESTING | yellow solid | off |
+| WRONG_ORIENTATION | red slow blink | off |
+| PASS | off | green solid |
+| FAIL | off | red solid |
+| FAULT | red fast blink | off |
 
-Result LEDs (PASS / FAIL) remain lit while DUT is absent. Cleared when the next DUT
+The r1 board had three LEDs (separate pass and fail pixels). On r2 these share
+one result pixel, since PASS and FAIL never show at the same time.
+The result LED shows only test outcomes; FAULT is an adapter/tester condition
+and blinks on the status LED.
+
+The result LED (PASS / FAIL) stays lit while the DUT is absent. Cleared when the next DUT
 is detected, transitioning back to READY.
 
 ---

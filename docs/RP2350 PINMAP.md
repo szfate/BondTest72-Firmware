@@ -5,8 +5,8 @@ Internal-only pins (GP23, GP24, GP25, GP29) included for completeness.
 
 | Pin | GPIO | SPI | UART | I2C | ADC | Assigned To | Notes |
 |-----|------|-----|------|-----|-----|-------------|-------|
-| 1 | GP0 | SPI0 RX | UART0 TX | I2C0 SDA | — | START | active low, external pullup fitted (pin left as INPUT) |
-| 2 | GP1 | SPI0 CSn | UART0 RX | I2C0 SCL | — | LED_DIN | |
+| 1 | GP0 | SPI0 RX | UART0 TX | I2C0 SDA | — | START | active low, 10 kΩ external pullup (RP2350 E9 — pin left as INPUT) |
+| 2 | GP1 | SPI0 CSn | UART0 RX | I2C0 SCL | — | LED_DIN | 2× SK6812 chain: D1 status, D2 result |
 | 3 | GND | — | — | — | — | GND | |
 | 4 | GP2 | SPI0 SCK | UART0 CTS | I2C1 SDA | — | GP2 | Breakout header |
 | 5 | GP3 | SPI0 TX | UART0 RTS | I2C1 SCL | — | GP3 | Breakout header |
@@ -26,7 +26,7 @@ Internal-only pins (GP23, GP24, GP25, GP29) included for completeness.
 | 19 | GP14 | SPI1 SCK | UART0 CTS | I2C1 SDA | — | CLK1 | |
 | 20 | GP15 | SPI1 TX | UART0 RTS | I2C1 SCL | — | CON0 | Adapter connector defined signal |
 | 21 | GP16 | SPI0 RX | UART0 TX | I2C0 SDA | — | GP16 | Breakout header |
-| 22 | GP17 | SPI0 CSn | UART0 RX | I2C0 SCL | — | CON6 | Adapter connector signal; dedicated for EEPROM |
+| 22 | GP17 | SPI0 CSn | UART0 RX | I2C0 SCL | — | CON6 | Adapter connector signal; dedicated for EEPROM. 100 kΩ external pulldown (internal pulls disabled) |
 | 23 | GND | — | — | — | — | GND | |
 | 24 | GP18 | SPI0 SCK | UART0 CTS | I2C1 SDA | — | CON5 | Adapter connector defined signal |
 | 25 | GP19 | SPI0 TX | UART0 RTS | I2C1 SCL | — | CON4 | Adapter connector defined signal |
@@ -35,11 +35,11 @@ Internal-only pins (GP23, GP24, GP25, GP29) included for completeness.
 | 28 | GND | — | — | — | — | GND | |
 | 29 | GP22 | SPI0 SCK | UART1 CTS | I2C1 SDA | — | CON1 | Adapter connector defined signal |
 | 30 | RUN | — | — | — | — | Reset | Active-low reset |
-| 31 | GP26 | SPI1 SCK | UART1 CTS | I2C1 SDA | ADC0 | COMD | Current source + sense |
-| 32 | GP27 | SPI1 TX | UART1 RTS | I2C1 SCL | ADC1 | COMA | Previous neighbouring bond |
+| 31 | GP26 | SPI1 SCK | UART1 CTS | I2C1 SDA | ADC0 | COMD | 27.4 kΩ pullup (~100 µA source); debug-only ADC |
+| 32 | GP27 | SPI1 TX | UART1 RTS | I2C1 SCL | ADC1 | COMA | Kelvin sense (no pullup, 120 pF to GND) |
 | 33 | AGND | — | — | — | — | Analog GND | |
-| 34 | GP28 | SPI1 RX | UART0 TX | I2C0 SDA | ADC2 | COMC | Next neighbouring bond |
-| 35 | ADC_VREF | — | — | — | — | ADC reference | Tie to 3V3 or external ref |
+| 34 | GP28 | SPI1 RX | UART0 TX | I2C0 SDA | ADC2 | COMC | 280 kΩ pullup (~10 µA source); debug-only ADC |
+| 35 | ADC_VREF | — | — | — | — | ADC reference | Not connected on r2 (Pico-internal 3V3 filter); r1 had an optional LDO via JP3 |
 | 36 | 3V3 OUT | — | — | — | — | 3.3 V supply | 300 mA max |
 | 37 | 3V3_EN | — | — | — | — | 3.3 V enable | Pull low to disable regulator |
 | 38 | GND | — | — | — | — | GND | |

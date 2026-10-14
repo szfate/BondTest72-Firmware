@@ -63,6 +63,11 @@ static PadReading classifyVoltage(float v, float pullupOhms, float maxResistance
 // power is physically removed (an MCU reset will NOT clear it) and heats
 // the package to ~100°C in seconds.
 //
+// (r1 figures. The r2 board runs the CH446X VEE from an ICL7660 at ≈ −VSYS,
+// moving the latch threshold to ≈ VEE−0.3V, below any swing these nodes can
+// reach — but the sequencing below is kept as defence in depth, and the
+// per-padmap REVERSE_ONLY workaround stays until r2 is proven on the bench.)
+//
 // So the rule is: after any clearAll(), ground the reference FIRST. A full
 // clearAll() is itself safe — when everything opens, both plates of a cap
 // float together and nothing is clamped — which is why the second phase

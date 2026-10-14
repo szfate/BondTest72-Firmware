@@ -10,6 +10,12 @@ static constexpr uint8_t DIM_RED_R =  50, DIM_RED_G =  0, DIM_RED_B = 0;
 static constexpr uint32_t BLINK_SLOW_MS = 800;
 static constexpr uint32_t BLINK_FAST_MS = 200;
 
+// r2 board: two pixels. PASS and FAIL are mutually exclusive, so they share
+// one result pixel (r1's separate pass/fail pixels were merged).
+static constexpr uint8_t STATUS_LED = 0;  // D1 — top
+static constexpr uint8_t RESULT_LED = 1;  // D2 — next to the START button
+static_assert(RESULT_LED < LED_PIXEL_COUNT, "LED roles exceed the pixel chain");
+
 LedManager::LedManager(SK6812Controller& leds)
     : _leds(leds)
 {
@@ -41,23 +47,25 @@ void LedManager::update(State state) {
             }
             break;
         case State::ADAPTER_DETECTED:
-            if (blinkOn(BLINK_SLOW_MS)) { desired[0][0] = YELLOW_R; desired[0][1] = YELLOW_G; desired[0][2] = YELLOW_B; }
+            if (blinkOn(BLINK_SLOW_MS)) { desired[STATUS_LED][0] = YELLOW_R; desired[STATUS_LED][1] = YELLOW_G; desired[STATUS_LED][2] = YELLOW_B; }
             break;
         case State::READY:
         case State::TESTING:
-            desired[0][0] = YELLOW_R; desired[0][1] = YELLOW_G; desired[0][2] = YELLOW_B;
+            desired[STATUS_LED][0] = YELLOW_R; desired[STATUS_LED][1] = YELLOW_G; desired[STATUS_LED][2] = YELLOW_B;
             break;
         case State::WRONG_ORIENTATION:
-            if (blinkOn(BLINK_SLOW_MS)) { desired[0][0] = RED_R; desired[0][1] = RED_G; desired[0][2] = RED_B; }
+            if (blinkOn(BLINK_SLOW_MS)) { desired[STATUS_LED][0] = RED_R; desired[STATUS_LED][1] = RED_G; desired[STATUS_LED][2] = RED_B; }
             break;
         case State::PASS:
-            desired[1][0] = GREEN_R; desired[1][1] = GREEN_G; desired[1][2] = GREEN_B;
+            desired[RESULT_LED][0] = GREEN_R; desired[RESULT_LED][1] = GREEN_G; desired[RESULT_LED][2] = GREEN_B;
             break;
         case State::FAIL:
-            desired[2][0] = RED_R; desired[2][1] = RED_G; desired[2][2] = RED_B;
+            desired[RESULT_LED][0] = RED_R; desired[RESULT_LED][1] = RED_G; desired[RESULT_LED][2] = RED_B;
             break;
         case State::FAULT:
-            if (blinkOn(BLINK_FAST_MS)) { desired[2][0] = RED_R; desired[2][1] = RED_G; desired[2][2] = RED_B; }
+            // Adapter/tester fault (e.g. blank EEPROM), not a test outcome — the
+            // result LED is reserved for PASS/FAIL.
+            if (blinkOn(BLINK_FAST_MS)) { desired[STATUS_LED][0] = RED_R; desired[STATUS_LED][1] = RED_G; desired[STATUS_LED][2] = RED_B; }
             break;
     }
 
