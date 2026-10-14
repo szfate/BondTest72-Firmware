@@ -165,39 +165,41 @@ Line-oriented text over USB CDC, 115200 baud. All messages with arguments use `k
 
 | Command | Description |
 |---------|-------------|
-| `HELLO` | Request firmware name, build ID, and board UID |
+| `HELLO` | Request firmware name, build ID, board UID and protocol version |
 | `RUN` | Trigger a test (same as pressing the button) |
 | `GET_RESULTS` | Re-send the last result set |
 | `GET_ADAPTER` | Query current adapter info |
-| `SET_PADMAP id=<uint>` | Override pad map selection |
+| `LIST_PADMAPS` | List the built-in pad maps usable with the connected adapter |
+| `SET_PADMAP id=<uint>` | Select the pad map for this adapter session |
+| `SET_DEFAULT_PADMAP id=<uint>` | Store a pad map as the adapter's default, and select it |
 | `PROVISION hw=<uint> padmap=<uint>[,<uint>...] lifespan=<uint> date=<YYYYMMDD> [ins=<uint>] [tests=<uint>] [eol=<0\|1>]` | Write adapter EEPROM (factory use). Counters default to 0 when omitted |
 
 ### Responses (tester → host)
 
 ```
-HELLO name=<string> build=<string> uid=<hex16>
+HELLO name=<string> build=<string> uid=<hex16> proto=<uint>
 
-ADAPTER aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> dut=<0|1>
+ADAPTER aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] active=<uint> lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> dut=<0|1> state=<string>
 
 SLOT slot=<uint> present=<0|1> tested=<0|1>          # sent before that slot's PAD lines
 
-PAD slot=<uint> apin=<uint> dp=<uint> method=STD_REV result=<GOOD|OPEN> rr=<f,f,f> vr=<f,f,f>
-PAD slot=<uint> apin=<uint> dp=<uint> method=CAP_REV result=<GOOD|OPEN> vrs=<f,f,f,f,f>
+PAD slot=<uint> apin=<uint> dp=<uint> type=<IO|VDDIO|VDD_CORE|PWR_AUX|GND> method=STD_REV result=<GOOD|OPEN> rr=<f,f,f> vr=<f,f,f>
+PAD slot=<uint> apin=<uint> dp=<uint> type=<IO|VDDIO|VDD_CORE|PWR_AUX|GND> method=CAP_REV result=<GOOD|OPEN> vrs=<f,f,f,f,f>
 
 # method= encodes which direction group(s) the line carries:
 #   STD / CAP       both directions (rf= + rr= / vfs= + vrs=)
 #   STD_FW / CAP_FW forward only (rf= / vfs=)
 #   STD_REV / CAP_REV reverse only (rr= / vrs=)
-# The current build is reverse-only, so lines carry STD_REV / CAP_REV and
-# only the reverse groups. Unmeasured groups are never sent as zeros.
+# Directions are set per pad map; most are reverse-only (STD_REV / CAP_REV).
+# Unmeasured groups are never sent as zeros.
 
 SUMMARY outcome=<PASS|FAIL> good=<uint> tested=<uint> [fail_reason=DUT_REMOVED]
 
-EVENT ADAPTER_DETECTED aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...]
+EVENT ADAPTER_DETECTED aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] active=<uint>
 EVENT ADAPTER_REMOVED
 EVENT DUT_INSERTED
 EVENT DUT_REMOVED
-EVENT TEST_START aid=<hex16> ahw=<uint> ins=<uint> tests=<uint> pm=<uint>[,<uint>...] current_list_ua=<f,f,f> [max_bond_r_ohms=<float>] [cap_time_list_us=<uint,...>]
+EVENT TEST_START aid=<hex16> ahw=<uint> ins=<uint> tests=<uint> pm=<uint>[,<uint>...] active=<uint> current_list_ua=<f,f,f> [max_bond_r_ohms=<float>] [cap_time_list_us=<uint,...>]
 EVENT EOL_WARNING ins=<uint>
 EVENT WRONG_ORIENTATION
 EVENT FAULT msg=<string>
@@ -230,7 +232,7 @@ Each adapter carries an AT21CS01 EEPROM that stores lifetime and configuration d
 | 0 | 2 | Magic: `{ 0xB7, 0x72 }` |
 | 2 | 1 | `adapter_hardware` (0x01 = Mezzanine70 r1, 0x02 = Mezzanine70 r2) |
 | 3 | 1 | `rfu` (reserved, write 0xFF; earmarked as `layout_version` if a second header layout ever exists) |
-| 4 | 4 | `supported_padmap_ids` (0xFF-terminated list, up to 4 IDs; first match against the pad map registry wins) |
+| 4 | 4 | `padmap_ids` (0xFF-terminated list, up to 4 IDs; the first usable entry is the default pad map — `SET_DEFAULT_PADMAP` reorders it) |
 | 8 | 4 | reserved (all zeros) |
 | 12 | 4 | `designed_lifespan` — max insertions before EOL |
 | 16 | 4 | `date_of_manufacture` — YYYYMMDD as uint32 (e.g. 20260101) |

@@ -8,6 +8,29 @@ All communication is plain ASCII. The host sends commands (uppercase), the teste
 
 ---
 
+## Protocol version
+
+`HELLO` reports `proto=<n>`, the protocol version this document describes. It is bumped whenever a command or message format changes, so host tools can tell whether the firmware supports what they need. Firmware that sends no `proto=` speaks version 1.
+
+| Version | Changes |
+|---------|---------|
+| 1 | Original protocol |
+| 2 | `LIST_PADMAPS`, `SET_DEFAULT_PADMAP`; `SET_PADMAP` replies `OK` and checks adapter compatibility; `active=` on `ADAPTER`, `EVENT ADAPTER_DETECTED` and `EVENT TEST_START`; `state=` on `ADAPTER`; `type=` on `PAD` |
+
+New fields may be added to existing lines without a version bump, so parsers must ignore keys they don't know.
+
+---
+
+## Pad maps
+
+A pad map describes one die type: which adapter pins to measure, how, and which pins detect DUT presence. Pad maps are built into the firmware; `LIST_PADMAPS` returns the ones usable with the connected adapter.
+
+- **Compatibility** is decided by the adapter's connector pinout. Any built-in pad map written for the same pinout can be selected — it does not need to appear in the adapter's EEPROM list.
+- **Default:** the first entry of the adapter EEPROM's padmap list (`pm=` on `ADAPTER`) is activated whenever the adapter is detected, including at power-up. Entries this firmware doesn't know are skipped; if none are usable, the first compatible built-in map is used.
+- **Active:** the pad map the next test runs with (`active=`). `SET_PADMAP` changes it until the adapter is removed or the tester restarts; `SET_DEFAULT_PADMAP` also stores it as the adapter's default.
+
+---
+
 ## Commands
 
 ### `HELLO`
@@ -18,7 +41,7 @@ Identify the tester. Valid in any state.
 
 **Response:**
 ```
-HELLO name=<name> build=<build> uid=<uid>
+HELLO name=<name> build=<build> uid=<uid> proto=<n>
 ```
 
 | Field | Type | Description |
@@ -26,6 +49,7 @@ HELLO name=<name> build=<build> uid=<uid>
 | `name` | string | Device name, always `BondTest72` |
 | `build` | string | Commit date and short hash, e.g. `2026-06-03-74fb8fd` |
 | `uid` | string | 16-char hex unique board ID (RP2350 OTP) |
+| `proto` | uint8 | Protocol version (see [Protocol version](#protocol-version)). Absent on version 1 firmware |
 
 Recommended: send `HELLO` immediately after opening the serial port to verify the connected device and obtain firmware version.
 
@@ -49,28 +73,54 @@ Retrieve adapter information. Requires an adapter to be connected.
 
 **Response (success):**
 ```
-ADAPTER aid=<adapter_uid> ahw=<hw> pm=<uint>[,<uint>...] lifespan=<n> mfg_date=<n> ins=<n> tests=<n> eol=<0|1> dut=<0|1>
+ADAPTER aid=<adapter_uid> ahw=<hw> pm=<uint>[,<uint>...] active=<uint> lifespan=<n> mfg_date=<n> ins=<n> tests=<n> eol=<0|1> dut=<0|1> state=<state>
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `aid` | string | 16-char hex serial UID from the adapter's AT21CS01 EEPROM; sixteen '0's if the serial read failed. Distinct from HELLO's `uid=`, which is the tester's own RP2350 OTP board ID. |
 | `ahw` | uint8 | Hardware ID (complete adapter identifier) |
-| `pm` | uint8[] | Supported pad map IDs, comma-separated (absent if none) |
+| `pm` | uint8[] | Pad map IDs stored in the adapter EEPROM, comma-separated; the first is the default (absent if none) |
+| `active` | uint8 | Pad map the next test will run with |
 | `lifespan` | uint32 | Designed lifespan (number of insertions) |
 | `mfg_date` | uint32 | Manufacturing date as YYYYMMDD |
 | `ins` | uint32 | Current insertion count |
 | `tests` | uint32 | Current test count |
 | `eol` | 0 or 1 | End-of-life reached |
 | `dut` | 0 or 1 | DUT currently present on adapter |
+| `state` | string | Current tester state, one of the names in [State Machine](#state-machine) (e.g. `READY`, `PASS`) |
 
 **Response (error):** `ERROR code=1 msg=NO_ADAPTER`, or `ERROR code=7 msg=ADAPTER_NOT_PROVISIONED` if the EEPROM is present but blank
 
 ---
 
+### `LIST_PADMAPS`
+
+List the built-in pad maps that can run on the connected adapter. Valid in any state.
+
+**Request:** `LIST_PADMAPS`
+
+**Response (success):** one `PADMAP` line per pad map, then `OK LIST_PADMAPS`.
+```
+PADMAP id=<uint> pads=<uint> default=<0|1> active=<0|1> name=<text>
+OK LIST_PADMAPS
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | uint8 | Pad map ID |
+| `pads` | uint8 | Number of pads the map measures (one `PAD` line each) |
+| `default` | 0 or 1 | 1 for the adapter's default pad map |
+| `active` | 0 or 1 | 1 for the pad map the next test will run with |
+| `name` | string | Human-readable name. **Always the last field; runs to the end of the line and may contain spaces** |
+
+**Response (error):** `ERROR code=1 msg=NO_ADAPTER`, or `ERROR code=7 msg=ADAPTER_NOT_PROVISIONED`
+
+---
+
 ### `SET_PADMAP`
 
-Select the active pad map. Valid in any state with an adapter present.
+Select the active pad map until the adapter is removed or the tester restarts. Valid in `ADAPTER_DETECTED`, `READY`, `WRONG_ORIENTATION`, `PASS` and `FAIL`.
 
 **Request:** `SET_PADMAP id=<padmap_id>`
 
@@ -78,9 +128,25 @@ Select the active pad map. Valid in any state with an adapter present.
 |-------|------|-------------|
 | `id` | uint8 | Pad map ID to activate |
 
-**Response (success):** Pad map is set internally. No confirmation line is sent.
+**Response (success):** `OK SET_PADMAP id=<padmap_id>`
 
-**Response (error):** `ERROR code=3 msg=UNKNOWN_PADMAP`
+DUT presence and orientation are detected differently per pad map, so the tester re-checks the DUT with the new map and moves to `READY` (DUT present), `WRONG_ORIENTATION` (DUT flipped — also sends `EVENT WRONG_ORIENTATION`) or `ADAPTER_DETECTED` (no DUT). This is not counted as an insertion. A `PASS`/`FAIL` state is always left, since that result belongs to the previous pad map; `GET_RESULTS` still returns it.
+
+**Response (error):** `ERROR code=3 msg=UNKNOWN_PADMAP` (no such ID, or `id=` missing), `ERROR code=10 msg=PADMAP_INCOMPATIBLE` (written for a different adapter pinout)
+
+---
+
+### `SET_DEFAULT_PADMAP`
+
+Store a pad map as the adapter's default and activate it. Same states and checks as `SET_PADMAP`.
+
+**Request:** `SET_DEFAULT_PADMAP id=<padmap_id>`
+
+**Response (success):** `OK SET_DEFAULT_PADMAP id=<padmap_id>`
+
+The ID is moved to the front of the adapter EEPROM's padmap list; the other entries keep their order (the last one is dropped if the list was already full). Counters are preserved. The EEPROM is not rewritten if the ID is already the default. After the write, the pad map is activated exactly as with `SET_PADMAP`.
+
+**Response (error):** as `SET_PADMAP`. If the EEPROM write fails, the tester sends `EVENT FAULT msg=EEPROM_WRITE_FAILED` and enters `FAULT` instead of replying `OK`.
 
 ---
 
@@ -127,8 +193,10 @@ These lines are sent by the tester without a corresponding command, in response 
 Sent when an adapter PCB is plugged in.
 
 ```
-EVENT ADAPTER_DETECTED aid=<uid> ahw=<hw> pm=<uint>[,<uint>...]
+EVENT ADAPTER_DETECTED aid=<uid> ahw=<hw> pm=<uint>[,<uint>...] active=<uint>
 ```
+
+Fields as on `ADAPTER`. `active` is the adapter's default pad map — any earlier `SET_PADMAP` choice does not carry over to a newly detected adapter.
 
 ---
 
@@ -167,7 +235,7 @@ EVENT DUT_REMOVED
 Sent when a test begins (after `RUN` command or button press).
 
 ```
-EVENT TEST_START aid=<uid> ahw=<hw> ins=<uint> tests=<uint> pm=<uint>[,<uint>...] current_list_ua=<uint>[,<uint>...] [max_bond_r_ohms=<float>] [cap_time_list_us=<uint>[,<uint>...]]
+EVENT TEST_START aid=<uid> ahw=<hw> ins=<uint> tests=<uint> pm=<uint>[,<uint>...] active=<uint> current_list_ua=<uint>[,<uint>...] [max_bond_r_ohms=<float>] [cap_time_list_us=<uint>[,<uint>...]]
 ```
 
 | Field | Type | Description |
@@ -176,7 +244,8 @@ EVENT TEST_START aid=<uid> ahw=<hw> ins=<uint> tests=<uint> pm=<uint>[,<uint>...
 | `ahw` | uint8 | Hardware ID |
 | `ins` | uint32 | Adapter insertion count as of this test (excludes the test currently starting) |
 | `tests` | uint32 | Adapter test count as of this test (excludes the test currently starting — incremented only after it completes) |
-| `pm` | uint8[] | Supported pad map IDs, comma-separated |
+| `pm` | uint8[] | Pad map IDs stored in the adapter EEPROM, default first |
+| `active` | uint8 | Pad map this test runs with — the one the following `PAD` lines belong to |
 | `current_list_ua` | float[] | Drive current in µA for each pullup level, low-current-first — same order as `rf`/`rr`/`vf`/`vr` on `PAD` lines |
 | `max_bond_r_ohms` | float | Resistance ceiling used to classify GOOD/OPEN (see `PAD` below). Omitted if the active pad map has no case with thresholds set |
 | `cap_time_list_us` | uint16[] | Elapsed-time schedule (µs) for the 5 CAP_SENSE curve samples — same order as `vfs`/`vrs` on CAP `PAD` lines. Omitted if the active pad map has no CAP_SENSE case |
@@ -221,11 +290,11 @@ One line per tested die pad, sent during a test run. Format depends on `method`:
 - `STD` / `STD_FW` / `STD_REV` — most IO pads. A Kelvin resistance sweep: 3 pullup levels (280k/27.4k/2.49k). The variant encodes which direction group(s) the line carries: `STD` = both, `STD_FW` = forward only, `STD_REV` = reverse only.
 - `CAP` / `CAP_FW` / `CAP_REV` — pads with a real bypass/decoupling cap (VDDIO/VDD_CORE/PWR_AUX), which can't settle fast enough at 280k/27.4k. Instead of resistance, reports raw voltage samples across the 2.49k-only charging curve. Variants as for `STD`.
 
-The current firmware measures the reverse direction only (`MEASURE_DIRECTIONS = REVERSE_ONLY` in `src/test/result.h`): forward drive charges the adapter-side bypass cap to ~VCC and is the trigger sequence for the CH446X latch-up. PAD lines therefore carry `method=STD_REV`/`CAP_REV` and only the reverse groups. Unmeasured groups are never sent as zeros — `0Ω` would read as a dead short.
+The measured direction(s) are set per pad map (`PadMap::directions` in `src/test/pad_map.h`). Most pad maps measure the reverse direction only: forward drive charges the adapter-side bypass cap to ~VCC and is the trigger sequence for the CH446X latch-up on r1 boards. Their PAD lines carry `method=STD_REV`/`CAP_REV` and only the reverse groups; capless DUTs (MOSB) measure both. Unmeasured groups are never sent as zeros — `0Ω` would read as a dead short.
 
 ```
-PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> method=STD_REV result=<GOOD|OPEN> rr=<f,f,f> vr=<f,f,f>
-PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> method=CAP_REV result=<GOOD|OPEN> vrs=<f,f,f,f,f>
+PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> type=<type> method=STD_REV result=<GOOD|OPEN> rr=<f,f,f> vr=<f,f,f>
+PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> type=<type> method=CAP_REV result=<GOOD|OPEN> vrs=<f,f,f,f,f>
 ```
 
 | Field | Type | Description |
@@ -233,6 +302,7 @@ PAD slot=<slot> apin=<adapter_pin> dp=<die_pad> method=CAP_REV result=<GOOD|OPEN
 | `slot` | uint8 | DUT slot number (0 for single-DUT adapters) |
 | `apin` | uint8 | Adapter pin number |
 | `dp` | uint8 | Die pad number (0-indexed) |
+| `type` | string | Pad role from the pad map: `IO`, `VDDIO`, `VDD_CORE`, `PWR_AUX` or `GND` |
 | `method` | string | `STD`/`STD_FW`/`STD_REV` or `CAP`/`CAP_FW`/`CAP_REV` — which direction group(s) the line carries |
 | `result` | string | `GOOD` or `OPEN` |
 | `rr` | float[3] | STD lines. Reverse apparent bond resistance (Ω) at each pullup level, low-current-first (280k, 27.4k, 2.49k — see `current_list_ua` on `EVENT TEST_START`). GOOD if any of the reverse readings is below `max_bond_r_ohms`. |
@@ -287,6 +357,7 @@ ERROR code=<code> msg=<message>
 | 7 | `ADAPTER_NOT_PROVISIONED` | Adapter EEPROM chip present but blank — needs PROVISION before use |
 | 8 | `WRONG_STATE` | Command not valid in the tester's current state (msg = current state name; see the per-state table below) |
 | 9 | `EEPROM_WRITE_FAILED` | **Reserved** — never emitted. A runtime flush that fails even after write-verify + one retry now escalates to `EVENT FAULT msg=EEPROM_WRITE_FAILED` and the FAULT state instead |
+| 10 | `PADMAP_INCOMPATIBLE` | The pad map exists but is written for a different adapter pinout |
 
 ---
 
@@ -302,21 +373,28 @@ The tester operates as a state machine. Some commands are only valid in certain 
   READY ──RUN──▸ TESTING ──fail──▸ FAIL
   READY ──wrong orientation──▸ WRONG_ORIENTATION
   PASS/FAIL ──DUT removed──▸ ADAPTER_DETECTED
+  ADAPTER_DETECTED/READY/WRONG_ORIENTATION/PASS/FAIL ──SET_PADMAP──▸ READY / WRONG_ORIENTATION / ADAPTER_DETECTED (re-sensed DUT)
   any ──fault──▸ FAULT
 ```
 
 | State | Valid commands |
 |-------|---------------|
-| `NO_ADAPTER` | HELLO, GET_ADAPTER, PROVISION |
-| `FAULT` | HELLO, GET_ADAPTER, PROVISION |
-| `ADAPTER_DETECTED` | HELLO, GET_ADAPTER, SET_PADMAP, GET_RESULTS, PROVISION |
-| `READY` | HELLO, GET_ADAPTER, RUN, SET_PADMAP, GET_RESULTS, PROVISION |
-| `TESTING` | HELLO, GET_ADAPTER |
-| `PASS` / `FAIL` | HELLO, GET_ADAPTER, RUN, GET_RESULTS |
-| `EOL_ADAPTER` | HELLO, GET_ADAPTER, PROVISION |
-| `WRONG_ORIENTATION` | HELLO, GET_ADAPTER |
+Every state also accepts the queries `HELLO`, `GET_ADAPTER` and `LIST_PADMAPS`.
 
-`HELLO` and `GET_ADAPTER` are pure queries — valid in every state. `PROVISION`
+| State | Valid commands (besides the queries) |
+|-------|---------------|
+| `NO_ADAPTER` | PROVISION |
+| `FAULT` | PROVISION |
+| `ADAPTER_DETECTED` | SET_PADMAP, SET_DEFAULT_PADMAP, GET_RESULTS, PROVISION |
+| `READY` | RUN, SET_PADMAP, SET_DEFAULT_PADMAP, GET_RESULTS, PROVISION |
+| `TESTING` | — |
+| `PASS` / `FAIL` | RUN, SET_PADMAP, SET_DEFAULT_PADMAP, GET_RESULTS |
+| `EOL_ADAPTER` | PROVISION |
+| `WRONG_ORIENTATION` | SET_PADMAP, SET_DEFAULT_PADMAP |
+
+The queries are valid in every state.
+
+**Commands sent during a test are queued, not rejected.** A test runs to completion without reading the serial port, so anything the host sends meanwhile is handled right after the result lines — in `PASS`/`FAIL`, not `TESTING`. A `SET_PADMAP` queued this way is therefore accepted and immediately leaves the `PASS`/`FAIL` state. Hosts should wait for `SUMMARY` before changing the pad map. `PROVISION`
 is allowed everywhere except `TESTING`: a freshly manufactured (blank) adapter
 latches the tester into `FAULT`, and provisioning from there is the normal
 entry path — the old "EOL_ADAPTER only" rule was wrong. Commands outside a
@@ -329,27 +407,35 @@ state's set are answered with `ERROR 8 WRONG_STATE` naming the current state.
 ```
 # Host opens serial port and verifies device
 → HELLO
-← HELLO name=BondTest72 build=2026-06-03-74fb8fd uid=A1B2C3D4E5F60718
+← HELLO name=BondTest72 build=2026-06-03-74fb8fd uid=A1B2C3D4E5F60718 proto=2
 
 # Adapter plugged in (asynchronous)
-← EVENT ADAPTER_DETECTED aid=0123456789ABCDEF ahw=1 pm=2
+← EVENT ADAPTER_DETECTED aid=0123456789ABCDEF ahw=1 pm=2 active=2
+
+# Host lists the pad maps and picks one for this session
+→ LIST_PADMAPS
+← PADMAP id=2 pads=64 default=1 active=1 name=1x1 Mezzanine70 v2
+← PADMAP id=3 pads=64 default=0 active=0 name=1x0p5 Mezzanine70 v1
+← OK LIST_PADMAPS
+→ SET_PADMAP id=3
+← OK SET_PADMAP id=3
 
 # DUT inserted (asynchronous)
 ← EVENT DUT_INSERTED
 
 # Host starts test
 → RUN
-← EVENT TEST_START aid=0123456789ABCDEF ahw=1 ins=237 tests=263 pm=2 current_list_ua=10,100,1000 max_bond_r_ohms=60000 cap_time_list_us=156,312,1250,10000,20000
+← EVENT TEST_START aid=0123456789ABCDEF ahw=1 ins=237 tests=263 pm=2 active=3 current_list_ua=10,100,1000 max_bond_r_ohms=60000 cap_time_list_us=156,312,1250,10000,20000
 ← SLOT slot=0 present=1 tested=1
-← PAD slot=0 apin=63 dp=0 method=STD_REV result=GOOD rr=53579,6734,1097 vr=0.461,0.559,0.824
-← PAD slot=0 apin=64 dp=1 method=STD_REV result=GOOD rr=56431,6957,1105 vr=0.482,0.575,0.828
+← PAD slot=0 apin=63 dp=0 type=IO method=STD_REV result=GOOD rr=53579,6734,1097 vr=0.461,0.559,0.824
+← PAD slot=0 apin=64 dp=1 type=IO method=STD_REV result=GOOD rr=56431,6957,1105 vr=0.482,0.575,0.828
   ... (one PAD line per die pad; CAP pads use method=CAP_REV and vrs= instead of rr=/vr=)
 ← SUMMARY outcome=PASS good=64 tested=64
 
 # Host requests results again
 → GET_RESULTS
 ← SLOT slot=0 present=1 tested=1
-← PAD slot=0 apin=63 dp=0 method=STD_REV result=GOOD rr=53579,6734,1097 vr=0.461,0.559,0.824
+← PAD slot=0 apin=63 dp=0 type=IO method=STD_REV result=GOOD rr=53579,6734,1097 vr=0.461,0.559,0.824
   ... (all SLOT/PAD/SUMMARY lines repeated; no EVENT TEST_START)
 ```
 

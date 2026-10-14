@@ -22,7 +22,8 @@ public:
     void     setPadMap(const PadMap* padMap);
     DutEvent poll();
     void     prime();
-    bool     dutPresent() const;
+    bool     dutPresent() const;           // true for a correctly OR wrongly oriented DUT
+    bool     dutWrongOrientation() const;
 
     bool checkNow();
 

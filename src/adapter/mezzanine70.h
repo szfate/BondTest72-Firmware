@@ -13,7 +13,7 @@ public:
     void         selectDut(uint8_t)            override { }  // single-DUT, no-op
     uint8_t      getPadCount()           const override { return ADAPTER_PIN_COUNT; }
     AdapterHardware getAdapterHardware() const override { return AdapterHardware::Mezzanine70; }
-    auto getSupportedPadmapIds() const -> const uint8_t (&)[PADMAP_ID_COUNT] override { return _padmapIds; }
+    AdapterPinout getPinout()            const override { return AdapterPinout::Mezzanine70; }
     uint8_t      channelForPin(uint8_t adapterPin) const override { return adapterPin - 1; }
     bool         selfTest(MuxController& mux, AdcDriver& adc) const override;
     bool         connectorIsolationSweep(MuxController& mux, AdcDriver& adc,
@@ -30,7 +30,6 @@ public:
 private:
     bool kelvinPresence(MuxController& mux, AdcDriver& adc,
                         uint8_t pinA, uint8_t pinB, float thresholdV, const char* tag) const;
-    uint8_t _padmapIds[PADMAP_ID_COUNT];
 };
 
 // r2: onboard diode (pins 70/71) replaced with a 1k precision resistor.

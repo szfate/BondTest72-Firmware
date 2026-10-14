@@ -11,9 +11,10 @@
 static constexpr uint8_t EOL_LED_PIN = 18;  // CON5 = GP18
 static constexpr uint8_t ADAPTER_PIN_COUNT_PLUS_1 = ADAPTER_PIN_COUNT + 1;  // mirror formula for flipped-DUT detection: flipped_pin = (count+1) - normal_pin
 
-Mezzanine70::Mezzanine70(const EepromData& eeprom)
+// The EEPROM contents are owned by the state machine (the padmap list there is
+// mutable via SET_DEFAULT_PADMAP), so the adapter keeps no copy of them.
+Mezzanine70::Mezzanine70(const EepromData&)
 {
-    for (uint8_t i = 0; i < PADMAP_ID_COUNT; i++) _padmapIds[i] = eeprom.supportedPadmapIds[i];
     pinMode(EOL_LED_PIN, OUTPUT);
     digitalWrite(EOL_LED_PIN, LOW);
 }

@@ -50,7 +50,19 @@ private:
     void pollAdapterInsertion(uint32_t now);
     bool tryInitAdapter();
     bool provisionEeprom(const ProvisionRequest& req);
-    void selectPadMap();
+    void sendNoAdapterError();
+
+    // Pad map selection. The adapter EEPROM's padmap list supplies the default
+    // (first compatible entry); the host may switch to any built-in pad map
+    // whose pinout matches the adapter for the rest of the adapter session.
+    void selectPadMap();                                // default for a newly detected adapter
+    bool padMapFitsAdapter(const PadMap* map) const;    // registered map, matching pinout
+    const PadMap* findCompatiblePadMap(uint8_t id);     // nullptr + host ERROR if not usable
+    void activatePadMap(const PadMap* map);             // switch + re-sense the DUT under it
+    void syncStateToDut();                              // READY/WRONG_ORIENTATION/ADAPTER_DETECTED from a primed detector
+    void handleSetPadMap();
+    void handleSetDefaultPadMap();
+    void handleListPadMaps();
     bool checkAdapterAlive();  // returns false and transitions to NO_ADAPTER if adapter gone
     void startTest();
     void tryStartTest();

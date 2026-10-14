@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "adapter/adapter_base.h"  // AdapterPinout
 
 // PULLUP_LEVEL_COUNT and CAP_SENSE_SAMPLE_COUNT now live in hal/kelvin.h —
 // they describe the tester board's measurement hardware, not pad-map policy.
@@ -84,7 +85,9 @@ struct TestCase {
 
 struct PadMap {
     uint8_t          id;
-    const char*      name;
+    const char*      name;                // human-readable; sent to the host by LIST_PADMAPS
+    AdapterPinout    pinout;              // adapter connector this map is written for — any
+                                          // adapter with the same pinout can run it
     const TestCase*  cases;
     uint8_t          caseCount;
     uint8_t          presencePadA;        // adapter GND pin → Bus::D (27.4k pull-up) + Bus::A (Kelvin sense)

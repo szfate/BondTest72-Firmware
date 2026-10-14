@@ -32,10 +32,16 @@ static constexpr uint8_t GND5 = 26;  // adapter pin 26, die pad 32; all GND pins
 static constexpr uint8_t GND6 = 53;  // adapter pin 53, die pad 42; all GND pins equivalent (TQVA)
 static constexpr uint8_t GNDM = 43;  // adapter pin 43, die pad 54 — the ONLY GND connection (MOSB)
 
-// STANDARD settle: short (bond readings settle within the 6-reading sweep).
+// STANDARD settle: per reading, so it is paid 3× per pad — keep it short for
+// factory throughput. Sized for the slowest case, an OPEN pad at the 280k
+// level charging the sense node: on the r2 board (120pF on COM_A plus mux/trace
+// capacitance, ~380pF total measured) τ ≈ 107µs, so 500µs ≈ 4.7τ ≈ 99% of VCC.
+// At the previous 200µs an open read only ~2.8V there — still classified OPEN
+// (apparent R ≫ kThresh), but the logged value wasn't settled. Real bonds have
+// far lower R and settle much faster at every level.
 // CAP_SENSE settle: the post-discharge settle for the 2.49k-only charging
 // curve (see pad_map.h TestStrategy::CAP_SENSE for the τ analysis).
-static constexpr uint16_t IO_SETTLE_US  = 200;
+static constexpr uint16_t IO_SETTLE_US  = 500;
 static constexpr uint16_t CAP_SETTLE_US = 20000;
 
 // IO case shorthand — args: adapterPin, diePad
@@ -564,6 +570,7 @@ static const PadMap _maps[] = {
     {
         .id                 = 1,
         .name               = "1x1 Mezzanine70 v1",
+        .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm1Cases,
         .caseCount          = 63,
         .presencePadA       = 10,
@@ -575,6 +582,7 @@ static const PadMap _maps[] = {
     {
         .id                 = 2,
         .name               = "1x1 Mezzanine70 v2",
+        .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm2Cases,
         .caseCount          = 64,
         .presencePadA       = 10,
@@ -586,6 +594,7 @@ static const PadMap _maps[] = {
     {
         .id                 = 3,
         .name               = "1x0p5 Mezzanine70 v1",
+        .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm3Cases,
         .caseCount          = 64,
         .presencePadA       = 10,
@@ -597,6 +606,7 @@ static const PadMap _maps[] = {
     {
         .id                 = 4,
         .name               = "MOSB",
+        .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm4Cases,
         .caseCount          = 68,
         .presencePadA       = 43,   // GND pad — forced + Kelvin-sensed
@@ -617,6 +627,7 @@ static const PadMap _maps[] = {
     {
         .id                 = 5,
         .name               = "0p5x1 Mezzanine70 v1",
+        .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm5Cases,
         .caseCount          = 64,
         .presencePadA       = 61,  // die pad 68 (gnd_7)
@@ -628,6 +639,7 @@ static const PadMap _maps[] = {
     {
         .id                 = 6,
         .name               = "TQVA",
+        .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm6Cases,
         .caseCount          = 41,
         .presencePadA       = 26,  // dp26 GND (dut 45). Flipped mirror sees dut 26

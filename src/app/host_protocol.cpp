@@ -41,14 +41,24 @@ HostCommand HostProtocol::processLine(const char* line) {
     if (strcmp(line, "GET_RESULTS") == 0)      return HostCommand::GET_RESULTS;
     if (strcmp(line, "GET_ADAPTER") == 0)       return HostCommand::GET_ADAPTER;
     if (strcmp(line, "HELLO") == 0)             return HostCommand::HELLO;
+    if (strcmp(line, "LIST_PADMAPS") == 0)      return HostCommand::LIST_PADMAPS;
 
-    if (strncmp(line, "SET_PADMAP ", sizeof("SET_PADMAP ") - 1) == 0) {
+    // SET_PADMAP and SET_DEFAULT_PADMAP share one argument. A missing or
+    // out-of-range id still dispatches the command — as PADMAP_UNSET, which
+    // never matches a registered map — so the host gets an UNKNOWN_PADMAP
+    // error instead of silence. The name must be followed by a space or the
+    // end of the line, so e.g. "SET_PADMAPX" is not mistaken for SET_PADMAP.
+    const struct { const char* name; HostCommand cmd; } padmapCmds[] = {
+        { "SET_PADMAP",         HostCommand::SET_PADMAP },
+        { "SET_DEFAULT_PADMAP", HostCommand::SET_DEFAULT_PADMAP },
+    };
+    for (const auto& pc : padmapCmds) {
+        const size_t len = strlen(pc.name);
+        if (strncmp(line, pc.name, len) != 0 || (line[len] != ' ' && line[len] != '\0')) continue;
         uint32_t id;
-        if (parseKvUint(line + sizeof("SET_PADMAP ") - 1, "id", id)) {
-            _setPadmapId = (uint8_t)id;
-            return HostCommand::SET_PADMAP;
-        }
-        return HostCommand::NONE;
+        _padmapIdArg = (parseKvUint(line + len, "id", id) && id < EepromData::PADMAP_UNSET)
+                           ? (uint8_t)id : EepromData::PADMAP_UNSET;
+        return pc.cmd;
     }
 
     if (strncmp(line, "PROVISION ", sizeof("PROVISION ") - 1) == 0) {
@@ -145,29 +155,59 @@ void HostProtocol::printPadmapList(const uint8_t (&padmapIds)[AdapterBase::PADMA
     }
 }
 
+// Prints " active=<id>" for the pad map that the next test will run; prints
+// nothing when there is none. Shared by ADAPTER, ADAPTER_DETECTED, TEST_START.
+void HostProtocol::printActivePadmap(const PadMap* activePadMap) {
+    if (!activePadMap) return;
+    Serial.print(" active=");
+    Serial.print(activePadMap->id);
+}
+
 void HostProtocol::sendAdapterInfo(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT],
+                                    const PadMap* activePadMap,
                                     uint32_t lifespan, uint32_t dateOfManufacture,
                                     uint32_t insertions, uint32_t tests, bool eol,
-                                    bool dutPresent) {
+                                    bool dutPresent, const char* state) {
     Serial.print("ADAPTER");
     Serial.print(" aid=");     Serial.print(_adapterUid);
     Serial.print(" ahw=");     Serial.print(hwId);
     printPadmapList(padmapIds);
+    printActivePadmap(activePadMap);
     Serial.print(" lifespan=");   Serial.print(lifespan);
     Serial.print(" mfg_date=");   Serial.print(dateOfManufacture);
     Serial.print(" ins=");        Serial.print(insertions);
     Serial.print(" tests=");      Serial.print(tests);
     Serial.print(" eol=");        Serial.print(eol ? 1 : 0);
     Serial.print(" dut=");        Serial.print(dutPresent ? 1 : 0);
+    // The tester's state machine state, so a host that connects mid-session
+    // can tell e.g. READY from PASS without having seen the events.
+    Serial.print(" state=");      Serial.print(state);
     Serial.println();
 }
 
-void HostProtocol::sendAdapterDetected(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT]) {
+void HostProtocol::sendAdapterDetected(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT],
+                                        const PadMap* activePadMap) {
     Serial.print("EVENT ADAPTER_DETECTED ");
     Serial.print("aid=");     Serial.print(_adapterUid);
     Serial.print(" ahw=");    Serial.print(hwId);
     printPadmapList(padmapIds);
+    printActivePadmap(activePadMap);
     Serial.println();
+}
+
+// pads= counts measured pads only — DISCHARGE steps are preparation, not
+// results, and never produce a PAD line. name= is always the LAST field and
+// runs to the end of the line, because pad map names contain spaces.
+void HostProtocol::sendPadmapEntry(const PadMap& padMap, bool isDefault, bool isActive) {
+    uint8_t pads = 0;
+    for (uint8_t i = 0; i < padMap.caseCount; i++)
+        if (padMap.cases[i].strategy != TestStrategy::DISCHARGE) pads++;
+
+    Serial.print("PADMAP id=");    Serial.print(padMap.id);
+    Serial.print(" pads=");        Serial.print(pads);
+    Serial.print(" default=");     Serial.print(isDefault ? 1 : 0);
+    Serial.print(" active=");      Serial.print(isActive ? 1 : 0);
+    Serial.print(" name=");        Serial.println(padMap.name);
 }
 
 void HostProtocol::sendAdapterRemoved() {
@@ -223,6 +263,7 @@ void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t (&padmapIds)[Adapte
     Serial.printf("EVENT TEST_START aid=%s ahw=%u ins=%lu tests=%lu",
                   _adapterUid, hwId, (unsigned long)insertions, (unsigned long)tests);
     printPadmapList(padmapIds);
+    printActivePadmap(padMap);
 
     // Order matches PULLUP_LEVELS / rf,rr,vf,vr in PAD lines, low-current-first.
     // Fixed for the life of the firmware build, so sent once here rather than
@@ -260,8 +301,21 @@ static void printReadingGroupCsv(const PadReading* group, uint8_t count, bool re
     }
 }
 
+// Wire names for PadType, in enum order (type= on PAD lines).
+static const char* padTypeName(PadType t) {
+    switch (t) {
+        case PadType::IO:       return "IO";
+        case PadType::VDDIO:    return "VDDIO";
+        case PadType::VDD_CORE: return "VDD_CORE";
+        case PadType::PWR_AUX:  return "PWR_AUX";
+        case PadType::GND:      return "GND";
+    }
+    return "IO";
+}
+
 void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad,
-                                  TestStrategy strategy, MeasureDirections dirs, const PadResult& r) {
+                                  TestStrategy strategy, PadType padType,
+                                  MeasureDirections dirs, const PadResult& r) {
     // method= encodes which direction group(s) the line carries (see
     // PadMap::directions in pad_map.h): STD/CAP = both, *_FW = forward only,
     // *_REV = reverse only. Unmeasured groups are omitted from the wire —
@@ -274,6 +328,7 @@ void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePa
     Serial.print("slot=");   Serial.print(slot);
     Serial.print(" apin=");    Serial.print(adapterPin);
     Serial.print(" dp=");     Serial.print(diePad);
+    Serial.print(" type=");   Serial.print(padTypeName(padType));
     Serial.print(" method="); Serial.print(strategy == TestStrategy::CAP_SENSE ? "CAP" : "STD");
     Serial.print(dirSuffix);
     Serial.print(" result=");
@@ -361,6 +416,13 @@ void HostProtocol::sendOk(const char* what) {
     Serial.println(what);
 }
 
+void HostProtocol::sendOkPadmap(const char* what, uint8_t padmapId) {
+    Serial.print("OK ");
+    Serial.print(what);
+    Serial.print(" id=");
+    Serial.println(padmapId);
+}
+
 // uid= here is the TESTER's own RP2350 OTP board ID — distinct from the
 // adapter's aid= (AT21CS01 serial) on ADAPTER/ADAPTER_DETECTED/TEST_START.
 void HostProtocol::sendHello() {
@@ -372,5 +434,7 @@ void HostProtocol::sendHello() {
     char uidhex[17];
     pico_get_unique_board_id_string(uidhex, sizeof(uidhex));
     Serial.print(uidhex);
+    Serial.print(" proto=");
+    Serial.print(PROTOCOL_VERSION);
     Serial.println();
 }

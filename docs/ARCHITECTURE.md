@@ -112,8 +112,8 @@ Offset  Size  Field
 2       1     hwId  (AdapterHardware enum: 0x01=Mezzanine70, 0x02=Mezzanine70r2)
 3       1     rfu    (reserved, 0xFF — earmarked as layout_version if a
                       second header layout ever exists)
-4       4     supported_padmap_ids[4]  (0xFF-terminated list; first match against
-                                        PadMapRegistry wins — see PadMap Selection Priority)
+4       4     padmap_ids[4]  (0xFF-terminated list; the first usable entry is the
+                              default — see PadMap Selection Priority)
 8       4     reserved
 12      4     designed_lifespan   (uint32, max insertions before EOL — set at manufacture)
 16      4     date_of_manufacture (uint32, YYYYMMDD)
@@ -148,7 +148,7 @@ getDutCount()             → number of DUT slots
 selectDut(index)          → activate one slot (no-op for single-DUT adapters)
 getPadCount()             → pads per DUT slot
 getAdapterHardware()      → hardware ID enum
-getSupportedPadmapIds()   → 0xFF-terminated padmap-ID list from EEPROM
+getPinout()               → connector pinout; pad maps with the same pinout can run on this adapter
 channelForPin(adapterPin) → adapter pin (1-indexed) → mux logical channel
 selfTest(mux, adc)        → onboard reference-component sanity check, run once per adapter insertion
 connectorIsolationSweep(mux, adc, padMap)  → checks for cross-pad shorts on the connector (default: no-op, true)
@@ -215,18 +215,22 @@ pads with no result recorded. See `TestRunner` below and `EVENT TEST_START`'s
 `max_bond_r_ohms`/`current_list_ua`/`cap_time_list_us` in the host protocol doc
 for exactly what's compared against what.
 
-Three pad maps are hardcoded in `PadMapRegistry` today (ids 1–3, all for the
-Mezzanine70 board family). Can be extended to receive maps from host via
-`SET_PADMAP` later.
+Pad maps are built into `PadMapRegistry` (ids 1–6 today, all for the
+Mezzanine70 pinout). Each declares the adapter pinout it is written for
+(`PadMap::pinout`); any map whose pinout matches the connected adapter's
+(`AdapterBase::getPinout()`) can be selected. Hardware revisions with the same
+connector wiring share a pinout, so Mezzanine70 r1 and r2 run the same maps.
 
 ### PadMap Selection Priority
 
-1. Host sends `SET_PADMAP id=<n>` command → overrides `_padMap` immediately, any time
-2. At adapter init (`StateMachine::selectPadMap`): try each ID in the adapter
-   EEPROM's `supported_padmap_ids` list, in order, against `PadMapRegistry::find()`
-3. If none match → fall back to `PadMapRegistry::all()`, which returns the
-   first registered map (today: id 1) as a default — this is a static
-   fallback, not a continuity-based auto-detect
+1. Host sends `SET_PADMAP id=<n>` (or `SET_DEFAULT_PADMAP`) → replaces
+   `_padMap` when no test is running, if the map's pinout fits the adapter.
+   The DUT is re-sensed with the new map (`StateMachine::activatePadMap`).
+   The choice lasts until the adapter is re-detected.
+2. At adapter init (`StateMachine::selectPadMap`): the first ID in the adapter
+   EEPROM's padmap list that is registered and fits the adapter's pinout.
+   `SET_DEFAULT_PADMAP` moves an ID to the front of this list.
+3. If none fit → the first registered map that fits the adapter's pinout.
 
 ---
 
@@ -409,28 +413,30 @@ Line-oriented text protocol using `key=value` pairs for all messages with argume
 RUN                              trigger test (same as button press)
 GET_ADAPTER                      query adapter info
 GET_RESULTS                      re-send last result set
-SET_PADMAP id=<uint>             select active pad map by project ID
+LIST_PADMAPS                     list pad maps usable with the connected adapter
+SET_PADMAP id=<uint>             select active pad map for this adapter session
+SET_DEFAULT_PADMAP id=<uint>     store pad map as the adapter's default, and select it
 PROVISION hw=<uint> padmap=<uint>[,<uint>...] lifespan=<uint> date=<YYYYMMDD>  write adapter EEPROM (factory use)
 ```
 
 ### Events and responses (tester → host)
 
 ```
-EVENT ADAPTER_DETECTED aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...]
+EVENT ADAPTER_DETECTED aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] active=<uint>
 EVENT ADAPTER_REMOVED
 EVENT DUT_INSERTED
 EVENT DUT_REMOVED
-EVENT TEST_START aid=<hex16> ahw=<uint> ins=<uint> tests=<uint> pm=<uint>[,<uint>...] current_list_ua=<f,f,f> [max_bond_r_ohms=<float>] [cap_time_list_us=<uint,...>]
+EVENT TEST_START aid=<hex16> ahw=<uint> ins=<uint> tests=<uint> pm=<uint>[,<uint>...] active=<uint> current_list_ua=<f,f,f> [max_bond_r_ohms=<float>] [cap_time_list_us=<uint,...>]
 EVENT EOL_WARNING ins=<uint>
 EVENT WRONG_ORIENTATION
 EVENT FAULT msg=<string>
 
-ADAPTER aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> dut=<0|1>
+ADAPTER aid=<hex16> ahw=<uint> pm=<uint>[,<uint>...] active=<uint> lifespan=<uint> mfg_date=<YYYYMMDD> ins=<uint> tests=<uint> eol=<0|1> dut=<0|1> state=<string>
 
 SLOT slot=<uint> present=<0|1> tested=<0|1>          # sent before that slot's PAD lines
 
-PAD slot=<uint> apin=<uint> dp=<uint> method=STD_REV result=<GOOD|OPEN> rr=<f,f,f> vr=<f,f,f>
-PAD slot=<uint> apin=<uint> dp=<uint> method=CAP_REV result=<GOOD|OPEN> vrs=<f,f,f,f,f>
+PAD slot=<uint> apin=<uint> dp=<uint> type=<IO|VDDIO|VDD_CORE|PWR_AUX|GND> method=STD_REV result=<GOOD|OPEN> rr=<f,f,f> vr=<f,f,f>
+PAD slot=<uint> apin=<uint> dp=<uint> type=<IO|VDDIO|VDD_CORE|PWR_AUX|GND> method=CAP_REV result=<GOOD|OPEN> vrs=<f,f,f,f,f>
 
 SUMMARY outcome=<PASS|FAIL> good=<uint> tested=<uint> [fail_reason=DUT_REMOVED]
 

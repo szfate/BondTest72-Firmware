@@ -45,6 +45,10 @@ bool DutDetector::dutPresent() const {
     return _state == DutState::PRESENT || _state == DutState::WRONG_ORIENTATION;
 }
 
+bool DutDetector::dutWrongOrientation() const {
+    return _state == DutState::WRONG_ORIENTATION;
+}
+
 DutEvent DutDetector::poll() {
     if (!_adapter || !_padMap) return DutEvent::NONE;
 
