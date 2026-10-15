@@ -12,6 +12,7 @@ activate-pio.sh
 *.pyc
 .venv/
 venv/
+.pytest_cache/
 
 # Auto-generated
 src/build_info.h

@@ -1,0 +1,139 @@
+HELLO name=BondTest72 build=2026-10-15-0415793 uid=0000000000000001 proto=2
+PADMAP id=1 pads=63 default=0 active=0 name=1x1 Mezzanine70 v1
+PADMAP id=2 pads=64 default=1 active=1 name=1x1 Mezzanine70 v2
+OK LIST_PADMAPS
+[  28736] [INFO] test start: slots=1 pads=64
+EVENT TEST_START aid=00000000000000AA ahw=2 ins=1 tests=1 pm=2,5 active=2 current_list_ua=12,120,1325 max_bond_r_ohms=60000 cap_time_list_us=156,312,1250,10000,20000
+[  28737] [INFO] state READY -> TESTING
+[  28744] [INFO] slot0 apin63 die0: result=OPEN
+[  28752] [INFO] slot0 apin64 die1: result=OPEN
+[  28760] [INFO] slot0 apin65 die2: result=OPEN
+[  28768] [INFO] slot0 apin66 die3: result=OPEN
+[  28776] [INFO] slot0 apin67 die4: result=OPEN
+[  28784] [INFO] slot0 apin68 die5: result=OPEN
+[  28792] [INFO] slot0 apin69 die6: result=OPEN
+[  28800] [INFO] slot0 apin70 die7: result=OPEN
+[  28808] [INFO] slot0 apin1 die9: result=OPEN
+[  28816] [INFO] slot0 apin2 die10: result=OPEN
+[  28824] [INFO] slot0 apin3 die11: result=OPEN
+[  28831] [INFO] slot0 apin4 die12: result=OPEN
+[  28839] [INFO] slot0 apin5 die13: result=OPEN
+[  28847] [INFO] slot0 apin6 die14: result=OPEN
+[  28855] [INFO] slot0 apin7 die15: result=OPEN
+[  28863] [INFO] slot0 apin8 die16: result=OPEN
+[  28871] [INFO] slot0 apin11 die19: result=OPEN
+[  28879] [INFO] slot0 apin12 die20: result=OPEN
+[  28887] [INFO] slot0 apin13 die21: result=OPEN
+[  28895] [INFO] slot0 apin14 die22: result=OPEN
+[  28903] [INFO] slot0 apin15 die23: result=OPEN
+[  28910] [INFO] slot0 apin16 die24: result=OPEN
+[  28918] [INFO] slot0 apin19 die27: result=OPEN
+[  28926] [INFO] slot0 apin20 die28: result=OPEN
+[  28934] [INFO] slot0 apin21 die29: result=OPEN
+[  28942] [INFO] slot0 apin22 die30: result=OPEN
+[  28950] [INFO] slot0 apin23 die31: result=OPEN
+[  28958] [INFO] slot0 apin24 die32: result=OPEN
+[  28966] [INFO] slot0 apin28 die37: result=OPEN
+[  28974] [INFO] slot0 apin29 die38: result=OPEN
+[  28982] [INFO] slot0 apin30 die39: result=OPEN
+[  28990] [INFO] slot0 apin31 die40: result=OPEN
+[  28997] [INFO] slot0 apin32 die41: result=OPEN
+[  29005] [INFO] slot0 apin33 die42: result=OPEN
+[  29013] [INFO] slot0 apin34 die43: result=OPEN
+[  29021] [INFO] slot0 apin35 die44: result=OPEN
+[  29029] [INFO] slot0 apin36 die46: result=OPEN
+[  29037] [INFO] slot0 apin37 die47: result=OPEN
+[  29045] [INFO] slot0 apin38 die48: result=OPEN
+[  29053] [INFO] slot0 apin39 die49: result=OPEN
+[  29061] [INFO] slot0 apin40 die50: result=OPEN
+[  29069] [INFO] slot0 apin41 die51: result=OPEN
+[  29076] [INFO] slot0 apin42 die52: result=OPEN
+[  29084] [INFO] slot0 apin43 die53: result=OPEN
+[  29092] [INFO] slot0 apin44 die54: result=OPEN
+[  29100] [INFO] slot0 apin45 die55: result=OPEN
+[  29108] [INFO] slot0 apin48 die58: result=OPEN
+[  29116] [INFO] slot0 apin49 die59: result=OPEN
+[  29124] [INFO] slot0 apin50 die60: result=OPEN
+[  29132] [INFO] slot0 apin51 die61: result=OPEN
+[  29140] [INFO] slot0 apin54 die64: result=OPEN
+[  29148] [INFO] slot0 apin55 die65: result=OPEN
+[  29156] [INFO] slot0 apin56 die66: result=OPEN
+[  29164] [INFO] slot0 apin57 die67: result=OPEN
+[  29171] [INFO] slot0 apin58 die68: result=OPEN
+[  29179] [INFO] slot0 apin59 die69: result=OPEN
+[  29202] [INFO] slot0 apin9 die17: result=OPEN
+[  29224] [INFO] slot0 apin17 die25: result=OPEN
+[  29246] [INFO] slot0 apin25 die34: result=OPEN
+[  29268] [INFO] slot0 apin27 die36: result=OPEN
+[  29291] [INFO] slot0 apin47 die57: result=OPEN
+[  29313] [INFO] slot0 apin52 die63: result=OPEN
+[  29335] [INFO] slot0 apin60 die71: result=OPEN
+[  29357] [INFO] slot0 apin62 die73: result=OPEN
+[  29409] [INFO] test done: outcome=FAIL
+[  29409] [INFO]   slot 0: 0/64 good
+SLOT slot=0 present=1 tested=1
+PAD slot=0 apin=63 dp=0 type=IO method=STD_REV result=OPEN rr=14419998,1000000000,1000000000 vr=3.237,3.300,3.300
+PAD slot=0 apin=64 dp=1 type=IO method=STD_REV result=OPEN rr=14419998,1000000000,1000000000 vr=3.237,3.300,3.300
+PAD slot=0 apin=65 dp=2 type=IO method=STD_REV result=OPEN rr=14610905,1000000000,1000000000 vr=3.238,3.300,3.300
+PAD slot=0 apin=66 dp=3 type=IO method=STD_REV result=OPEN rr=14610905,1000000000,1000000000 vr=3.238,3.300,3.300
+PAD slot=0 apin=67 dp=4 type=IO method=STD_REV result=OPEN rr=15869281,1000000000,1000000000 vr=3.243,3.300,3.300
+PAD slot=0 apin=68 dp=5 type=IO method=STD_REV result=OPEN rr=13209418,1000000000,1000000000 vr=3.232,3.300,3.300
+PAD slot=0 apin=69 dp=6 type=IO method=STD_REV result=OPEN rr=14052500,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=70 dp=7 type=IO method=STD_REV result=OPEN rr=15214586,1000000000,1000000000 vr=3.240,3.300,3.300
+PAD slot=0 apin=1 dp=9 type=IO method=STD_REV result=OPEN rr=14806837,1000000000,1000000000 vr=3.239,3.300,3.300
+PAD slot=0 apin=2 dp=10 type=IO method=STD_REV result=OPEN rr=14233924,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=3 dp=11 type=IO method=STD_REV result=OPEN rr=13702930,1000000000,1000000000 vr=3.234,3.300,3.300
+PAD slot=0 apin=4 dp=12 type=IO method=STD_REV result=OPEN rr=14233924,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=5 dp=13 type=IO method=STD_REV result=OPEN rr=15426839,1000000000,1000000000 vr=3.241,3.300,3.300
+PAD slot=0 apin=6 dp=14 type=IO method=STD_REV result=OPEN rr=14419998,1000000000,1000000000 vr=3.237,3.300,3.300
+PAD slot=0 apin=7 dp=15 type=IO method=STD_REV result=OPEN rr=14806837,1000000000,1000000000 vr=3.239,3.300,3.300
+PAD slot=0 apin=8 dp=16 type=IO method=STD_REV result=OPEN rr=13534463,1000000000,1000000000 vr=3.233,3.300,3.300
+PAD slot=0 apin=11 dp=19 type=IO method=STD_REV result=OPEN rr=15007993,1000000000,1000000000 vr=3.240,3.300,3.300
+PAD slot=0 apin=12 dp=20 type=IO method=STD_REV result=OPEN rr=13875557,1000000000,1000000000 vr=3.235,3.300,3.300
+PAD slot=0 apin=13 dp=21 type=IO method=STD_REV result=OPEN rr=14233924,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=14 dp=22 type=IO method=STD_REV result=OPEN rr=14419998,1000000000,1000000000 vr=3.237,3.300,3.300
+PAD slot=0 apin=15 dp=23 type=IO method=STD_REV result=OPEN rr=14610905,1000000000,1000000000 vr=3.238,3.300,3.300
+PAD slot=0 apin=16 dp=24 type=IO method=STD_REV result=OPEN rr=12899319,1000000000,1000000000 vr=3.230,3.300,3.300
+PAD slot=0 apin=19 dp=27 type=IO method=STD_REV result=OPEN rr=14806837,1000000000,1000000000 vr=3.239,3.300,3.300
+PAD slot=0 apin=20 dp=28 type=IO method=STD_REV result=OPEN rr=14233924,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=21 dp=29 type=IO method=STD_REV result=OPEN rr=14610905,1000000000,1000000000 vr=3.238,3.300,3.300
+PAD slot=0 apin=22 dp=30 type=IO method=STD_REV result=OPEN rr=13370005,1000000000,1000000000 vr=3.232,3.300,3.300
+PAD slot=0 apin=23 dp=31 type=IO method=STD_REV result=OPEN rr=14233924,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=24 dp=32 type=IO method=STD_REV result=OPEN rr=15214586,1000000000,1000000000 vr=3.240,3.300,3.300
+PAD slot=0 apin=28 dp=37 type=IO method=STD_REV result=OPEN rr=14419998,1000000000,1000000000 vr=3.237,3.300,3.300
+PAD slot=0 apin=29 dp=38 type=IO method=STD_REV result=OPEN rr=13052566,1000000000,1000000000 vr=3.231,3.300,3.300
+PAD slot=0 apin=30 dp=39 type=IO method=STD_REV result=OPEN rr=14610905,1000000000,1000000000 vr=3.238,3.300,3.300
+PAD slot=0 apin=31 dp=40 type=IO method=STD_REV result=OPEN rr=14233924,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=32 dp=41 type=IO method=STD_REV result=OPEN rr=15426839,1000000000,1000000000 vr=3.241,3.300,3.300
+PAD slot=0 apin=33 dp=42 type=IO method=STD_REV result=OPEN rr=13209418,1000000000,1000000000 vr=3.232,3.300,3.300
+PAD slot=0 apin=34 dp=43 type=IO method=STD_REV result=OPEN rr=14233924,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=35 dp=44 type=IO method=STD_REV result=OPEN rr=14610905,1000000000,1000000000 vr=3.238,3.300,3.300
+PAD slot=0 apin=36 dp=46 type=IO method=STD_REV result=OPEN rr=14806837,1000000000,1000000000 vr=3.239,3.300,3.300
+PAD slot=0 apin=37 dp=47 type=IO method=STD_REV result=OPEN rr=14233924,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=38 dp=48 type=IO method=STD_REV result=OPEN rr=13370005,1000000000,1000000000 vr=3.232,3.300,3.300
+PAD slot=0 apin=39 dp=49 type=IO method=STD_REV result=OPEN rr=14052500,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=40 dp=50 type=IO method=STD_REV result=OPEN rr=15214586,1000000000,1000000000 vr=3.240,3.300,3.300
+PAD slot=0 apin=41 dp=51 type=IO method=STD_REV result=OPEN rr=14052500,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=42 dp=52 type=IO method=STD_REV result=OPEN rr=15007993,1000000000,1000000000 vr=3.240,3.300,3.300
+PAD slot=0 apin=43 dp=53 type=IO method=STD_REV result=OPEN rr=13534463,1000000000,1000000000 vr=3.233,3.300,3.300
+PAD slot=0 apin=44 dp=54 type=IO method=STD_REV result=OPEN rr=14419998,1000000000,1000000000 vr=3.237,3.300,3.300
+PAD slot=0 apin=45 dp=55 type=IO method=STD_REV result=OPEN rr=14233924,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=48 dp=58 type=IO method=STD_REV result=OPEN rr=13875557,1000000000,1000000000 vr=3.235,3.300,3.300
+PAD slot=0 apin=49 dp=59 type=IO method=STD_REV result=OPEN rr=14806837,1000000000,1000000000 vr=3.239,3.300,3.300
+PAD slot=0 apin=50 dp=60 type=IO method=STD_REV result=OPEN rr=14233924,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=51 dp=61 type=IO method=STD_REV result=OPEN rr=15426839,1000000000,1000000000 vr=3.241,3.300,3.300
+PAD slot=0 apin=54 dp=64 type=IO method=STD_REV result=OPEN rr=13209418,1000000000,1000000000 vr=3.232,3.300,3.300
+PAD slot=0 apin=55 dp=65 type=IO method=STD_REV result=OPEN rr=14233924,1000000000,1000000000 vr=3.236,3.300,3.300
+PAD slot=0 apin=56 dp=66 type=IO method=STD_REV result=OPEN rr=14610905,1000000000,1000000000 vr=3.238,3.300,3.300
+PAD slot=0 apin=57 dp=67 type=IO method=STD_REV result=OPEN rr=14806837,1000000000,1000000000 vr=3.239,3.300,3.300
+PAD slot=0 apin=58 dp=68 type=IO method=STD_REV result=OPEN rr=13209418,1000000000,1000000000 vr=3.232,3.300,3.300
+PAD slot=0 apin=59 dp=69 type=IO method=STD_REV result=OPEN rr=15007993,1000000000,1000000000 vr=3.240,3.300,3.300
+PAD slot=0 apin=9 dp=17 type=VDDIO method=CAP_REV result=OPEN vrs=0.445,0.665,1.682,3.300,3.300
+PAD slot=0 apin=17 dp=25 type=PWR_AUX method=CAP_REV result=OPEN vrs=0.424,0.640,1.650,3.300,3.300
+PAD slot=0 apin=25 dp=34 type=VDD_CORE method=CAP_REV result=OPEN vrs=0.444,0.666,1.708,3.300,3.300
+PAD slot=0 apin=27 dp=36 type=VDDIO method=CAP_REV result=OPEN vrs=0.430,0.648,1.660,3.300,3.300
+PAD slot=0 apin=47 dp=57 type=VDDIO method=CAP_REV result=OPEN vrs=0.431,0.644,1.646,3.300,3.300
+PAD slot=0 apin=52 dp=63 type=PWR_AUX method=CAP_REV result=OPEN vrs=3.300,3.300,3.300,3.300,3.300
+PAD slot=0 apin=60 dp=71 type=VDD_CORE method=CAP_REV result=OPEN vrs=0.411,0.625,1.632,3.300,3.300
+PAD slot=0 apin=62 dp=73 type=VDDIO method=CAP_REV result=OPEN vrs=0.436,0.650,1.657,3.300,3.300
+SUMMARY outcome=FAIL good=0 tested=64
