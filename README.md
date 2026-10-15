@@ -134,7 +134,7 @@ Result LEDs stay lit after the DUT is removed. They clear only when the next DUT
 |-------|--------------------|---------------------|
 | No adapter / EOL adapter | dim red | dim red |
 | Adapter detected | yellow slow blink | off |
-| Ready | yellow solid | off |
+| Ready | dim green solid | off |
 | Testing | yellow solid | off |
 | Wrong orientation | red slow blink | off |
 | Pass | off | green solid |
