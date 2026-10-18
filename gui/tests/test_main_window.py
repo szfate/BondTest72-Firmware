@@ -80,3 +80,23 @@ def test_changing_the_pad_map_clears_the_result_and_redraws_the_die(window, trac
     assert [panel.pad_count for panel in window._panels] == [0, 0]
     assert window._die_view._shape is mw.shape_for_padmap(3)
     assert window._history_list.count() == 1 and window._history_list.currentRow() == -1
+
+
+def test_toolbar_button_hides_the_bottom_panel_and_the_choice_is_remembered(window):
+    assert not window._dock.isHidden() and window._panel_button.isChecked()
+    window._panel_button.click()
+    assert window._dock.isHidden() and not window._panel_button.isChecked()
+
+    window.close()
+    reopened = mw.MainWindow()
+    assert reopened._dock.isHidden() and not reopened._panel_action.isChecked()
+    reopened._panel_action.trigger()                  # View menu / Ctrl+J
+    assert not reopened._dock.isHidden() and reopened._panel_button.isChecked()
+    reopened.close()
+
+
+def test_app_icon_loads(window):
+    from PySide6.QtGui import QIcon
+
+    from bondtest72_gui.app import ICON
+    assert not QIcon(str(ICON)).pixmap(64, 64).isNull()

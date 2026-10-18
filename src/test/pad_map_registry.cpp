@@ -593,7 +593,7 @@ static const PadMap _maps[] = {
     },
     {
         .id                 = 3,
-        .name               = "1x0p5 v1",
+        .name               = "1x0p5",
         .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm3Cases,
         .caseCount          = 64,
@@ -605,7 +605,7 @@ static const PadMap _maps[] = {
     },
     {
         .id                 = 4,
-        .name               = "MOSB",
+        .name               = "G801-MOSB",
         .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm4Cases,
         .caseCount          = 68,
@@ -626,7 +626,7 @@ static const PadMap _maps[] = {
     },
     {
         .id                 = 5,
-        .name               = "0p5x1 v1",
+        .name               = "0p5x1",
         .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm5Cases,
         .caseCount          = 64,
@@ -638,7 +638,7 @@ static const PadMap _maps[] = {
     },
     {
         .id                 = 6,
-        .name               = "TQVA",
+        .name               = "G801-TQVA",
         .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm6Cases,
         .caseCount          = 41,

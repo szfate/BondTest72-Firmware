@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- App icon: a die with its pad ring and bond wires, one pad open. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3987e5"/>
+      <stop offset="1" stop-color="#1f62b3"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#bg)"/>
+
+  <!-- Bond wires: from each pad out towards the package. -->
+  <g stroke="#ffffff" stroke-opacity="0.85" stroke-width="5" stroke-linecap="round" fill="none">
+    <path d="M100 76 V44"/><path d="M128 76 V44"/><path d="M156 76 V44"/>
+    <path d="M100 180 V212"/><path d="M128 180 V212"/><path d="M156 180 V212"/>
+    <path d="M76 100 H44"/><path d="M76 128 H44"/><path d="M76 156 H44"/>
+    <path d="M180 100 H212"/><path d="M180 128 H212"/>
+  </g>
+
+  <!-- Die. -->
+  <rect x="68" y="68" width="120" height="120" rx="8" fill="#e6e7ea"/>
+
+  <!-- Pads: good in green, one open in red (its wire is missing). -->
+  <g fill="#2e9d4f">
+    <rect x="92" y="76" width="16" height="16" rx="2"/><rect x="120" y="76" width="16" height="16" rx="2"/><rect x="148" y="76" width="16" height="16" rx="2"/>
+    <rect x="92" y="164" width="16" height="16" rx="2"/><rect x="120" y="164" width="16" height="16" rx="2"/><rect x="148" y="164" width="16" height="16" rx="2"/>
+    <rect x="76" y="92" width="16" height="16" rx="2"/><rect x="76" y="120" width="16" height="16" rx="2"/><rect x="76" y="148" width="16" height="16" rx="2"/>
+    <rect x="164" y="92" width="16" height="16" rx="2"/><rect x="164" y="120" width="16" height="16" rx="2"/>
+  </g>
+  <rect x="164" y="148" width="16" height="16" rx="2" fill="#d43c3c"/>
+</svg>

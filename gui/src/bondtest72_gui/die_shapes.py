@@ -124,7 +124,7 @@ SHAPE_1X0P5 = DieShape(
 # pinout: one VDD (dp8; dp9 shares its adapter pin and is never tested → NC)
 # and four GND pads, of which only dp54 has an adapter pin.
 SHAPE_MOSB = DieShape(
-    name="MOSB",
+    name="G801-MOSB",
     top=17, left=20, bottom=17, right=20,
     aspect_ratio=0.85,
     ring=(
@@ -184,7 +184,7 @@ SHAPE_0P5X1 = DieShape(
 # plus two placeholder slots (dp 56/57) for GND pins whose die pads aren't in
 # the source; test results never reference them.
 SHAPE_TQVA = DieShape(
-    name="TQVA",
+    name="G801-TQVA",
     top=11, left=18, bottom=11, right=18,
     aspect_ratio=1936 / 2531,
     ring=(

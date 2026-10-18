@@ -32,7 +32,7 @@ die pads below close the ring).
 | Field | Value |
 |-------|-------|
 | `id` (ProjectId enum value) | 6 |
-| `name` (short human-readable string) | `TQVA` |
+| `name` (short human-readable string) | `G801-TQVA` |
 
 ---
 

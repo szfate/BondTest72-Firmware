@@ -415,7 +415,7 @@ state's set are answered with `ERROR 8 WRONG_STATE` naming the current state.
 # Host lists the pad maps and picks one for this session
 → LIST_PADMAPS
 ← PADMAP id=2 pads=64 default=1 active=1 name=1x1 v2
-← PADMAP id=3 pads=64 default=0 active=0 name=1x0p5 v1
+← PADMAP id=3 pads=64 default=0 active=0 name=1x0p5
 ← OK LIST_PADMAPS
 → SET_PADMAP id=3
 ← OK SET_PADMAP id=3

@@ -177,7 +177,7 @@ shape_0p5x1 = DieShape(
 # was not in the source — placeholders dp 56/57 are appended to the west tail
 # and are never referenced by test results (the firmware only uses die pads 0–50).
 shape_tqva = DieShape(
-    name="TQVA",
+    name="G801-TQVA",
     padmap_id=6,
     north_count=11,
     east_count=18,

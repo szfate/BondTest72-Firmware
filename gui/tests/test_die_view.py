@@ -35,3 +35,17 @@ def test_ring_runs_counter_clockwise_from_the_top_right():
 
 def test_too_small_area_gives_an_empty_die():
     assert fit_die(SHAPE_1X1, QRectF(0, 0, 30, 30)).isEmpty()
+
+
+def test_legend_names_each_fill_and_outline_colour():
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    from bondtest72_gui.die_view import DieLegend
+
+    QApplication.instance() or QApplication([])
+    text = DieLegend().text()
+    for label in ("Good", "Open", "Not tested yet", "Not measured", "Supply", "Ground"):
+        assert f"&nbsp;{label}" in text

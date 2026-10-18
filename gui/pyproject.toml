@@ -5,11 +5,20 @@ description = "Desktop app for the BondTest72 wirebond tester"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
+# Exact pins: an upgrade is a deliberate edit here, not whatever is newest at
+# install time. The indirect dependencies are pinned too, so a plain pip
+# install gets the same set as uv.lock (which also records their hashes).
 dependencies = [
-    "pyqtdarktheme-fork>=2.3.6",
-    "pyqtgraph>=0.13.7",
-    "pyserial>=3.5",
-    "pyside6-essentials>=6.7",
+    "pyqtdarktheme-fork==2.3.6",
+    "pyqtgraph==0.14.0",
+    "pyserial==3.5",
+    "pyside6-essentials==6.12.0",
+    # Indirect: through pyqtdarktheme-fork, pyqtgraph and pyside6-essentials.
+    "darkdetect==0.8.0",
+    "colorama==0.4.6",
+    "numpy==2.4.6; python_version < '3.12'",     # numpy 2.5 needs Python 3.12+
+    "numpy==2.5.4; python_version >= '3.12'",
+    "shiboken6==6.12.0",
 ]
 
 [project.scripts]
@@ -18,7 +27,7 @@ gui = "bondtest72_gui.app:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=8",
+    "pytest==9.1.1",
 ]
 
 [build-system]

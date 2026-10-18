@@ -11,10 +11,15 @@ name = "bondtest72-gui"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "colorama" },
+    { name = "darkdetect" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pyqtdarktheme-fork" },
     { name = "pyqtgraph" },
     { name = "pyserial" },
     { name = "pyside6-essentials" },
+    { name = "shiboken6" },
 ]
 
 [package.dev-dependencies]
@@ -24,14 +29,19 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pyqtdarktheme-fork", specifier = ">=2.3.6" },
-    { name = "pyqtgraph", specifier = ">=0.13.7" },
-    { name = "pyserial", specifier = ">=3.5" },
-    { name = "pyside6-essentials", specifier = ">=6.7" },
+    { name = "colorama", specifier = "==0.4.6" },
+    { name = "darkdetect", specifier = "==0.8.0" },
+    { name = "numpy", marker = "python_full_version < '3.12'", specifier = "==2.4.6" },
+    { name = "numpy", marker = "python_full_version >= '3.12'", specifier = "==2.5.4" },
+    { name = "pyqtdarktheme-fork", specifier = "==2.3.6" },
+    { name = "pyqtgraph", specifier = "==0.14.0" },
+    { name = "pyserial", specifier = "==3.5" },
+    { name = "pyside6-essentials", specifier = "==6.12.0" },
+    { name = "shiboken6", specifier = "==6.12.0" },
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8" }]
+dev = [{ name = "pytest", specifier = "==9.1.1" }]
 
 [[package]]
 name = "colorama"

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetricsF, QHelpEvent, QMouseEvent, QPainter, QPalette, QPen
-from PySide6.QtWidgets import QSizePolicy, QToolTip, QWidget
+from PySide6.QtWidgets import QLabel, QSizePolicy, QToolTip, QWidget
 
 from .die_shapes import DieShape, PadInfo
 from .formatting import pad_summary
@@ -265,3 +265,35 @@ class DieView(QWidget):
             return pad_summary(result)
         role = self._shape.role_of(die_pad) if self._shape else None
         return f"Die pad {die_pad}" + (f" · {role.value}" if role else "")
+
+
+class DieLegend(QLabel):
+    """One wrapping line naming the die drawing's colours: pad fill shows the
+    result, pad outline shows the role."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent, wordWrap=True, textFormat=Qt.TextFormat.RichText,
+                         alignment=Qt.AlignmentFlag.AlignCenter)
+        self._update_text()
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.PaletteChange:   # light/dark switch
+            self._update_text()
+        super().changeEvent(event)
+
+    def _update_text(self) -> None:
+        pal = self.palette()
+        mid = pal.color(QPalette.ColorRole.Mid)
+        fills = [("■", GOOD_COLOR, "Good"), ("■", OPEN_COLOR, "Open"),
+                 ("■", UNTESTED_COLOR, "Not tested yet"), ("□", mid, "Not measured")]
+        # Not the selection outline: its blue reads as Ground in a glyph, and a
+        # selected pad is plain to see.
+        outlines = [("□", POWER_COLOR, "Supply"), ("□", GND_COLOR, "Ground")]
+
+        def entries(items) -> str:
+            # Entries are kept whole (&nbsp; inside) and wrap between each other.
+            return " &nbsp; ".join(f'<span style="color:{color.name()}">{glyph}</span>&nbsp;{label}'
+                                   for glyph, color, label in items)
+
+        divider = f' &nbsp;<span style="color:{mid.name()}">│</span>&nbsp; '
+        self.setText(entries(fills) + divider + entries(outlines))

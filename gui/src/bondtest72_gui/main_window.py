@@ -6,19 +6,19 @@ import dataclasses
 from pathlib import Path
 
 import serial
-from PySide6.QtCore import QSettings, Qt, QTimer
-from PySide6.QtGui import QAction, QFont, QKeySequence
+from PySide6.QtCore import QEvent, QRectF, QSettings, Qt, QTimer
+from PySide6.QtGui import QAction, QFont, QIcon, QKeySequence, QPainter, QPalette, QPen, QPixmap
 from PySide6.QtWidgets import (
     QComboBox, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
     QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QPlainTextEdit, QPushButton,
-    QSplitter, QTabWidget, QToolBar, QVBoxLayout, QWidget,
+    QSplitter, QTabWidget, QToolBar, QToolButton, QVBoxLayout, QWidget,
 )
 
 from . import __version__, protocol as p
 from . import results_jsonl
 from .connection import TesterConnection
 from .die_shapes import shape_for_padmap
-from .die_view import GOOD_COLOR, OPEN_COLOR, DieView
+from .die_view import GOOD_COLOR, OPEN_COLOR, DieLegend, DieView
 from .models import TestResult
 from .pad_table import PadGroup
 from .results_panel import PadGroupPanel
@@ -37,6 +37,51 @@ RUN_BLUE_PRESSED = "#1f62b3"
 def default_results_folder() -> Path:
     """results/ under the folder the app was started from."""
     return Path.cwd() / "results"
+
+
+class _PanelToggle(QToolButton):
+    """Shows or hides the bottom panel. Its icon is a window whose bottom strip
+    is filled while the panel is shown, drawn in the theme's text colour."""
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.setCheckable(True)
+
+    def setDefaultAction(self, action: QAction) -> None:
+        super().setDefaultAction(action)
+        self._update_icon()
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.PaletteChange and self.defaultAction():   # light/dark switch
+            self._update_icon()
+        super().changeEvent(event)
+
+    def _update_icon(self) -> None:
+        icon = QIcon()
+        for state, filled in ((QIcon.State.On, True), (QIcon.State.Off, False)):
+            icon.addPixmap(self._pixmap(filled), QIcon.Mode.Normal, state)
+        # On the action: the button takes its icon from its default action.
+        self.defaultAction().setIcon(icon)
+
+    def _pixmap(self, filled: bool) -> QPixmap:
+        size, ratio = 16, self.devicePixelRatioF()
+        pixmap = QPixmap(round(size * ratio), round(size * ratio))
+        pixmap.setDevicePixelRatio(ratio)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        color = self.palette().color(QPalette.ColorRole.ButtonText)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(color, 1.2))
+        window = QRectF(1.5, 2.5, 13, 11)
+        painter.drawRoundedRect(window, 1.5, 1.5)
+        strip = QRectF(window.left(), 9.5, window.width(), window.bottom() - 9.5)
+        if filled:
+            painter.setBrush(color)
+            painter.drawRoundedRect(strip, 1.5, 1.5)
+        else:
+            painter.drawLine(strip.topLeft(), strip.topRight())
+        painter.end()
+        return pixmap
 
 
 class MainWindow(QMainWindow):
@@ -84,6 +129,8 @@ class MainWindow(QMainWindow):
         run_font.setBold(True)
         self._run_button.setFont(run_font)
         self._run_button.setMinimumWidth(110)
+        # Filled in once the bottom dock (whose show/hide action it uses) exists.
+        self._panel_button = _PanelToggle(objectName="panelButton")
 
         # The controls sit in one container with its own margins: QToolBar
         # ignores padding from a stylesheet, and the theme's stylesheet would
@@ -102,12 +149,17 @@ class MainWindow(QMainWindow):
         row.addWidget(self._separator())
         row.addWidget(self._sample_edit)
         row.addStretch(1)
+        row.addWidget(self._panel_button)
         row.addWidget(self._run_button)
         # Run test is the primary action: a filled blue button, plain when disabled.
         controls.setStyleSheet(
             "QComboBox, QLineEdit, QPushButton {"
             f" min-height: {TOOLBAR_CONTROL_HEIGHT}px; max-height: {TOOLBAR_CONTROL_HEIGHT}px;"
             " padding-top: 0; padding-bottom: 0; }"
+            # A square button as tall as the bordered controls beside it.
+            f"QToolButton#panelButton {{ min-width: {TOOLBAR_CONTROL_HEIGHT + 2}px;"
+            f" max-width: {TOOLBAR_CONTROL_HEIGHT + 2}px; min-height: {TOOLBAR_CONTROL_HEIGHT + 2}px;"
+            f" max-height: {TOOLBAR_CONTROL_HEIGHT + 2}px; padding: 0; }}"
             f"QPushButton#runButton {{ background: {RUN_BLUE}; border: 1px solid {RUN_BLUE};"
             " color: white; border-radius: 4px; padding-left: 18px; padding-right: 18px; }"
             f"QPushButton#runButton:hover {{ background: {RUN_BLUE_HOVER}; border-color: {RUN_BLUE_HOVER}; }}"
@@ -131,6 +183,7 @@ class MainWindow(QMainWindow):
         left_layout.addWidget(self._banner)
         left_layout.addWidget(self._banner_detail)
         left_layout.addWidget(self._die_view, 1)
+        left_layout.addWidget(DieLegend())
 
         # Right: one tab per pad group, each a table with its graph underneath.
         self._panels = [PadGroupPanel(PadGroup.IO), PadGroupPanel(PadGroup.POWER)]
@@ -168,6 +221,16 @@ class MainWindow(QMainWindow):
         dock.setWidget(tabs)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
         self.resizeDocks([dock], [170], Qt.Orientation.Vertical)
+        # Shown or hidden from the toolbar, the View menu or Ctrl+J. (Not the dock's
+        # own toggleViewAction: Qt disables it for a dock that can't be closed.)
+        self._dock = dock
+        self._panel_action = QAction("&History and serial log", self, checkable=True,
+                                     shortcut=QKeySequence("Ctrl+J"),
+                                     toolTip="Show or hide the history and serial log (Ctrl+J)")
+        self._panel_action.toggled.connect(dock.setVisible)
+        self._panel_action.setChecked(self._settings.value("window/bottom_panel", True, type=bool))
+        dock.setVisible(self._panel_action.isChecked())
+        self._panel_button.setDefaultAction(self._panel_action)
 
         # Status bar.
         self._state_label = QLabel()
@@ -198,6 +261,10 @@ class MainWindow(QMainWindow):
         for action in (self._run_action, self._last_result_action, self._live_action):
             tester_menu.addAction(action)
             self.addAction(action)                 # keep shortcuts working without the menu open
+
+        view_menu = self.menuBar().addMenu("&View")
+        view_menu.addAction(self._panel_action)
+        self.addAction(self._panel_action)
 
         help_menu = self.menuBar().addMenu("&Help")
         about = QAction("&About", self)
@@ -487,6 +554,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         self._settings.setValue("window/geometry", self.saveGeometry())
+        self._settings.setValue("window/bottom_panel", self._panel_action.isChecked())
         self._port_timer.stop()
         self._conn.close()
         super().closeEvent(event)

@@ -32,7 +32,7 @@ do not derive anything from `DUT_PADMAP_1X1.md`.
 | Field | Value |
 |-------|-------|
 | `id` (ProjectId enum value) | 4 |
-| `name` (short human-readable string) | `MOSB` |
+| `name` (short human-readable string) | `G801-MOSB` |
 
 ---
 

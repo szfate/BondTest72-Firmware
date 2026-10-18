@@ -44,9 +44,9 @@ PADMAP_NAMES = {
     "1": "1x1 v1",
     "2": "1x1 v2",
     "3": "1x0p5",
-    "4": "MOSB",
+    "4": "G801-MOSB",
     "5": "0p5x1",
-    "6": "TQVA",
+    "6": "G801-TQVA",
 }
 
 PADMAP_SHAPES = {
