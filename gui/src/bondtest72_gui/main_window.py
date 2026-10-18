@@ -9,9 +9,9 @@ import serial
 from PySide6.QtCore import QSettings, Qt, QTimer
 from PySide6.QtGui import QAction, QFont, QKeySequence
 from PySide6.QtWidgets import (
-    QComboBox, QDockWidget, QFileDialog, QLabel, QLineEdit,
+    QComboBox, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
     QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QPlainTextEdit, QPushButton,
-    QSizePolicy, QSplitter, QTabWidget, QToolBar, QVBoxLayout, QWidget,
+    QSplitter, QTabWidget, QToolBar, QVBoxLayout, QWidget,
 )
 
 from . import __version__, protocol as p
@@ -27,6 +27,11 @@ from .tester_serial import find_tester_ports
 
 PORT_POLL_MS = 1500          # how often to look for the tester while disconnected
 LOG_MAX_LINES = 5000
+DEFAULT_PADMAP = 2            # die drawn while no tester or adapter reports one
+TOOLBAR_CONTROL_HEIGHT = 30   # content height; borders add ~2 px
+RUN_BLUE = "#2a78d6"          # primary action; white text reads on it in both themes
+RUN_BLUE_HOVER = "#3987e5"
+RUN_BLUE_PRESSED = "#1f62b3"
 
 
 def default_results_folder() -> Path:
@@ -41,6 +46,7 @@ class MainWindow(QMainWindow):
         self._settings = QSettings()
         self._conn = TesterConnection(self)
         self._shown: TestResult | None = None      # result on screen; None = live view of the tester
+        self._padmap: int | None = None            # last active pad map the tester reported
         self._history: list[TestResult] = []
         self._user_disconnected = False            # suppresses auto-connect until Connect is pressed
 
@@ -72,25 +78,43 @@ class MainWindow(QMainWindow):
         self._padmap_combo = QComboBox(minimumContentsLength=22)
         self._padmap_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self._sample_edit = QLineEdit(placeholderText="Sample ID (optional)", clearButtonEnabled=True)
-        self._sample_edit.setMaximumWidth(220)
-        self._run_button = QPushButton("Run test")
+        self._sample_edit.setFixedWidth(220)
+        self._run_button = QPushButton("Run test", objectName="runButton")
         run_font = QFont(self._run_button.font())
         run_font.setBold(True)
         self._run_button.setFont(run_font)
         self._run_button.setMinimumWidth(110)
 
-        bar.addWidget(QLabel(" Port "))
-        bar.addWidget(self._port_combo)
-        bar.addWidget(self._connect_button)
-        bar.addSeparator()
-        bar.addWidget(QLabel(" Pad map "))
-        bar.addWidget(self._padmap_combo)
-        bar.addSeparator()
-        bar.addWidget(self._sample_edit)
-        spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        bar.addWidget(spacer)
-        bar.addWidget(self._run_button)
+        # The controls sit in one container with its own margins: QToolBar
+        # ignores padding from a stylesheet, and the theme's stylesheet would
+        # override plain setMinimumHeight() on combo boxes and line edits, so
+        # the control height is set by a stylesheet scoped to this bar.
+        controls = QWidget()
+        row = QHBoxLayout(controls)
+        row.setContentsMargins(8, 3, 8, 3)     # 32 px controls + toolbar frame → 42 px bar
+        row.setSpacing(8)
+        row.addWidget(QLabel("Port"))
+        row.addWidget(self._port_combo)
+        row.addWidget(self._connect_button)
+        row.addWidget(self._separator())
+        row.addWidget(QLabel("Pad map"))
+        row.addWidget(self._padmap_combo)
+        row.addWidget(self._separator())
+        row.addWidget(self._sample_edit)
+        row.addStretch(1)
+        row.addWidget(self._run_button)
+        # Run test is the primary action: a filled blue button, plain when disabled.
+        controls.setStyleSheet(
+            "QComboBox, QLineEdit, QPushButton {"
+            f" min-height: {TOOLBAR_CONTROL_HEIGHT}px; max-height: {TOOLBAR_CONTROL_HEIGHT}px;"
+            " padding-top: 0; padding-bottom: 0; }"
+            f"QPushButton#runButton {{ background: {RUN_BLUE}; border: 1px solid {RUN_BLUE};"
+            " color: white; border-radius: 4px; padding-left: 18px; padding-right: 18px; }"
+            f"QPushButton#runButton:hover {{ background: {RUN_BLUE_HOVER}; border-color: {RUN_BLUE_HOVER}; }}"
+            f"QPushButton#runButton:pressed {{ background: {RUN_BLUE_PRESSED}; border-color: {RUN_BLUE_PRESSED}; }}"
+            "QPushButton#runButton:disabled { background: transparent;"
+            " border: 1px solid rgba(128, 128, 128, 0.35); color: rgba(128, 128, 128, 0.8); }")
+        bar.addWidget(controls)
 
         # Centre: outcome banner and die drawing on the left, pad table on the right.
         self._banner = QLabel(alignment=Qt.AlignmentFlag.AlignCenter)
@@ -110,7 +134,7 @@ class MainWindow(QMainWindow):
 
         # Right: one tab per pad group, each a table with its graph underneath.
         self._panels = [PadGroupPanel(PadGroup.IO), PadGroupPanel(PadGroup.POWER)]
-        self._group_tabs = QTabWidget()
+        self._group_tabs = QTabWidget(documentMode=True)   # left-aligned, like the bottom tabs
         for panel in self._panels:
             self._group_tabs.addTab(panel, panel.group.value)
 
@@ -180,6 +204,14 @@ class MainWindow(QMainWindow):
         about.triggered.connect(lambda: QMessageBox.about(
             self, "BondTest72", f"BondTest72 desktop app {__version__}"))
         help_menu.addAction(about)
+
+    @staticmethod
+    def _separator() -> QFrame:
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.VLine)
+        line.setFrameShadow(QFrame.Shadow.Plain)
+        line.setEnabled(False)      # drawn in the theme's muted tone
+        return line
 
     def _wire(self) -> None:
         self._connect_button.clicked.connect(self._toggle_connection)
@@ -267,6 +299,14 @@ class MainWindow(QMainWindow):
         elif isinstance(update.message, p.Error):
             self.statusBar().showMessage(f"Tester error {update.message.code}: {update.message.msg}", 5000)
         self._update_controls()
+        # A different pad map makes the result on screen stale: go back to the
+        # live view, which draws the new map's die. (Not on a reconnect or a
+        # re-inserted adapter with the same map, so an opened result stays.)
+        padmap = self._conn.session.active_padmap
+        if padmap is not None and padmap != self._padmap:
+            if self._padmap is not None:
+                self._shown = None
+            self._padmap = padmap
         if self._shown is None:
             self._show_result(None)                # live view follows the active pad map and state
 
@@ -347,11 +387,10 @@ class MainWindow(QMainWindow):
         if result is None:
             session = self._conn.session
             padmap = session.active_padmap
-            shape = shape_for_padmap(padmap) if padmap is not None else None
-            message = ("Connect a tester" if not self._conn.is_open
-                       else "Insert an adapter" if padmap is None
-                       else f"No die drawing for pad map {padmap}")
-            self._die_view.set_shape(shape, message)
+            # With no tester or adapter, show the usual die rather than an empty view.
+            shown_padmap = padmap if padmap is not None else DEFAULT_PADMAP
+            self._die_view.set_shape(shape_for_padmap(shown_padmap),
+                                     f"No die drawing for pad map {shown_padmap}")
             testing = session.state == "TESTING"
             self._set_banner("Testing…" if testing else "Ready" if session.can_run else "", None)
             self._banner_detail.setText(f"{padmap} · {session.padmap_name(padmap)}" if padmap else "")

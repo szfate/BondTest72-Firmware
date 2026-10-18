@@ -11,12 +11,18 @@ from PySide6.QtWidgets import QSizePolicy, QToolTip, QWidget
 from .die_shapes import DieShape, PadInfo
 from .formatting import pad_summary
 from .models import BondResult, PadResult, PadRole, TestResult
+from .theme import is_dark
 
 GOOD_COLOR = QColor("#2e9d4f")
 OPEN_COLOR = QColor("#d43c3c")
 UNTESTED_COLOR = QColor("#8a8f98")    # tested by this pad map, but no result yet
 POWER_COLOR = QColor("#e0a020")       # outline for supply pads
 GND_COLOR = QColor("#3d7fd9")         # outline for ground pads
+
+# Die body: a light grey in the light theme, a mid grey in the dark one, so the
+# black die name and the coloured pads read on it either way.
+DIE_LIGHT = QColor("#e6e7ea")
+DIE_DARK = QColor("#9a9da3")
 
 LABEL_MARGIN = 26.0                   # room outside the die for pad numbers
 
@@ -134,7 +140,7 @@ class DieView(QWidget):
         self._placements = place_pads(self._shape, die)
 
         painter.setPen(QPen(pal.color(QPalette.ColorRole.Mid), 1.5))
-        painter.setBrush(pal.color(QPalette.ColorRole.AlternateBase))
+        painter.setBrush(DIE_DARK if is_dark(pal) else DIE_LIGHT)
         painter.drawRoundedRect(die, 4, 4)
 
         # Die name: black on the light-grey die in both themes, a size up from body text.

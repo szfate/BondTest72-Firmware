@@ -42,6 +42,10 @@ def test_starts_disconnected(window):
     assert window._connect_button.text() == "Connect"
 
 
+def test_shows_the_default_pad_maps_die_until_a_tester_reports_one(window):
+    assert window._die_view._shape is mw.shape_for_padmap(mw.DEFAULT_PADMAP) is not None
+
+
 def test_live_result_is_shown_recorded_and_tagged(window, trace_lines, tmp_path):
     window._sample_edit.setText("PANEL-7")
     window._on_result(trace_result(trace_lines), True)
@@ -56,3 +60,23 @@ def test_replayed_result_is_not_recorded(window, trace_lines, tmp_path):
     window._on_result(trace_result(trace_lines), False)
     assert window._history_list.count() == 1
     assert list(tmp_path.glob("*.jsonl")) == []
+
+
+def test_changing_the_pad_map_clears_the_result_and_redraws_the_die(window, trace_lines):
+    feed = window._conn._on_line
+    for line in ["ADAPTER aid=0000AA ahw=2 pm=2,3 ins=1 tests=1 dut=1 active=2 state=READY",
+                 "PADMAP id=2 pads=64 default=1 active=1 name=1x1 Mezzanine70 v2",
+                 "PADMAP id=3 pads=72 default=0 active=0 name=1x0p5",
+                 "OK LIST_PADMAPS"]:
+        feed(line)
+    window._on_result(trace_result(trace_lines), False)
+    assert window._shown is not None
+
+    feed("ADAPTER aid=0000AA ahw=2 pm=2,3 ins=1 tests=1 dut=1 active=2 state=PASS")    # same map: result stays
+    assert window._shown is not None
+
+    feed("ADAPTER aid=0000AA ahw=2 pm=2,3 ins=1 tests=1 dut=1 active=3 state=READY")   # after SET_PADMAP id=3
+    assert window._shown is None
+    assert [panel.pad_count for panel in window._panels] == [0, 0]
+    assert window._die_view._shape is mw.shape_for_padmap(3)
+    assert window._history_list.count() == 1 and window._history_list.currentRow() == -1

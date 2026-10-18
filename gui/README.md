@@ -34,6 +34,7 @@ The Qt user interface:
 | Module | Purpose |
 |--------|---------|
 | `app.py` | Entry point |
+| `theme.py` | Flat light/dark theme (qdarktheme) following the system setting |
 | `main_window.py` | Main window: connection, pad map, run, results history, serial log |
 | `connection.py` | Moves serial lines onto the Qt event loop and feeds the session |
 | `die_view.py` | Die drawing with pads coloured by result |

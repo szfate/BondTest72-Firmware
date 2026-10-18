@@ -8,9 +8,20 @@ from PySide6.QtWidgets import (
     QToolButton, QVBoxLayout, QWidget,
 )
 
-from .charts import IoChart, IoOverlayChart, PowerChart
+from .charts import IoChart, IoIvChart, PowerChart
 from .models import TestResult
 from .pad_table import SORT_ROLE, PadGroup, PadTableModel
+
+_SEGMENT_STYLE = """
+QToolButton { border: 1px solid palette(mid); border-radius: 0; padding: 3px 12px;
+              background: transparent; color: palette(window-text); }
+QToolButton:hover:!checked { background: palette(alternate-base); }
+QToolButton:checked { background: palette(highlight); border-color: palette(highlight);
+                      color: palette(highlighted-text); }
+QToolButton[segment="first"] { border-top-left-radius: 11px; border-bottom-left-radius: 11px; }
+QToolButton[segment="last"] { border-top-right-radius: 11px; border-bottom-right-radius: 11px; }
+QToolButton[segment="middle"], QToolButton[segment="last"] { border-left: none; }
+"""
 
 
 class PadGroupPanel(QWidget):
@@ -38,9 +49,9 @@ class PadGroupPanel(QWidget):
         self.table.horizontalHeader().setStretchLastSection(False)
 
         # IO pads get two graph types, swapped with a toggle: per pad, and all
-        # pads' curves overlaid. The choice is remembered across sessions.
+        # pads' IV curves on one graph. The choice is remembered across sessions.
         if group is PadGroup.IO:
-            views = [("By pad", IoChart()), ("Overlay", IoOverlayChart())]
+            views = [("By pad", IoChart()), ("IV curves", IoIvChart())]
         else:
             views = [("Charging curves", PowerChart())]
         self.charts = [chart for _, chart in views]
@@ -55,10 +66,15 @@ class PadGroupPanel(QWidget):
         chart_layout.setSpacing(2)
         self._view_buttons = QButtonGroup(self)
         if len(views) > 1:
+            # A segmented control: the buttons share one rounded outline and the
+            # chosen one is filled with the accent colour.
             toggle = QHBoxLayout()
             toggle.setSpacing(0)
+            toggle.addStretch()
             for i, (name, _) in enumerate(views):
                 button = QToolButton(text=name, checkable=True, autoRaise=False)
+                button.setProperty("segment", "first" if i == 0 else "last" if i == len(views) - 1 else "middle")
+                button.setStyleSheet(_SEGMENT_STYLE)
                 self._view_buttons.addButton(button, i)
                 toggle.addWidget(button)
             toggle.addStretch()

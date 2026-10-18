@@ -6,14 +6,14 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
+from . import theme
 from .main_window import MainWindow
 
 
 def main() -> int:
     app = QApplication(sys.argv)
-    # Same look on macOS, Windows and Linux rather than each platform's native
-    # style. Fusion still follows the system's light/dark setting.
-    app.setStyle("Fusion")
+    # Same look on macOS, Windows and Linux, following the system's light/dark setting.
+    theme.apply(app)
     app.setOrganizationName("BondTest72")
     app.setApplicationName("BondTest72")
     window = MainWindow()

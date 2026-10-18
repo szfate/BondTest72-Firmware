@@ -2,8 +2,10 @@
 
 IoChart puts every IO pad side by side (x = die pad number, so pads that
 aren't IO-measured leave gaps) with one series per drive current, so a bond
-that reads differently from its neighbours stands out. PowerChart overlays the charging curve of each power
-pad (x = time since the charge started, log scale).
+that reads differently from its neighbours stands out. IoIvChart draws every
+IO pad's IV curve (voltage against drive current) on one graph. PowerChart
+overlays the charging curve of each power pad (x = time since the charge
+started, log scale).
 
 Reverse readings have filled markers, forward readings hollow ones (and dashed
 lines on the charging curves), so direction never relies on colour alone.
@@ -14,14 +16,15 @@ from __future__ import annotations
 import math
 
 import pyqtgraph as pg
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from .die_view import OPEN_COLOR
 from .formatting import format_current, format_time, format_volts
 from .models import BondResult, PadResult, TestResult
 from .pad_table import PadGroup, group_pads
+from .theme import is_dark
 
 # Categorical slots (validated light/dark pairs). Drive currents use the first
 # three, which stay distinguishable even as a scatter for colour-blind readers.
@@ -43,36 +46,65 @@ def _io_y_top(pads: list[PadResult]) -> float:
     return min(Y_TOP, max(IO_MIN_TOP, peak * 1.05))
 
 
-def _is_dark() -> bool:
-    app = QApplication.instance()
-    return isinstance(app, QApplication) and app.palette().color(QPalette.ColorRole.Window).lightness() < 128
+def _slot(i: int, palette: QPalette) -> QColor:
+    return QColor((_SLOTS_DARK if is_dark(palette) else _SLOTS_LIGHT)[i])
 
 
-def _slot(i: int) -> QColor:
-    return QColor((_SLOTS_DARK if _is_dark() else _SLOTS_LIGHT)[i])
+class _ViewBox(pg.ViewBox):
+    """Scrolling over an axis zooms that axis and dragging it pans it, even
+    where the mouse over the plot itself is limited to the other axis or
+    turned off (setMouseEnabled)."""
+
+    def mouseDragEvent(self, ev, axis=None) -> None:
+        if axis is None:
+            super().mouseDragEvent(ev)
+            return
+        # pyqtgraph only pans axes that are mouse-enabled; enable this one for the drag.
+        enabled = self.state["mouseEnabled"][:]
+        self.state["mouseEnabled"][axis] = True
+        try:
+            super().mouseDragEvent(ev, axis)
+        finally:
+            self.state["mouseEnabled"] = enabled
+
+    def wheelEvent(self, ev, axis=None) -> None:
+        if axis is None:
+            super().wheelEvent(ev)
+            return
+        scale: list[float | None] = [None, None]
+        scale[axis] = 1.02 ** (ev.delta() * self.state["wheelScaleFactor"])
+        self._resetTarget()
+        self.scaleBy(scale, self.mapSceneToView(ev.scenePos()))
+        ev.accept()
+        self.sigRangeChangedManually.emit([axis == 0, axis == 1])
 
 
 class _Chart(QWidget):
     """Shared look: a wrapping legend line above a palette-matched plot with a
-    recessive grid; clicking a marker selects its pad."""
+    recessive grid; clicking a marker selects its pad. Once the view is zoomed
+    or panned, the corner "A" button brings back the chart's own home view."""
 
     pad_clicked = Signal(int)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.plot = pg.PlotWidget()
-        pal = self.palette()
-        self.plot.setBackground(pal.color(QPalette.ColorRole.Base))
-        text = pal.color(QPalette.ColorRole.Text)
-        muted = pal.color(QPalette.ColorRole.PlaceholderText)
+        self.plot = pg.PlotWidget(viewBox=_ViewBox())
+        # pyqtgraph sizes the scene to the whole widget, so any frame (the theme
+        # adds a border, padding and margin) leaves the view a few pixels to
+        # scroll by touchpad, and clips the corner "A" button.
+        self.plot.setStyleSheet("border: none; padding: 0; margin: 0;")
+        self._result: TestResult | None = None
+        self._home: tuple[tuple[float, float], tuple[float, float]] | None = None
         item = self.getPlotItem()
-        for name in ("left", "bottom"):
-            axis = item.getAxis(name)
-            axis.setPen(muted)
-            axis.setTextPen(text)
+        item.setContentsMargins(2, 2, 8, 8)    # keep the x-axis title clear of the frame
         item.showGrid(x=False, y=True, alpha=0.15)
         item.setMenuEnabled(False)
-        item.hideButtons()
+        # The "A" button restores the home view rather than pyqtgraph's fit-to-data,
+        # and shows (on hover) only when the view has left home.
+        item.autoBtn.clicked.disconnect(item.autoBtnClicked)
+        item.autoBtn.clicked.connect(lambda _button: self.reset_view())
+        item.updateButtons = self._update_home_button
+        item.vb.sigRangeChanged.connect(self._update_home_button)
 
         # The legend lives outside the plot, so it never covers points near the
         # 3.3 V rail, and wraps instead of widening the chart.
@@ -89,6 +121,51 @@ class _Chart(QWidget):
         layout.addWidget(self.plot, 1)
         self.setMinimumHeight(160)
         self._selected: int | None = None
+        self._apply_palette()
+
+    def _apply_palette(self) -> None:
+        pal = self.palette()
+        self.plot.setBackground(pal.color(QPalette.ColorRole.Base))
+        text = pal.color(QPalette.ColorRole.Text)
+        muted = pal.color(QPalette.ColorRole.Mid)
+        for name in ("left", "bottom"):
+            axis = self.getPlotItem().getAxis(name)
+            axis.setPen(muted)
+            axis.setTextPen(text)
+
+    def changeEvent(self, event: QEvent) -> None:
+        # Light/dark switch: restyle, and redraw so markers and series colours follow.
+        if event.type() == QEvent.Type.PaletteChange:
+            self._apply_palette()
+            self.set_result(self._result)
+        super().changeEvent(event)
+
+    def set_result(self, result: TestResult | None) -> None:
+        raise NotImplementedError
+
+    def _set_home(self, x: tuple[float, float], y: tuple[float, float]) -> None:
+        """Set the view a fresh result opens with, and that the "A" button returns to."""
+        self._home = (x, y)
+        self.reset_view()
+
+    def reset_view(self) -> None:
+        if self._home is not None:
+            (x0, x1), (y0, y1) = self._home
+            self.getPlotItem().setRange(xRange=(x0, x1), yRange=(y0, y1), padding=0)
+
+    def _at_home(self) -> bool:
+        if self._home is None:
+            return True
+        return all(math.isclose(have, want, rel_tol=1e-6, abs_tol=1e-9)
+                   for got, home in zip(self.getPlotItem().viewRange(), self._home)
+                   for have, want in zip(got, home))
+
+    def _update_home_button(self, *_args) -> None:
+        item = self.getPlotItem()
+        try:
+            item.autoBtn.setVisible(item.mouseHovering and not self._at_home())
+        except RuntimeError:
+            pass                                # the plot is being deleted
 
     def getPlotItem(self) -> pg.PlotItem:
         return self.plot.getPlotItem()
@@ -109,6 +186,7 @@ class _Chart(QWidget):
 
     def _clear(self) -> None:
         self.getPlotItem().clear()
+        self._home = None
         self._legend = []
         self._legend_label.clear()
 
@@ -154,11 +232,12 @@ class IoChart(_Chart):
         item = self.getPlotItem()
         item.setLabel("left", "Voltage", units="V")
         item.setLabel("bottom", "Die pad")
-        item.setMouseEnabled(x=True, y=False)
+        item.setMouseEnabled(x=False, y=False)    # zoom and pan from the axes only
         self._pads: list[PadResult] = []
         self._selection_line: pg.InfiniteLine | None = None
 
     def set_result(self, result: TestResult | None) -> None:
+        self._result = result
         self._clear()
         self._pads = group_pads(result, PadGroup.IO)
         self._selection_line = None
@@ -187,7 +266,7 @@ class IoChart(_Chart):
                         xs.append(pad.dp)
                         ys.append(volts[level])
                         data.append((pad.dp, level, forward))
-                color = _slot(level)
+                color = _slot(level, self.palette())
                 label = format_current(currents[level]) if level < len(currents) else f"#{level + 1}"
                 self._points(xs, ys, color, forward, data, self._tip(currents))
                 if level not in in_legend:          # one entry per current, either direction
@@ -200,9 +279,8 @@ class IoChart(_Chart):
             self._add_legend("○", ink, "forward")
         self._show_legend()
         self._set_pad_ticks()
-        self.getPlotItem().setYRange(0, _io_y_top(self._pads), padding=0)
         dps = [pad.dp for pad in self._pads]
-        self.getPlotItem().setXRange(min(dps) - 0.8, max(dps) + 0.8, padding=0)
+        self._set_home((min(dps) - 0.8, max(dps) + 0.8), (0, _io_y_top(self._pads)))
         self._redraw_selection()
 
     def _tip(self, currents: list[float]):
@@ -230,8 +308,8 @@ class IoChart(_Chart):
             self.addItem(self._selection_line)
 
 
-class IoOverlayChart(_Chart):
-    """Every IO pad's curve on one graph: voltage against drive current.
+class IoIvChart(_Chart):
+    """Every IO pad's IV curve on one graph: voltage against drive current.
 
     A good bond traces the same diode-like curve as its neighbours, so a pad
     whose curve leaves the bundle stands out even when it still passes. With
@@ -248,6 +326,7 @@ class IoOverlayChart(_Chart):
         self._curves: dict[int, list[tuple[pg.PlotCurveItem, QColor, bool]]] = {}
 
     def set_result(self, result: TestResult | None) -> None:
+        self._result = result
         self._clear()
         self._curves = {}
         pads = group_pads(result, PadGroup.IO)
@@ -257,7 +336,7 @@ class IoOverlayChart(_Chart):
         log_i = [math.log10(i) for i in currents]
         self.getPlotItem().getAxis("bottom").setTicks([[(x, format_current(i)) for x, i in zip(log_i, currents)], []])
 
-        good = _slot(0)
+        good = _slot(0, self.palette())
         good.setAlpha(110)                 # many overlapping curves: let density show
         any_forward = False
         # GOOD first so OPEN curves draw on top.
@@ -274,7 +353,7 @@ class IoOverlayChart(_Chart):
                 data = [(pad.dp, i, forward) for i in currents[:len(volts)]]
                 self._points(xs, volts, color, forward, data, self._tip, size=5)
 
-        self._add_legend("━━", _slot(0), "GOOD pad")
+        self._add_legend("━━", _slot(0, self.palette()), "GOOD pad")
         if any(pad.result is BondResult.OPEN for pad in pads):
             self._add_legend("━━", OPEN_COLOR, "OPEN pad")
         if any_forward:
@@ -283,8 +362,7 @@ class IoOverlayChart(_Chart):
             self._add_legend("╍╍", ink, "forward")
         self._show_legend()
         # Extra room on the right so the last tick label isn't clipped.
-        self.getPlotItem().setXRange(min(log_i) - 0.2, max(log_i) + 0.35, padding=0)
-        self.getPlotItem().setYRange(0, _io_y_top(pads), padding=0)
+        self._set_home((min(log_i) - 0.2, max(log_i) + 0.35), (0, _io_y_top(pads)))
         self._redraw_selection()
 
     @staticmethod
@@ -313,6 +391,7 @@ class PowerChart(_Chart):
         self._curves: dict[int, list[pg.PlotCurveItem]] = {}
 
     def set_result(self, result: TestResult | None) -> None:
+        self._result = result
         self._clear()
         self._curves = {}
         pads = group_pads(result, PadGroup.POWER)
@@ -326,7 +405,7 @@ class PowerChart(_Chart):
             [[(math.log10(t), format_time(t)) for t in times], []])
         for n, pad in enumerate(pads):
             # One hue per pad; past the six hues, repeat them dotted.
-            color = _slot(_PAD_SLOTS[n % len(_PAD_SLOTS)])
+            color = _slot(_PAD_SLOTS[n % len(_PAD_SLOTS)], self.palette())
             dotted = n >= len(_PAD_SLOTS)
             for forward in (False, True):
                 volts = pad.volts(forward)
@@ -347,10 +426,9 @@ class PowerChart(_Chart):
                     self._add_legend("┈┈" if dotted else "━━", color, f"pad {pad.dp}{status}")
         self._show_legend()
         log_t = [math.log10(t) for t in times]
-        self.getPlotItem().setXRange(min(log_t) - 0.1, max(log_t) + 0.1, padding=0)
         # Scaled to the data: the curves often settle well below the rail.
         peak = max((v for pad in pads for fwd in (False, True) for v in pad.volts(fwd) or []), default=1.0)
-        self.getPlotItem().setYRange(0, min(Y_TOP, max(1.0, peak * 1.15)), padding=0)
+        self._set_home((min(log_t) - 0.1, max(log_t) + 0.1), (0, min(Y_TOP, max(1.0, peak * 1.15))))
         self._redraw_selection()
 
     @staticmethod

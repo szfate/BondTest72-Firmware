@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
+    "pyqtdarktheme-fork>=2.3.6",
     "pyqtgraph>=0.13.7",
     "pyserial>=3.5",
     "pyside6-essentials>=6.7",
