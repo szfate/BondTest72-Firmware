@@ -246,7 +246,7 @@ EVENT TEST_START aid=<uid> ahw=<hw> ins=<uint> tests=<uint> pm=<uint>[,<uint>...
 | `tests` | uint32 | Adapter test count as of this test (excludes the test currently starting — incremented only after it completes) |
 | `pm` | uint8[] | Pad map IDs stored in the adapter EEPROM, default first |
 | `active` | uint8 | Pad map this test runs with — the one the following `PAD` lines belong to |
-| `current_list_ua` | float[] | Drive current in µA for each pullup level, low-current-first — same order as `rf`/`rr`/`vf`/`vr` on `PAD` lines |
+| `current_list_ua` | float[] | Nominal drive current in µA for each pullup level (10, 100, 1000): the design current through a good bond at a typical diode drop, not the short-circuit current VCC/R. Low-current-first — same order as `rf`/`rr`/`vf`/`vr` on `PAD` lines |
 | `max_bond_r_ohms` | float | Resistance ceiling used to classify GOOD/OPEN (see `PAD` below). Omitted if the active pad map has no case with thresholds set |
 | `cap_time_list_us` | uint16[] | Elapsed-time schedule (µs) for the 5 CAP_SENSE curve samples — same order as `vfs`/`vrs` on CAP `PAD` lines. Omitted if the active pad map has no CAP_SENSE case |
 
@@ -414,8 +414,8 @@ state's set are answered with `ERROR 8 WRONG_STATE` naming the current state.
 
 # Host lists the pad maps and picks one for this session
 → LIST_PADMAPS
-← PADMAP id=2 pads=64 default=1 active=1 name=1x1 Mezzanine70 v2
-← PADMAP id=3 pads=64 default=0 active=0 name=1x0p5 Mezzanine70 v1
+← PADMAP id=2 pads=64 default=1 active=1 name=1x1 v2
+← PADMAP id=3 pads=64 default=0 active=0 name=1x0p5 v1
 ← OK LIST_PADMAPS
 → SET_PADMAP id=3
 ← OK SET_PADMAP id=3

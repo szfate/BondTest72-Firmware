@@ -37,7 +37,7 @@ def find_tester_ports() -> list[PortInfo]:
     return sorted(ports, key=lambda p: p.device)
 
 
-class TesterLink:
+class TesterSerial:
     """An open connection to the tester.
 
     Received lines are delivered to `on_line` from a background thread, without

@@ -1,13 +1,13 @@
 import queue
 
-from bondtest72_gui.link import TesterLink
+from bondtest72_gui.tester_serial import TesterSerial
 
 
 def open_loopback():
-    """A link on pyserial's loopback port: everything sent comes straight back."""
+    """A connection on pyserial's loopback port: everything sent comes straight back."""
     lines: queue.Queue[str] = queue.Queue()
     closed: queue.Queue[Exception | None] = queue.Queue()
-    link = TesterLink("loop://", on_line=lines.put, on_closed=closed.put)
+    link = TesterSerial("loop://", on_line=lines.put, on_closed=closed.put)
     return link, lines, closed
 
 

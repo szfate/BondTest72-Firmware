@@ -569,7 +569,7 @@ static_assert(sizeof(_pm6Cases) / sizeof(_pm6Cases[0]) == 41, "pm6 case count mi
 static const PadMap _maps[] = {
     {
         .id                 = 1,
-        .name               = "1x1 Mezzanine70 v1",
+        .name               = "1x1 v1",
         .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm1Cases,
         .caseCount          = 63,
@@ -581,7 +581,7 @@ static const PadMap _maps[] = {
     },
     {
         .id                 = 2,
-        .name               = "1x1 Mezzanine70 v2",
+        .name               = "1x1 v2",
         .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm2Cases,
         .caseCount          = 64,
@@ -593,7 +593,7 @@ static const PadMap _maps[] = {
     },
     {
         .id                 = 3,
-        .name               = "1x0p5 Mezzanine70 v1",
+        .name               = "1x0p5 v1",
         .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm3Cases,
         .caseCount          = 64,
@@ -626,7 +626,7 @@ static const PadMap _maps[] = {
     },
     {
         .id                 = 5,
-        .name               = "0p5x1 Mezzanine70 v1",
+        .name               = "0p5x1 v1",
         .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm5Cases,
         .caseCount          = 64,

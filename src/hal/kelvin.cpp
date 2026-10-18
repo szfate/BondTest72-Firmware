@@ -10,14 +10,10 @@ static constexpr uint32_t DRAIN_SETTLE_US = 1000;
 // Pullup strengths, lowest current first. 280k/27.4k/2.49k were calculated from
 // bench IV measurements to drive ~10 µA / ~100 µA / ~1000 µA through a good bond.
 const PullupLevel PULLUP_LEVELS[PULLUP_LEVEL_COUNT] = {
-    { Bus::C, 280000.0f },
-    { Bus::D,  27400.0f },
-    { Bus::E,   2490.0f },
+    { Bus::C, 280000.0f,   10.0f },
+    { Bus::D,  27400.0f,  100.0f },
+    { Bus::E,   2490.0f, 1000.0f },
 };
-
-float pullupCurrentUA(float pullupOhms) {
-    return VCC / pullupOhms * 1.0e6f;
-}
 
 // Schedule front-loaded for the reverse-only sweep (the default
 // PadMap::directions —

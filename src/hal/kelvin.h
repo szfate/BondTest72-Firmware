@@ -21,19 +21,15 @@ constexpr uint8_t PULLUP_LEVEL_COUNT = 3;
 // so this can be tuned purely for curve-shape resolution.
 constexpr uint8_t CAP_SENSE_SAMPLE_COUNT = 5;
 
-struct PullupLevel { Bus bus; float ohms; };
+// nominalUA is the design drive current through a good bond (~diode drop on
+// the pad), as reported to the host in current_list_ua — not VCC/ohms, which
+// is the short-circuit current and overstates it by ~20%.
+struct PullupLevel { Bus bus; float ohms; float nominalUA; };
 
 // Lowest current (highest resistance) first — sweeping in this order avoids
 // hitting bypass caps with strong current before weak. Exactly
 // PULLUP_LEVEL_COUNT entries (defined in kelvin.cpp).
 extern const PullupLevel PULLUP_LEVELS[PULLUP_LEVEL_COUNT];
-
-// Approximate steady-state drive current for a pullup value (I = VCC/R),
-// in microamps. Reporting-only — the actual current a real bond sees is
-// lower since it divides against the bond resistance too. Used by the host
-// protocol to tell the GUI what current=drive each PULLUP_LEVELS entry
-// corresponds to, without duplicating VCC here.
-float pullupCurrentUA(float pullupOhms);
 
 // The timepoints (elapsed since drive start, in µs) that measureKelvinCurve
 // samples at for a given totalSettleUs. Exposed so the host protocol can

@@ -271,7 +271,7 @@ void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t (&padmapIds)[Adapte
     Serial.print(" current_list_ua=");
     for (uint8_t i = 0; i < PULLUP_LEVEL_COUNT; i++) {
         if (i > 0) Serial.print(',');
-        Serial.print(pullupCurrentUA(PULLUP_LEVELS[i].ohms), 0);
+        Serial.print(PULLUP_LEVELS[i].nominalUA, 0);
     }
 
     printBondThreshold(padMap);

@@ -386,7 +386,7 @@ READY ──── button pressed ──► TESTING ─┤             │
 |-------|--------------------|---------------------|
 | NO_ADAPTER / EOL_ADAPTER | dim red | dim red |
 | ADAPTER_DETECTED | yellow slow blink | off |
-| READY | dim green solid | off |
+| READY | yellow solid | off |
 | TESTING | yellow solid | off |
 | WRONG_ORIENTATION | red slow blink | off |
 | PASS | off | green solid |

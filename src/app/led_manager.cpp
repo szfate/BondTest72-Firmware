@@ -4,8 +4,6 @@
 
 static constexpr uint8_t YELLOW_R = 170, YELLOW_G =  30, YELLOW_B = 0;
 static constexpr uint8_t GREEN_R  =   0, GREEN_G  = 255, GREEN_B  = 0;
-// READY uses a dimmed green so it reads distinctly from the full-bright PASS.
-static constexpr uint8_t DIM_GREEN_R = 0, DIM_GREEN_G = 60, DIM_GREEN_B = 0;
 static constexpr uint8_t RED_R    = 255, RED_G    =   0, RED_B    = 0;
 static constexpr uint8_t DIM_RED_R =  50, DIM_RED_G =  0, DIM_RED_B = 0;
 
@@ -52,8 +50,6 @@ void LedManager::update(State state) {
             if (blinkOn(BLINK_SLOW_MS)) { desired[STATUS_LED][0] = YELLOW_R; desired[STATUS_LED][1] = YELLOW_G; desired[STATUS_LED][2] = YELLOW_B; }
             break;
         case State::READY:
-            desired[STATUS_LED][0] = DIM_GREEN_R; desired[STATUS_LED][1] = DIM_GREEN_G; desired[STATUS_LED][2] = DIM_GREEN_B;
-            break;
         case State::TESTING:
             desired[STATUS_LED][0] = YELLOW_R; desired[STATUS_LED][1] = YELLOW_G; desired[STATUS_LED][2] = YELLOW_B;
             break;

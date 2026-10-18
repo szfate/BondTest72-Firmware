@@ -72,6 +72,13 @@ class PadResult:
         """True for charging-curve (CAP_SENSE) pads, False for resistance sweeps."""
         return self.method.startswith("CAP")
 
+    def volts(self, forward: bool) -> list[float] | None:
+        """One direction's voltages: Kelvin voltage per drive current for STD
+        pads, the charging curve for CAP pads; None if not measured."""
+        if self.is_cap:
+            return self.vfs if forward else self.vrs
+        return self.vf if forward else self.vr
+
 
 @dataclass(frozen=True)
 class TestContext:

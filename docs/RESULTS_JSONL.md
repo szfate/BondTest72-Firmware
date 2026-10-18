@@ -28,11 +28,11 @@ One record, pretty-printed (on disk it is a single line):
   "panel_id": "sample-07",
   "context": {
     "aid": "0123456789ABCDEF", "ahw": 2, "ins": 12, "tests": 30, "pm": 2,
-    "currentListUa": [12.0, 120.0, 1325.0],
+    "currentListUa": [10.0, 100.0, 1000.0],
     "testerUid": "A1B2C3D4E5F60718", "testerBuild": "2026-10-15-0415793",
     "maxBondROhms": 60000.0,
     "capTimeListUs": [156, 312, 1250, 10000, 20000],
-    "pmName": "1x1 Mezzanine70 v2"
+    "pmName": "1x1 v2"
   }
 }
 ```
@@ -78,7 +78,7 @@ Measurement keys are present only for the directions that were measured; they ar
 | `tests` | int | Adapter test count when the test started |
 | `pm` | int | Pad map the test ran with |
 | `pmName` | string | Optional. That pad map's name |
-| `currentListUa` | float[] | Drive current in µA per STD reading, lowest first |
+| `currentListUa` | float[] | Nominal drive current in µA per STD reading, lowest first (10, 100, 1000) |
 | `maxBondROhms` | float | Optional. Resistance below which a reading counts as conducting |
 | `capTimeListUs` | int[] | Optional. Sample times in µs of the CAP charging curve |
 | `testerUid` | string | Tester board ID |

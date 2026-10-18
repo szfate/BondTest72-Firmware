@@ -23,3 +23,5 @@ Thumbs.db
 
 # Other
 discovery/
+# GUI results (default save folder when run from gui/)
+gui/results/
