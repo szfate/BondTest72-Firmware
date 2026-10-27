@@ -78,6 +78,9 @@ class TesterConnection(QObject):
     def set_padmap(self, padmap_id: int) -> None:
         self.send(p.cmd_set_padmap(padmap_id))
 
+    def set_default_padmap(self, padmap_id: int) -> None:
+        self.send(p.cmd_set_default_padmap(padmap_id))
+
     def get_results(self) -> None:
         self.send(p.cmd_get_results())
 

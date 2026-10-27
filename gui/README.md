@@ -34,7 +34,10 @@ uv run gui
   one is plugged in; otherwise pick the port and press Connect.
 - **Pad map.** Choose the adapter's pad map in the toolbar. Changing it clears
   the result on screen and redraws the die for the new map. With no tester or
-  adapter, the die for pad map 2 (1x1) is shown.
+  adapter, the die for pad map 2 (1x1) is shown. A choice lasts until the
+  adapter is unplugged or the tester restarts; Set as default stores the
+  current map in the adapter EEPROM so it is selected every time that adapter
+  is detected. The dropdown marks the adapter's default.
 - **Running a test.** Run test (Ctrl+R) starts a test. The optional sample ID
   is stored with the result.
 - **Die view.** Pads are filled by result and outlined by role; the legend

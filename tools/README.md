@@ -65,3 +65,38 @@ uv run tools/provision.py --port COM3 --hw 1 --padmap 3 --date 20260601 --yes
 | `--lifespan` | `100` | Max insertions before EOL |
 | `--date` | today | Manufacture date in `YYYYMMDD` format |
 | `--yes` / `-y` | `false` | Skip confirmation prompt |
+
+---
+
+## setup_boards.py
+
+Production setup loop. Builds the firmware once, then for each board you connect: flashes it, reads the tester UID (`HELLO`), provisions the adapter EEPROM, reads back the adapter UID (`GET_ADAPTER`) and appends a row to a CSV database.
+
+```sh
+uv run tools/setup_boards.py --hw 2 --padmap 2
+uv run tools/setup_boards.py --hw 2 --padmap 2,3 --db ~/bondtest72_boards.csv
+uv run tools/setup_boards.py --hw 2 --padmap 2 --no-flash      # provision + log only
+uv run tools/setup_boards.py --no-flash --no-provision         # just log UIDs
+```
+
+Flashing copies the UF2 to the `RP2350` BOOTSEL drive (more reliable here than `picotool`). A blank board shows up as that drive directly; a board already running firmware is rebooted into BOOTSEL with a 1200-baud touch. After flashing, the tester's reported build must match the one just built.
+
+If an adapter is already provisioned, its insertion/test counters and manufacture date are kept. A UID that is already in the database is logged again, with a note on screen.
+
+Database columns: `timestamp, tester_uid, fw_build, proto, adapter_uid, adapter_hw, padmaps, lifespan, mfg_date, ins, tests, flashed, provisioned, note`.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--hw` | *(required unless `--no-provision`)* | Adapter hardware ID (1 = Mezzanine70 r1, 2 = Mezzanine70 r2) |
+| `--padmap` | *(required unless `--no-provision`)* | Pad map IDs, comma-separated |
+| `--lifespan` | `9999` | Max insertions before EOL |
+| `--date` | existing, else today | Manufacture date `YYYYMMDD` |
+| `--db` | `tools/boards.csv` | CSV database file |
+| `--uf2` | build | Flash this UF2 instead of building |
+| `--no-flash` | `false` | Skip building and flashing |
+| `--no-provision` | `false` | Only log UIDs |
+| `--port` | auto | Serial port (auto-detected by Raspberry Pi USB VID) |
+| `--bootsel` | auto | BOOTSEL drive mount point (`/Volumes/RP2350`, `/media/$USER/RP2350`) |
+| `--note` | — | Note added to every row |
+| `--once` | `false` | Set up one board and exit |
+| `--yes` / `-y` | `false` | Unattended: no Enter/note prompts; waits for unplug → next board, stops on first failure |

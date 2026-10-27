@@ -82,6 +82,37 @@ def test_changing_the_pad_map_clears_the_result_and_redraws_the_die(window, trac
     assert window._history_list.count() == 1 and window._history_list.currentRow() == -1
 
 
+def test_dropdown_marks_the_default_and_set_as_default_stores_the_active_map(window):
+    class FakeSerial:
+        sent: list[str] = []
+
+        def send(self, command):
+            self.sent.append(command)
+
+    window._conn._serial = serial = FakeSerial()
+    feed = window._conn._on_line
+    for line in ["ADAPTER aid=0000AA ahw=2 pm=2,3 ins=1 tests=1 dut=1 active=3 state=READY",
+                 "PADMAP id=2 pads=64 default=1 active=0 name=1x1 Mezzanine70 v2",
+                 "PADMAP id=3 pads=72 default=0 active=1 name=1x0p5",
+                 "OK LIST_PADMAPS"]:
+        feed(line)
+    texts = [window._padmap_combo.itemText(i) for i in range(window._padmap_combo.count())]
+    assert texts == ["2 · 1x1 Mezzanine70 v2  (default)", "3 · 1x0p5"]
+    assert window._padmap_combo.currentText() == "3 · 1x0p5"
+
+    window._default_button.click()
+    assert serial.sent[-1] == "SET_DEFAULT_PADMAP id=3\n"
+
+    for line in ["OK SET_DEFAULT_PADMAP id=3",
+                 "PADMAP id=3 pads=72 default=1 active=1 name=1x0p5",
+                 "PADMAP id=2 pads=64 default=0 active=0 name=1x1 Mezzanine70 v2",
+                 "OK LIST_PADMAPS"]:
+        feed(line)
+    assert window._padmap_combo.currentText() == "3 · 1x0p5  (default)"
+    assert not window._default_button.isEnabled()      # already the default
+    window._conn._serial = None
+
+
 def test_toolbar_button_hides_the_bottom_panel_and_the_choice_is_remembered(window):
     assert not window._dock.isHidden() and window._panel_button.isChecked()
     window._panel_button.click()

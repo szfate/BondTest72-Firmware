@@ -122,6 +122,9 @@ class MainWindow(QMainWindow):
         self._connect_button = QPushButton("Connect")
         self._padmap_combo = QComboBox(minimumContentsLength=22)
         self._padmap_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self._default_button = QPushButton("Set as default")
+        self._default_button.setToolTip("Store this pad map in the adapter EEPROM as the one "
+                                        "selected whenever the adapter is detected")
         self._sample_edit = QLineEdit(placeholderText="Sample ID (optional)", clearButtonEnabled=True)
         self._sample_edit.setFixedWidth(220)
         self._run_button = QPushButton("Run test", objectName="runButton")
@@ -146,6 +149,7 @@ class MainWindow(QMainWindow):
         row.addWidget(self._separator())
         row.addWidget(QLabel("Pad map"))
         row.addWidget(self._padmap_combo)
+        row.addWidget(self._default_button)
         row.addWidget(self._separator())
         row.addWidget(self._sample_edit)
         row.addStretch(1)
@@ -283,6 +287,7 @@ class MainWindow(QMainWindow):
     def _wire(self) -> None:
         self._connect_button.clicked.connect(self._toggle_connection)
         self._padmap_combo.activated.connect(self._padmap_chosen)
+        self._default_button.clicked.connect(self._set_default_padmap)
         self._run_button.clicked.connect(self._run)
         self._run_action.triggered.connect(self._run)
         self._last_result_action.triggered.connect(self._conn.get_results)
@@ -405,6 +410,11 @@ class MainWindow(QMainWindow):
         if padmap_id is not None and padmap_id != self._conn.session.active_padmap:
             self._conn.set_padmap(padmap_id)
 
+    def _set_default_padmap(self) -> None:
+        active = self._conn.session.active_padmap
+        if active is not None and self._conn.session.can_set_padmap:
+            self._conn.set_default_padmap(active)
+
     # ——— display ————————————————————————————————————————————————————————————
 
     def _update_controls(self) -> None:
@@ -417,8 +427,9 @@ class MainWindow(QMainWindow):
         self._run_action.setEnabled(connected and session.can_run)
         self._last_result_action.setEnabled(connected and session.state in ("ADAPTER_DETECTED", "READY", "PASS", "FAIL"))
 
-        # Pad map choices, rebuilt only when the list or the active map changes.
-        entries = [(m.id, f"{m.id} · {m.name}") for m in session.padmaps]
+        # Pad map choices, rebuilt only when the list, the default or the active map changes.
+        entries = [(m.id, f"{m.id} · {m.name}" + ("  (default)" if m.default else ""))
+                   for m in session.padmaps]
         shown = [(self._padmap_combo.itemData(i), self._padmap_combo.itemText(i))
                  for i in range(self._padmap_combo.count())]
         if entries != shown:
@@ -431,6 +442,9 @@ class MainWindow(QMainWindow):
             self._padmap_combo.setCurrentIndex(index)
         self._padmap_combo.setEnabled(connected and session.can_set_padmap)
         self._padmap_combo.setPlaceholderText("—")
+        active_is_default = any(m.id == active and m.default for m in session.padmaps)
+        self._default_button.setEnabled(connected and session.can_set_padmap
+                                        and active is not None and not active_is_default)
 
         state = session.state or ("—" if connected else "Not connected")
         self._state_label.setText(f"  {state.replace('_', ' ').title()}  ")
