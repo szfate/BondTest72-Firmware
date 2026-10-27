@@ -43,11 +43,10 @@ HostCommand HostProtocol::processLine(const char* line) {
     if (strcmp(line, "HELLO") == 0)             return HostCommand::HELLO;
     if (strcmp(line, "LIST_PADMAPS") == 0)      return HostCommand::LIST_PADMAPS;
 
-    // SET_PADMAP and SET_DEFAULT_PADMAP share one argument. A missing or
-    // out-of-range id still dispatches the command — as PADMAP_UNSET, which
-    // never matches a registered map — so the host gets an UNKNOWN_PADMAP
-    // error instead of silence. The name must be followed by a space or the
-    // end of the line, so e.g. "SET_PADMAPX" is not mistaken for SET_PADMAP.
+    // SET_PADMAP and SET_DEFAULT_PADMAP share one id= argument. A missing or
+    // out-of-range id still dispatches the command, as PADMAP_UNSET, so the
+    // host gets an UNKNOWN_PADMAP error instead of silence. The name must be
+    // followed by a space or end of line, so "SET_PADMAPX" doesn't match.
     const struct { const char* name; HostCommand cmd; } padmapCmds[] = {
         { "SET_PADMAP",         HostCommand::SET_PADMAP },
         { "SET_DEFAULT_PADMAP", HostCommand::SET_DEFAULT_PADMAP },
@@ -126,10 +125,9 @@ bool HostProtocol::parseKvUintList(const char* kv, const char* key, uint8_t* out
     return false;
 }
 
-// Sets the adapter uid (aid= on the wire) — the 16-char hex serial from the
-// adapter's AT21CS01. Distinct from HELLO's uid=, which is the tester's own
-// RP2350 OTP board ID. A nullptr uid falls back to sixteen '0's so the host
-// always receives a valid-length aid rather than garbage.
+// aid= on the wire: the adapter's 16-hex-digit AT21CS01 serial (HELLO's uid=
+// is the tester's own board ID). nullptr falls back to sixteen '0's so the
+// host always gets a valid-length aid.
 void HostProtocol::setAdapterUid(const char* uid16) {
     if (uid16) {
         strncpy(_adapterUid, uid16, sizeof(_adapterUid) - 1);
@@ -142,8 +140,7 @@ void HostProtocol::setAdapterUid(const char* uid16) {
 
 // ——————————————————————————————————————————————————————————————————————————
 
-// Prints " pm=<id>[,<id>...]" for a PADMAP_UNSET-terminated padmap id list; prints
-// nothing if the list is empty. Shared by ADAPTER, ADAPTER_DETECTED, TEST_START.
+// " pm=<id>[,<id>...]" from a PADMAP_UNSET-terminated list; nothing if empty.
 void HostProtocol::printPadmapList(const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT]) {
     uint8_t pmCount = 0;
     for (uint8_t i = 0; i < AdapterBase::PADMAP_ID_COUNT && padmapIds[i] != EepromData::PADMAP_UNSET; i++) pmCount++;
@@ -155,8 +152,7 @@ void HostProtocol::printPadmapList(const uint8_t (&padmapIds)[AdapterBase::PADMA
     }
 }
 
-// Prints " active=<id>" for the pad map that the next test will run; prints
-// nothing when there is none. Shared by ADAPTER, ADAPTER_DETECTED, TEST_START.
+// " active=<id>" for the pad map the next test will run; nothing if none.
 void HostProtocol::printActivePadmap(const PadMap* activePadMap) {
     if (!activePadMap) return;
     Serial.print(" active=");
@@ -179,8 +175,8 @@ void HostProtocol::sendAdapterInfo(uint8_t hwId, const uint8_t (&padmapIds)[Adap
     Serial.print(" tests=");      Serial.print(tests);
     Serial.print(" eol=");        Serial.print(eol ? 1 : 0);
     Serial.print(" dut=");        Serial.print(dutPresent ? 1 : 0);
-    // The tester's state machine state, so a host that connects mid-session
-    // can tell e.g. READY from PASS without having seen the events.
+    // State machine state, so a host that connects mid-session can tell e.g.
+    // READY from PASS without having seen the events.
     Serial.print(" state=");      Serial.print(state);
     Serial.println();
 }
@@ -195,9 +191,9 @@ void HostProtocol::sendAdapterDetected(uint8_t hwId, const uint8_t (&padmapIds)[
     Serial.println();
 }
 
-// pads= counts measured pads only — DISCHARGE steps are preparation, not
-// results, and never produce a PAD line. name= is always the LAST field and
-// runs to the end of the line, because pad map names contain spaces.
+// pads= counts measured pads only; DISCHARGE steps never produce a PAD line.
+// name= is always the last field and runs to end of line, because pad map
+// names contain spaces.
 void HostProtocol::sendPadmapEntry(const PadMap& padMap, bool isDefault, bool isActive) {
     uint8_t pads = 0;
     for (uint8_t i = 0; i < padMap.caseCount; i++)
@@ -222,10 +218,8 @@ void HostProtocol::sendDutRemoved() {
     Serial.println("EVENT DUT_REMOVED");
 }
 
-// thresholds is per-TestCase (pad_map.h) but every case in a padmap
-// currently shares one TestThresholds instance (see kThresh in
-// pad_map_registry.cpp), so a single value here is valid today. Taken
-// from the first case with non-null thresholds; omitted if none.
+// Thresholds are per test case, but every case in a pad map shares kThresh
+// today, so one value describes the map. Omitted if no case has one.
 void HostProtocol::printBondThreshold(const PadMap* padMap) {
     if (!padMap) return;
     for (uint8_t i = 0; i < padMap->caseCount; i++) {
@@ -237,10 +231,9 @@ void HostProtocol::printBondThreshold(const PadMap* padMap) {
     }
 }
 
-// settleUs is per-TestCase (pad_map.h), not a firmware-wide constant like
-// PULLUP_LEVELS, so this is only valid as a single list because every
-// CAP_SENSE case in a padmap currently shares one settleUs. Taken from
-// the first CAP_SENSE case found; omitted if the padmap has none.
+// settleUs is per test case, but every CAP_SENSE case in a pad map shares one
+// today, so one schedule describes the map. Omitted if the map has no
+// CAP_SENSE cases.
 void HostProtocol::printCapSchedule(const PadMap* padMap) {
     if (!padMap) return;
     for (uint8_t i = 0; i < padMap->caseCount; i++) {
@@ -258,16 +251,15 @@ void HostProtocol::printCapSchedule(const PadMap* padMap) {
 
 void HostProtocol::sendTestStart(uint8_t hwId, const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT], const PadMap* padMap,
                                   uint32_t insertions, uint32_t tests) {
-    // Counts as of this insertion/before this test's run — testCount excludes
-    // the test currently starting (incremented only after it completes).
+    // Counters as of now: tests= excludes this test, which is only counted
+    // once it completes.
     Serial.printf("EVENT TEST_START aid=%s ahw=%u ins=%lu tests=%lu",
                   _adapterUid, hwId, (unsigned long)insertions, (unsigned long)tests);
     printPadmapList(padmapIds);
     printActivePadmap(padMap);
 
-    // Order matches PULLUP_LEVELS / rf,rr,vf,vr in PAD lines, low-current-first.
-    // Fixed for the life of the firmware build, so sent once here rather than
-    // repeated on every SLOT/PAD line.
+    // Fixed per firmware build, so sent once here instead of on every PAD
+    // line. Same order as the rf/rr/vf/vr values, lowest current first.
     Serial.print(" current_list_ua=");
     for (uint8_t i = 0; i < PULLUP_LEVEL_COUNT; i++) {
         if (i > 0) Serial.print(',');
@@ -288,11 +280,7 @@ void HostProtocol::sendWrongOrientation() {
     Serial.println("EVENT WRONG_ORIENTATION");
 }
 
-// Prints `count` comma-separated values from one direction group of PadResult
-// (pr.fwd or pr.rev). For STD, count
-// is PULLUP_LEVEL_COUNT and each slot is a pullup level, lowest-current-first
-// (see PULLUP_LEVELS in hal/kelvin.cpp); for CAP_SENSE, count is
-// CAP_SENSE_SAMPLE_COUNT and each slot is a curve timepoint, earliest-first.
+// One direction group as CSV: per pullup level for STD, per curve sample for CAP.
 static void printReadingGroupCsv(const PadReading* group, uint8_t count, bool resistance) {
     for (uint8_t k = 0; k < count; k++) {
         if (k > 0) Serial.print(',');
@@ -301,7 +289,7 @@ static void printReadingGroupCsv(const PadReading* group, uint8_t count, bool re
     }
 }
 
-// Wire names for PadType, in enum order (type= on PAD lines).
+// Wire names for PadType (type= on PAD lines).
 static const char* padTypeName(PadType t) {
     switch (t) {
         case PadType::IO:       return "IO";
@@ -316,10 +304,9 @@ static const char* padTypeName(PadType t) {
 void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePad,
                                   TestStrategy strategy, PadType padType,
                                   MeasureDirections dirs, const PadResult& r) {
-    // method= encodes which direction group(s) the line carries (see
-    // PadMap::directions in pad_map.h): STD/CAP = both, *_FW = forward only,
-    // *_REV = reverse only. Unmeasured groups are omitted from the wire —
-    // zeroed 0Ω/0V values would read as a dead short to keyword consumers.
+    // method= tells the host which directions the line carries: STD/CAP for
+    // both, a _FW or _REV suffix for one. Unmeasured directions are left off
+    // entirely — their zeroed 0Ω/0V values would read as a dead short.
     const bool fwdMeasured = measuresForward(dirs);
     const bool revMeasured = measuresReverse(dirs);
     const char* dirSuffix = (fwdMeasured && revMeasured) ? "" : (fwdMeasured ? "_FW" : "_REV");
@@ -332,22 +319,14 @@ void HostProtocol::sendPadResult(uint8_t slot, uint8_t adapterPin, uint8_t diePa
     Serial.print(" method="); Serial.print(strategy == TestStrategy::CAP_SENSE ? "CAP" : "STD");
     Serial.print(dirSuffix);
     Serial.print(" result=");
-    // NOT_TESTED never reaches the wire (PAD lines are only sent for tested cases);
-    // the explicit third branch keeps a future leak from mislabeling as OPEN.
+    // NOT_TESTED shouldn't reach the wire; spelled out so it's never sent as OPEN.
     Serial.print(r.bond == BondResult::GOOD ? "GOOD" : r.bond == BondResult::OPEN ? "OPEN" : "NOT_TESTED");
 
     if (strategy == TestStrategy::CAP_SENSE) {
-        // Raw voltage samples from the charging curve, forward and reverse
-        // under separate keywords — they're two independent discharge-then-
-        // charge cycles (see measureKelvinCurve), not one continuous curve,
-        // so they don't belong in the same array. No resistance shown: R =
-        // Rpu·V/(VCC−V) only means something at steady state — applied to a
-        // still-rising mid-charge voltage it explodes nonlinearly as V
-        // approaches VCC and doesn't represent anything physical. Only the
-        // final (most-settled) sample in each direction is steady-state
-        // enough for that transform to matter, and that's already reflected
-        // in `result` via the classification. Each curve is sent only for the
-        // direction(s) its method= covers (vfs = forward, vrs = reverse).
+        // Raw curve voltages only, forward and reverse under separate keys
+        // (they are two separate charge cycles). No resistances: the formula
+        // assumes a settled reading and is meaningless mid-charge — the final
+        // sample's verdict is already in result=.
         const PadReading* fwd = r.fwd;
         const PadReading* rev = r.rev;
         if (fwdMeasured) {
@@ -423,8 +402,7 @@ void HostProtocol::sendOkPadmap(const char* what, uint8_t padmapId) {
     Serial.println(padmapId);
 }
 
-// uid= here is the TESTER's own RP2350 OTP board ID — distinct from the
-// adapter's aid= (AT21CS01 serial) on ADAPTER/ADAPTER_DETECTED/TEST_START.
+// uid= is the tester's own RP2350 board ID, distinct from the adapter's aid=.
 void HostProtocol::sendHello() {
     Serial.print("HELLO name=");
     Serial.print(FW_NAME);

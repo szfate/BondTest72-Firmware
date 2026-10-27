@@ -523,7 +523,7 @@ bool StateMachine::flushEeprom() {
     // EepromManager already retried once with read-back verify. A flush that
     // still fails means the counters on the wire disagree with what the host
     // was told (and possibly a torn image) — escalate for operator attention
-    // instead of reporting per-flush errors forever (R2).
+    // instead of reporting per-flush errors forever.
     _hostProtocol.sendFault("EEPROM_WRITE_FAILED");
     transition(State::FAULT);
     return false;

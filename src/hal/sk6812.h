@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-// BondTest72 r2: two pixels (r1 had three). Pixel 0 = D1 (status, top),
+// Two pixels. Pixel 0 = D1 (status, top),
 // pixel 1 = D2 (result, next to the START button) — see app/led_manager.cpp.
 constexpr uint8_t LED_PIXEL_COUNT = 2;
 

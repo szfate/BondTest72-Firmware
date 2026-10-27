@@ -94,7 +94,7 @@ Hardware IDs (`ahw` / EEPROM byte 2): `0x01` = Mezzanine70 r1, `0x02` = Mezzanin
 │  TestRunner  PadMap      │  AdapterBase (interface)      │
 │  PadMapRegistry          │  Mezzanine70 / Mezzanine70r2  │
 │  DutDetector             │  AdapterRegistry              │
-│  DiscoveryScanner        │  EepromManager                │
+│                          │  EepromManager                │
 ├──────────────────────────┴───────────────────────────────┤
 │               Hardware Abstraction Layer (HAL)           │
 │   MuxController · AdcDriver · Kelvin (measurement)       │

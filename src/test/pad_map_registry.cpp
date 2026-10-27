@@ -1,46 +1,23 @@
 #include "pad_map_registry.h"
 
-// Activity-detection ceiling: a reading counts as "conducted" if its apparent
-// bond resistance is below this. Same ceiling for both STANDARD (IO pads)
-// and CAP_SENSE (VDDIO/VDD_CORE/PWR_AUX, which have a real bypass cap and
-// use CAP_SENSE's longer 2.49k-only settle instead of STANDARD's 6-reading
-// sweep — see TestStrategy::CAP_SENSE in pad_map.h). Shared-PCB-net power
-// pins (e.g. a pin electrically tied to a sibling pin's bond through a
-// shared bypass cap) are a separate, harder problem neither strategy can
-// fix — see kelvin.h.
-//
-// 60kΩ, from bench data with visually-confirmed-missing bonds: real bonds
-// (incl. weak ESD-diode-mediated ones) conduct at the 27.4k/2.49k levels up to
-// ~9.2kΩ/~1.6kΩ — the 280k level alone can read as high as ~81kΩ for a real
-// bond, but OR-across-readings means that's fine, the same pad still passes
-// via its 27.4k/2.49k reading (the 280k level is not the decisive one). Confirmed-
-// missing bonds never dropped below ~256kΩ at ANY reading (leakage/coupling
-// artifacts, not a real low-resistance path) — 60kΩ sits ~6.5x above the
-// strongest decisive real-bond reading (9.2kΩ at the 27.4k level) and ~4.3x
-// below the weakest unbonded-artifact reading (256kΩ). NOTE: this calibration
-// data was measured at the previous 330k/33k/3.3k pullup levels — apparent
-// resistance ≈ bond resistance at steady state so it transfers approximately,
-// but the leakage-artifact floor scales with the pullup network, so re-confirm
-// the margins on the bench with the 280k/27.4k/2.49k levels. This was calibrated
-// against STANDARD's readings; CAP_SENSE reuses it unverified — worth
-// confirming on the bench once real CAP_SENSE data is available.
+// Bench data with visually confirmed missing bonds: real bonds read up to
+// ~9.2kΩ at 27.4k and ~1.6kΩ at 2.49k (up to ~81kΩ at 280k, but another level
+// always passes); missing bonds never read below ~256kΩ at any level. 60kΩ
+// leaves ~6x margin to the real bonds and ~4x to the missing ones.
+// TODO(bench): measured with 330k/33k/3.3k pullups — re-confirm at the current
+// levels. CAP_SENSE reuses this value unverified.
 static constexpr TestThresholds kThresh = { 60000.0f };
 
-static constexpr uint8_t GND  = 10;  // adapter pin 10, die pad 18; all GND pins equivalent (1x1)
-static constexpr uint8_t GND3 = 26;  // adapter pin 26, die pad 41; all GND pins equivalent (1x0p5)
-static constexpr uint8_t GND5 = 26;  // adapter pin 26, die pad 32; all GND pins equivalent (0p5x1)
-static constexpr uint8_t GND6 = 53;  // adapter pin 53, die pad 42; all GND pins equivalent (TQVA)
-static constexpr uint8_t GNDM = 43;  // adapter pin 43, die pad 54 — the ONLY GND connection (MOSB)
+// Reference/return pin per map. Any of a map's GND pins would do, except on MOSB.
+static constexpr uint8_t GND  = 10;  // 1x1:   die pad 18
+static constexpr uint8_t GND3 = 26;  // 1x0p5: die pad 41
+static constexpr uint8_t GND5 = 26;  // 0p5x1: die pad 32
+static constexpr uint8_t GND6 = 53;  // TQVA:  die pad 42
+static constexpr uint8_t GNDM = 43;  // MOSB:  die pad 54, its only GND pin
 
-// STANDARD settle: per reading, so it is paid 3× per pad — keep it short for
-// factory throughput. Sized for the slowest case, an OPEN pad at the 280k
-// level charging the sense node: on the r2 board (120pF on COM_A plus mux/trace
-// capacitance, ~380pF total measured) τ ≈ 107µs, so 500µs ≈ 4.7τ ≈ 99% of VCC.
-// At the previous 200µs an open read only ~2.8V there — still classified OPEN
-// (apparent R ≫ kThresh), but the logged value wasn't settled. Real bonds have
-// far lower R and settle much faster at every level.
-// CAP_SENSE settle: the post-discharge settle for the 2.49k-only charging
-// curve (see pad_map.h TestStrategy::CAP_SENSE for the τ analysis).
+// IO: paid per reading, so kept short. Sized for an OPEN pad at 280k charging
+// the sense node (~380pF, τ≈107µs): 500µs ≈ 4.7τ.
+// CAP: total curve window — see TestStrategy::CAP_SENSE.
 static constexpr uint16_t IO_SETTLE_US  = 500;
 static constexpr uint16_t CAP_SETTLE_US = 20000;
 
@@ -66,11 +43,11 @@ static constexpr uint16_t CAP_SETTLE_US = 20000;
       .diePad=(d_), .strategy=TestStrategy::STANDARD, .padType=PadType::IO, \
       .settleUs=IO_SETTLE_US, .thresholds=&kThresh }
 
+// Pad map sources list DUT pins; adapter_pin = 71 − dut_pin for every map.
+
 // — Pad map 1: Mezzanine70 v1 ——————————————————————————————————————————————
-// 56 IO + 7 VDD/PWR = 63 cases. Source: docs/DUT_PADMAP_1X1.md.
-// GND adapter pins (equivalent): 10, 18, 26, 46, 53, 61.
-// adapter pin 52/die pad 63 (PWR_AUX) omitted — unconnected PCB trace on v1 boards.
-// adapter pin 34/die pad 43 IS connected on v1 (contrary to earlier assumption).
+// Source: docs/DUT_PADMAP_1X1.md. GND pins: 10, 18, 26, 46, 53, 61.
+// Die pad 63 (PWR_AUX, apin 52) left out: its trace is unconnected on v1 boards.
 
 static const TestCase _pm1Cases[] = {
     // ── die pads  0– 7 (apin 63–70) ─────────────────────────────────────────
@@ -149,7 +126,7 @@ static const TestCase _pm1Cases[] = {
 static_assert(sizeof(_pm1Cases) / sizeof(_pm1Cases[0]) == 63, "pm1 case count mismatch");
 
 // — Pad map 2: Mezzanine70 v2 ——————————————————————————————————————————————
-// 56 IO + 8 VDD/PWR = 64 cases. Identical to pm1 except apin34/die pad 43 is connected.
+// Pad map 1 plus die pad 63 (PWR_AUX, apin 52).
 
 static const TestCase _pm2Cases[] = {
     // ── die pads  0– 7 (apin 63–70) ─────────────────────────────────────────
@@ -184,14 +161,14 @@ static const TestCase _pm2Cases[] = {
     IO( 22, 30),
     IO( 23, 31),
     IO( 24, 32),  // [gap: VDD Core apin25 die pad 34, VDD IO apin27 die pad 36]
-    // ── die pads 37–44 (apin 28–35) — apin34/die pad 43 connected in v2 ─────
+    // ── die pads 37–44 (apin 28–35) ─────────────────────────────────────────
     IO( 28, 37),
     IO( 29, 38),
     IO( 30, 39),
     IO( 31, 40),
     IO( 32, 41),
     IO( 33, 42),
-    IO( 34, 43),  // die pad 43 / apin34 — connected in v2
+    IO( 34, 43),
     IO( 35, 44),
     // ── die pads 46–55 (apin 36–45) ─────────────────────────────────────────
     IO( 36, 46),
@@ -229,8 +206,7 @@ static const TestCase _pm2Cases[] = {
 static_assert(sizeof(_pm2Cases) / sizeof(_pm2Cases[0]) == 64, "pm2 case count mismatch");
 
 // — Pad map 3: 1x0p5 Mezzanine70 v1 ————————————————————————————————————————
-// 56 IO + 8 VDD/PWR = 64 cases. Source: docs/DUT_PADMAP_1X0P5.md.
-// GND adapter pins (equivalent): 10, 18, 26, 46, 53, 61. Using adapter pin 26 (die pad 41) as gndPin.
+// Source: docs/DUT_PADMAP_1X0P5.md. GND pins: 10, 18, 26, 46, 53, 61.
 
 static const TestCase _pm3Cases[] = {
     // ── die pads  0– 3 (apin 63–66) — clk, rst_n, bidir_0–1 ─────────────────
@@ -310,16 +286,9 @@ static const TestCase _pm3Cases[] = {
 static_assert(sizeof(_pm3Cases) / sizeof(_pm3Cases[0]) == 64, "pm3 case count mismatch");
 
 // — Pad map 4: MOSB —————————————————————————————————————————————————————————
-// 68 IO + 1 VDD = 69 cases. Source: docs/DUT_PADMAP_MOSB.md (verified against
-// PCB) — the source numbers were DUT pins and are converted here via
-// adapter_pin = 71 − dut_pin (same formula as 1x1/1x0p5/0p5x1; the converted
-// map is near-sequential, corroborating the correction). Same 74-pad ring as
-// 1x1 but a completely different pinout — nothing is derived from the 1x1
-// maps. Single GND (adapter pin 43, die pad 54); die pads 17/36/73 are
-// GND-plane-only (no adapter pin). Die pad 9 (VDD) is NOT tested — it shares
-// adapter pin 70 with die pad 8, one measurement covers both bonds. No
-// bypass caps on this chip+PCB: the VDD case uses STANDARD IO sense, not
-// CAP_SENSE.
+// Source: docs/DUT_PADMAP_MOSB.md. Same 74-pad ring as 1x1 but an unrelated
+// pinout. Die pads 17/36/73 are GND-plane-only; VDD die pads 8/9 share apin 70
+// and are not tested (see the note at the end). No bypass caps, so no CAP_SENSE.
 
 static const TestCase _pm4Cases[] = {
     // ── die pads  0– 7 (apin 62–69) ─────────────────────────────────────────
@@ -330,7 +299,7 @@ static const TestCase _pm4Cases[] = {
     IOM(66,  4),
     IOM(67,  5),
     IOM(68,  6),
-    IOM(69,  7),  // [gap: VDD die pads 8/9 → apin 70; dp9 untested — shared net]
+    IOM(69,  7),  // [gap: VDD die pads 8/9 → apin 70, untested]
     // ── die pads 10–16 (apin 1–7) ─────────────────────────────────────────
     IOM( 1, 10),
     IOM( 2, 11),
@@ -404,16 +373,9 @@ static const TestCase _pm4Cases[] = {
 static_assert(sizeof(_pm4Cases) / sizeof(_pm4Cases[0]) == 68, "pm4 case count mismatch");
 
 // — Pad map 5: 0p5x1 Mezzanine70 v1 —————————————————————————————————————————
-// 56 IO + 8 VDD = 64 cases. Source: user-provided die-pad→DUT-pin map
-// (docs/DUT_PADMAP_0P5X1.md) — the source numbers were DUT pins and are
-// converted here via adapter_pin = 71 − dut_pin (same formula as 1x1/1x0p5);
-// "..." gaps between listed pads continue linearly — the completed map uses
-// adapter pins 1–70 exactly once.
-// GND adapter pins (equivalent): 10, 18, 26, 46, 53, 61. Using adapter pin 26
-// (die pad 32) as gndPin — near geometric centre of the bond ring, same
-// convention as 1x0p5. Die pads 3 and 40 are GND-plane-only (no adapter pin),
-// like 1x0p5's 34/71. All 8 VDD pads carry bypass caps and are labelled VDDIO
-// pending die documentation that distinguishes the rails.
+// Source: docs/DUT_PADMAP_0P5X1.md. GND pins: 10, 18, 26, 46, 53, 61. Die pads
+// 3 and 40 are GND-plane-only. All VDD pads have bypass caps and are labelled
+// VDDIO until the die documentation distinguishes the rails.
 
 static const TestCase _pm5Cases[] = {
     // ── die pads  0– 2 (apin 63–65) ─────────────────────────────────────────
@@ -494,16 +456,8 @@ static const TestCase _pm5Cases[] = {
 static_assert(sizeof(_pm5Cases) / sizeof(_pm5Cases[0]) == 64, "pm5 case count mismatch");
 
 // — Pad map 6: TQVA ———————————————————————————————————————————————————————————
-// 37 IO + 4 VDD = 41 cases. Source: docs/DUT_PADMAP_TQVA.md (die-pad → DUT-pin
-// list, 2026-09-20; "..." gaps continued linearly). DUT pins converted via
-// adapter_pin = 71 − dut_pin (same formula as all other maps; the converted GND
-// set 10/18/26/46/53/61 matches the mezzanine set exactly, corroborating it).
-// GND adapter pins (equivalent): 10, 18, 26, 46, 53, 61. Using adapter pin 53
-// (die pad 42) as gndPin. Die pads for GND dut pins 61 (apin 10) and 53
-// (apin 18) were not in the source — GND is used only via adapter pins in
-// firmware, so that does not block anything. All 4 VDD pads carry bypass caps
-// (CAP_SENSE); dp3 and dp35 are each bonded to TWO dut pins (shared net — one
-// case per pad, sibling noted in the doc).
+// Source: docs/DUT_PADMAP_TQVA.md. GND pins: 10, 18, 26, 46, 53, 61. Die pads 3
+// and 35 are each bonded to two DUT pins; one case per pad.
 
 static const TestCase _pm6Cases[] = {
     // ── die pads  0, 1, 4– 9 (apin 63–70) ──────────────────────────────────
@@ -559,8 +513,7 @@ static const TestCase _pm6Cases[] = {
 };
 static_assert(sizeof(_pm6Cases) / sizeof(_pm6Cases[0]) == 41, "pm6 case count mismatch");
 
-#undef IO1
-#undef IO2
+#undef IO
 #undef IO3
 #undef IO5
 #undef IO6
@@ -609,20 +562,12 @@ static const PadMap _maps[] = {
         .pinout             = AdapterPinout::Mezzanine70,
         .cases              = _pm4Cases,
         .caseCount          = 68,
-        .presencePadA       = 43,   // GND pad — forced + Kelvin-sensed
-        .presencePadB       = 70,    // die pad 10 (IO) — most stable GND conduction on
-                                     // MOSB (~0.63V vs GND, bench-observed, vs the weak/
-                                     // drifting VDD path on apin 70)
-        .presenceThresholdV = 1.5f, // bench: present 0.50-0.85 V, absent >=3.1 V —
-                                     // mid-window, margin against contact aging
-        .checkOrientation   = false, // no reliable flipped-open pair: the mirror
-                                     // (apin 28↔70, IO↔VDD) conducts through on-die
-                                     // diode chains that drift across any threshold
-        .directions         = MeasureDirections::BOTH,  // capless DUT: no adapter-side
-                                     // bypass cap for forward drive to charge, so the
-                                     // CH446X latch-up trigger sequence is absent.
-                                     // Forward data also probes the IO→VDD upper
-                                     // diode — bench investigation in progress.
+        .presencePadA       = 43,   // GND
+        .presencePadB       = 70,   // VDD die pads 8/9. TODO(bench): chosen as "die pad 10"
+                                    // before the 71−dut remap (6e858e5) — confirm the pair.
+        .presenceThresholdV = 1.5f, // bench: present 0.50-0.85 V, absent >=3.1 V
+        .checkOrientation   = false, // mirrored pins conduct through on-die diode chains
+        .directions         = MeasureDirections::BOTH,  // capless DUT
     },
     {
         .id                 = 5,

@@ -10,8 +10,8 @@ static constexpr uint8_t DIM_RED_R =  50, DIM_RED_G =  0, DIM_RED_B = 0;
 static constexpr uint32_t BLINK_SLOW_MS = 800;
 static constexpr uint32_t BLINK_FAST_MS = 200;
 
-// r2 board: two pixels. PASS and FAIL are mutually exclusive, so they share
-// one result pixel (r1's separate pass/fail pixels were merged).
+// Two pixels. PASS and FAIL are mutually exclusive, so they share one result
+// pixel.
 static constexpr uint8_t STATUS_LED = 0;  // D1 — top
 static constexpr uint8_t RESULT_LED = 1;  // D2 — next to the START button
 static_assert(RESULT_LED < LED_PIXEL_COUNT, "LED roles exceed the pixel chain");

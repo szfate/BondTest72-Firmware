@@ -27,19 +27,19 @@ The last pin of CON6 (adapter header) is dedicated to the AT21CS01 SWI data line
 ```
 ┌──────────────────────────────────────────────────────────┐
 │                    Application Layer                     │
-│     StateMachine  ·  HostProtocol  ·  LedManager         │
+│      StateMachine  ·  HostProtocol  ·  LedManager        │
 ├──────────────────────────┬───────────────────────────────┤
 │       Test Engine        │       Adapter Layer           │
 │  TestRunner  PadMap      │  AdapterBase (interface)      │
 │  PadMapRegistry          │  Mezzanine70 / Mezzanine70r2  │
-│  DutDetector             │  AdapterRegistry               │
-│  DiscoveryScanner        │  EepromManager                 │
+│  DutDetector             │  AdapterRegistry              │
+│                          │  EepromManager                │
 ├──────────────────────────┴───────────────────────────────┤
 │               Hardware Abstraction Layer (HAL)           │
-│   MuxController · AdcDriver · Kelvin (measurement)        │
-│   SK6812Controller · Buttons · AT21CS01Driver             │
+│   MuxController · AdcDriver · Kelvin (measurement)       │
+│   SK6812Controller · Buttons · AT21CS01Driver            │
 ├──────────────────────────────────────────────────────────┤
-│                    RP2350 / Arduino                     │
+│                    RP2350 / Arduino                      │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -86,18 +86,9 @@ src/
 
 ## Key Timing Constants
 
-Define these as named constants — they are expected to need tuning:
-
-```cpp
-// state_machine.h
-constexpr uint32_t ADAPTER_POLL_INTERVAL_MS      = 1500;  // adapter-present liveness poll
-constexpr uint32_t ADAPTER_POLL_INTERVAL_FAST_MS = 100;   // faster poll while watching for an adapter to appear
-constexpr uint32_t DUT_INSERT_SETTLE_MS          = 1000;  // suppress DUT polling right after insertion (connector bounce)
-
-// dut_detector.h
-constexpr uint32_t DUT_POLL_INTERVAL_MS = 250;
-constexpr uint8_t  DUT_CONFIRM_COUNT    = 2;   // consecutive polls required before an insert/remove/flip event fires
-```
+Polling and settle intervals are named constants at the top of
+`src/app/state_machine.h`; the DUT debounce count (`DUT_CONFIRM_COUNT`) is in
+`src/test/dut_detector.h`.
 
 ---
 
@@ -205,9 +196,8 @@ struct PadMap {
 };
 ```
 
-`STANDARD` pads get a Kelvin resistance sweep (280k/27.4k/2.49k pullup; which
-directions are measured is set by `MEASURE_DIRECTIONS` in
-`src/test/result.h` — reverse-only in the current build). `CAP_SENSE` pads
+`STANDARD` pads get a Kelvin resistance sweep (280k/27.4k/2.49k pullup, in the
+directions set by the pad map's `PadMap::directions`). `CAP_SENSE` pads
 (VDDIO/VDD_CORE/PWR_AUX — real bypass caps
 that can't settle fast enough at 280k/27.4k) instead sample a charging curve at
 one fixed 2.49k pullup. `DISCHARGE` is a prep step around CAP_SENSE
@@ -317,8 +307,8 @@ run(adapter, padMap):
 - **STANDARD** (most IO pads): for each of the 3 pullup levels (280k/27.4k/2.49k,
   low-current-first) takes one reading per measured direction (forward =
   `adapterPin` driven + Kelvin-sensed with `gndPin` sinking; reverse = roles
-  swapped). Which directions are measured is set by `MEASURE_DIRECTIONS`
-  (`src/test/result.h`) — reverse-only in the current build, so 3 readings.
+  swapped). Which directions are measured is set per pad map
+  (`PadMap::directions`): 3 readings for reverse-only maps, 6 for `BOTH`.
   `conducted` = apparent resistance below
   `tc.thresholds->maxBondResistanceOhms` on that reading. Pad is `GOOD` if
   *any* reading conducted (see the rationale for a resistance ceiling over a
@@ -337,18 +327,17 @@ GND). COM_D/COM_C are not part of this measurement (see Hardware Summary).
 
 There is no fixed voltage-threshold table — classification is a single
 resistance ceiling (`TestThresholds::maxBondResistanceOhms`, currently 60kΩ,
-see the calibration rationale in `pad_map.h`/`pad_map_registry.cpp`), applied
+see the calibration note at `kThresh` in `pad_map_registry.cpp`), applied
 uniformly at every pullup level via `classifyVoltage()` in `hal/kelvin.cpp`:
 
 - Apparent resistance **below the ceiling at any of the measured-direction
-  readings (3 reverse per pad for STANDARD, final reverse sample for
-  CAP_SENSE in the current build)** → `GOOD`
+  readings (every reading for STANDARD, the final sample for CAP_SENSE)** →
+  `GOOD`
 - No reading below the ceiling → `OPEN`
 
-The forward direction is currently not measured: forward drive charges the
-adapter-side bypass cap to ~VCC and is the trigger sequence for the CH446X
-latch-up, so the sweep runs reverse-only (`MEASURE_DIRECTIONS =
-REVERSE_ONLY` in `src/test/result.h`). The `PAD` line's `method=` field
+Pad maps for DUTs with bypass caps measure reverse only: forward drive charges
+the adapter-side bypass cap to ~VCC, the trigger sequence for the CH446X
+latch-up. Capless DUTs (MOSB) measure both directions (`PadMap::directions`). The `PAD` line's `method=` field
 encodes which directions it carries — `STD`/`STD_FW`/`STD_REV` for STANDARD,
 `CAP`/`CAP_FW`/`CAP_REV` for CAP_SENSE, with the corresponding `rf=`/`rr=`/
 `vf=`/`vr=`/`vfs=`/`vrs=` groups present only for measured directions — see
@@ -393,8 +382,6 @@ READY ──── button pressed ──► TESTING ─┤             │
 | FAIL | off | red solid |
 | FAULT | red fast blink | off |
 
-The r1 board had three LEDs (separate pass and fail pixels). On r2 these share
-one result pixel, since PASS and FAIL never show at the same time.
 The result LED shows only test outcomes; FAULT is an adapter/tester condition
 and blinks on the status LED.
 

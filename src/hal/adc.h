@@ -9,8 +9,8 @@ static constexpr uint8_t ADC_CHANNEL_COUNT = 3;
 inline constexpr float VCC = 3.3f;
 
 // NOTE: only channel 1 (COM_A, the Kelvin sense line) is used by the
-// production bond-test path. Channels 0/2 (COM_D/COM_C) are no longer wired
-// into the sense path — they're left here for debug tooling only.
+// production bond-test path. Channels 0/2 (COM_D/COM_C) are read only by
+// debug tooling.
 enum class AdcChannel : uint8_t { ComD = 0, KelvinSense = 1, ComC = 2 };
 
 struct AdcReadings {

@@ -1,39 +1,26 @@
 #include "kelvin.h"
 #include <Arduino.h>
 
-// VCC comes from adc.h (via kelvin.h).
-
-// Drain-settle window used by both drain phases below. ~10τ into a 1µF net; scale it
-// up if a future padmap's largest cap exceeds ~5µF (see drainAndRelease's residual note).
+// Covers ~10τ of a 1µF net through two ~50Ω switches; raise it for bigger caps.
 static constexpr uint32_t DRAIN_SETTLE_US = 1000;
 
-// Pullup strengths, lowest current first. 280k/27.4k/2.49k were calculated from
-// bench IV measurements to drive ~10 µA / ~100 µA / ~1000 µA through a good bond.
+// Chosen from bench IV data to drive ~10/100/1000 µA through a good bond.
 const PullupLevel PULLUP_LEVELS[PULLUP_LEVEL_COUNT] = {
     { Bus::C, 280000.0f,   10.0f },
     { Bus::D,  27400.0f,  100.0f },
     { Bus::E,   2490.0f, 1000.0f },
 };
 
-// Schedule front-loaded for the reverse-only sweep (the default
-// PadMap::directions —
-// result.h): the only charging curve left is the die-side net on OPEN pads.
-// Sized around a ~1µF die-side net (τ≈2.5ms through the 2.49k; ~0.75µF /
-// τ≈1.9ms measured on the 1x1 die — at the previous 3.3k pullup the measured
-// τ was ~2.5ms): with the padmaps' 20ms window the
-// samples land at ~0.06/0.13/0.5/4/8τ — two points on the early rise, one
-// mid-rise, one near-settled, one settled. /128 still reads clean in
-// practice (ADC-read overhead is only ~tens of µs); don't go much earlier
-// or the first sample starts inside it. GOOD pads rise into the bond-
-// divider plateau (strong bonds are flat from the first sample) — the DUT
-// bypass cap sits on the grounded sink side and never charges.
+// Front-loaded: for a ~1µF die-side net (τ≈2.5ms) in a 20ms window the
+// samples land at ~0.06/0.13/0.5/4/8τ. Don't go much earlier than /128 —
+// the ADC read itself takes tens of µs.
 void curveSampleTimesUs(uint16_t totalSettleUs, uint16_t* out) {
     static_assert(CAP_SENSE_SAMPLE_COUNT == 5, "curveSampleTimesUs's schedule is hardcoded for 5 points");
-    out[0] = totalSettleUs / 128;   // 0.156ms at a 20ms window
-    out[1] = totalSettleUs / 64;    // 0.3125ms
-    out[2] = totalSettleUs / 16;    // 1.25ms
-    out[3] = totalSettleUs / 2;     // 10ms
-    out[4] = totalSettleUs;         // 20ms
+    out[0] = totalSettleUs / 128;
+    out[1] = totalSettleUs / 64;
+    out[2] = totalSettleUs / 16;
+    out[3] = totalSettleUs / 2;
+    out[4] = totalSettleUs;
 }
 
 static PadReading classifyVoltage(float v, float pullupOhms, float maxResistanceOhms) {
@@ -45,63 +32,31 @@ static PadReading classifyVoltage(float v, float pullupOhms, float maxResistance
     return r;
 }
 
-// Drains any charge sitting on forceCh, then leaves the mux with ONLY
-// sinkCh→Bus::B closed, ready for the caller to attach the pullup and sense
-// legs to forceCh.
-//
-// ORDER IS SAFETY-CRITICAL. Each setChannel is a separate ~10µs serial
-// transaction (often to a different chip), so whichever pin is grounded
-// first spends that window alone. If forceCh (which may hold a 1µF bypass
-// cap charged to 3.3V by a preceding CAP_SENSE) is clamped to ground while
-// its return still floats, the floating side is driven to about −3.3V —
-// roughly 10x past the mux's −0.3V latch-up threshold. That fires the
-// parasitic SCR, which then draws ~0.6A from the chip's own rail until
-// power is physically removed (an MCU reset will NOT clear it) and heats
-// the package to ~100°C in seconds.
-//
-// (r1 figures. The r2 board runs the CH446X VEE from an ICL7660 at ≈ −VSYS,
-// moving the latch threshold to ≈ VEE−0.3V, below any swing these nodes can
-// reach — but the sequencing below is kept as defence in depth, and the
-// per-padmap REVERSE_ONLY workaround stays until r2 is proven on the bench.)
-//
-// So the rule is: after any clearAll(), ground the reference FIRST. A full
-// clearAll() is itself safe — when everything opens, both plates of a cap
-// float together and nothing is clamped — which is why the second phase
-// below rebuilds from a clean reset rather than trying to open just the
-// drain leg with clearChannel(). (Don't "optimize" that back: clearChannel
-// leaves the crosspoint closed, which shorts forceCh to ground through the
-// switch Ron during the measurement and makes every pad read ~150Ω / GOOD.)
-//
-// The drain itself is a hard short via Bus::B — there is no current-limited
-// path, since COM_C/D/E are pullups to VCC and Bus::B is the only ground.
-// That's ~33mA through two ~50Ω switches, above the continuous rating but
-// entirely within the rails, so it's switch stress rather than a latch-up
-// risk. τ≈100µs into 1µF; DRAIN_SETTLE_US (1ms) is ~10τ, fully drained.
+// Switching order is a latch-up guard. Grounding a charged cap plate while
+// its return floats pushes the return to about −VCC; on the CH446X an X pin
+// more than 0.3V below VEE fires a parasitic SCR (~0.6A, cleared only by a
+// power cycle). VEE ≈ −VSYS on the board keeps that out of reach, so this is
+// defence in depth. Rules:
+//   - after clearAll(), ground the return (sinkCh) first;
+//   - only drain forceCh while sinkCh is grounded;
+//   - rebuild from clearAll() rather than clearChannel() — that one leaves the
+//     drain crosspoint closed and every pad then reads GOOD.
+
+// Leaves only sinkCh→Bus::B closed, with forceCh drained.
 static void groundAndDischarge(MuxController& mux, uint8_t forceCh, uint8_t sinkCh) {
     mux.clearAll();
-    mux.setChannel(sinkCh, Bus::B);   // reference first — never leave it floating
-    mux.setChannel(forceCh, Bus::B);  // then drain into a solid ground
+    mux.setChannel(sinkCh, Bus::B);
+    mux.setChannel(forceCh, Bus::B);
     delayMicroseconds(DRAIN_SETTLE_US);
 
     mux.clearAll();
-    mux.setChannel(sinkCh, Bus::B);   // reference first again, before the caller drives forceCh
+    mux.setChannel(sinkCh, Bus::B);
 }
 
-// Ends a measurement: drains forceCh, then opens everything. ORDER IS
-// SAFETY-CRITICAL (mirror of groundAndDischarge above): forceCh may sit at
-// ~VCC on a charged DUT cap (CAP_SENSE charges 1µF to ~VCC through 2.49k over
-// the settle window), and grounding a charged cap plate is safe ONLY while
-// its return (sinkCh) is still held on Bus::B — with the return floating, the
-// plate's step to GND drives the return to about −VCC by charge conservation
-// and fires the parasitic SCR. DRAIN_SETTLE_US (~20τ into 1µF, ~50Ω Ron) ensures no
-// residual charge crosses clearAll() into the next call: a partially charged
-// node left floating would dip its return when the next REVERSE measurement
-// grounds it as the sink, scaled by whatever charge is left. Residual =
-// V·e^(−t/RC), so caps up to ~5µF are fully drained (≤50mV); beyond that,
-// scale DRAIN_SETTLE_US with the padmap's largest cap or poll COM_A until drained.
-// Precondition: sinkCh→Bus::B still closed, as left by groundAndDischarge.
+// Drains forceCh so no charge carries into the next measurement, then opens
+// everything. Expects sinkCh→Bus::B still closed.
 static void drainAndRelease(MuxController& mux, uint8_t forceCh) {
-    mux.setChannel(forceCh, Bus::B);  // drain while the return (sinkCh) is still grounded
+    mux.setChannel(forceCh, Bus::B);
     delayMicroseconds(DRAIN_SETTLE_US);
     mux.clearAll();
 }
@@ -109,7 +64,7 @@ static void drainAndRelease(MuxController& mux, uint8_t forceCh) {
 PadReading measureKelvin(MuxController& mux, AdcDriver& adc,
                           uint8_t forceCh, uint8_t sinkCh, Bus pullupBus, float pullupOhms,
                           uint16_t settleUs, float maxResistanceOhms) {
-    groundAndDischarge(mux, forceCh, sinkCh);  // leaves sinkCh→Bus::B closed
+    groundAndDischarge(mux, forceCh, sinkCh);
 
     mux.setChannel(forceCh, pullupBus);
     mux.setChannel(forceCh, Bus::A);
@@ -124,7 +79,7 @@ void measureKelvinCurve(MuxController& mux, AdcDriver& adc,
                          uint8_t forceCh, uint8_t sinkCh, Bus pullupBus, float pullupOhms,
                          uint16_t totalSettleUs, float maxResistanceOhms,
                          PadReading* out) {
-    groundAndDischarge(mux, forceCh, sinkCh);  // leaves sinkCh→Bus::B closed
+    groundAndDischarge(mux, forceCh, sinkCh);
 
     mux.setChannel(forceCh, pullupBus);
     mux.setChannel(forceCh, Bus::A);
