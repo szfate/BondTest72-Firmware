@@ -90,6 +90,19 @@ def query_adapter(ser: "serial.Serial", timeout: int = 5) -> tuple[dict | None, 
     return None, None
 
 
+def query_adapter_retry(ser: "serial.Serial", timeout: float = 8) -> tuple[dict | None, str | None]:
+    """The tester polls for adapters every 1.5 s after boot, so NO_ADAPTER right after
+    a reboot is not final."""
+    deadline = time.time() + timeout
+    info, err = None, None
+    while time.time() < deadline:
+        info, err = query_adapter(ser, timeout=2)
+        if info or (err and "ADAPTER_NOT_PROVISIONED" in err):
+            return info, err
+        time.sleep(0.5)
+    return info, err
+
+
 def send_provision(ser: "serial.Serial", hw_id: int, padmap_ids: list[int], lifespan: int, mfg_date: str,
                    ins: int | None = None, tests: int | None = None, eol: int | None = None,
                    timeout: int = 5) -> bool:
@@ -161,7 +174,7 @@ def main():
     ap.add_argument("--padmap",  default=None,
                     help=f"Pad map IDs, comma-separated ({', '.join(f'{k}={v.split()[0]}' for k, v in PAD_MAPS.items())})")
     ap.add_argument("--date",    default=None,
-                    help="Manufacture date YYYYMMDD (default: today)")
+                    help="Manufacture date YYYYMMDD (default: keep the adapter's date; today for a blank adapter)")
     ap.add_argument("--lifespan", type=int, default=250,
                     help="Designed lifespan — max insertions before EOL (default: 250)")
     ap.add_argument("--yes", "-y", action="store_true",
@@ -176,8 +189,6 @@ def main():
         sys.exit(1)
 
     if not read_only:
-        mfg_date = args.date or date.today().strftime("%Y%m%d")
-
         # Parse and validate padmap IDs
         try:
             padmap_ids = [int(p) for p in args.padmap.split(',')]
@@ -195,8 +206,8 @@ def main():
                 sys.exit(1)
 
         # Validate date format
-        if len(mfg_date) != 8 or not mfg_date.isdigit():
-            print(f"ERROR: --date must be YYYYMMDD, got '{mfg_date}'")
+        if args.date is not None and (len(args.date) != 8 or not args.date.isdigit()):
+            print(f"ERROR: --date must be YYYYMMDD, got '{args.date}'")
             sys.exit(1)
 
         if args.hw not in ADAPTER_HW_NAMES:
@@ -209,10 +220,11 @@ def main():
 
     # Query current state
     print("\nCurrent adapter:")
-    info, err = query_adapter(ser)
+    info, err = query_adapter_retry(ser)
+    blank = bool(err and "ADAPTER_NOT_PROVISIONED" in err)
     if info:
         print_adapter_info(info)
-    elif err and "ADAPTER_NOT_PROVISIONED" in err:
+    elif blank:
         print("  Adapter present but not provisioned (blank EEPROM).")
         if read_only:
             print("  Run again with --hw and --padmap to provision it.")
@@ -225,20 +237,31 @@ def main():
         ser.close()
         sys.exit(0 if info else 1)
 
-    if args.override:
+    # PROVISION without counters sets them to 0. Only a blank adapter (or
+    # --override) may get that: if the record couldn't be read, its counters are
+    # unknown, and writing 0 would restart the adapter's end-of-life count.
+    if not info and not blank and not args.override:
+        print("\nERROR: couldn't read the adapter's current record, so its insertion/test counters")
+        print("       can't be preserved. Re-seat the adapter or power-cycle the tester and try again,")
+        print("       or pass --override to reset the counters to 0.")
+        ser.close()
+        sys.exit(1)
+
+    if args.override or not info:
         counter_ins = None
         counter_tests = None
         counter_eol = None
-    elif info:
+    else:
         counter_ins = int(info.get("ins", "0"))
         counter_tests = int(info.get("tests", "0"))
         counter_eol = 1 if info.get("eol", "0") == "1" else 0
         if args.lifespan > counter_ins:
             counter_eol = 0
-    else:
-        counter_ins = None
-        counter_tests = None
-        counter_eol = None
+
+    # Keep the adapter's manufacture date on re-provisioning; today is only for a
+    # new (blank or unreadable) record.
+    existing_date = info.get("mfg_date", "0") if info else "0"
+    mfg_date = args.date or (existing_date if existing_date != "0" else date.today().strftime("%Y%m%d"))
 
     # Show what will be written
     pm_display = ', '.join(f'{p} — {PAD_MAPS[p]}' for p in padmap_ids)
@@ -253,7 +276,7 @@ def main():
         eol_str = "yes" if counter_eol else "no"
         print(f"  Counters  : preserving (ins={counter_ins}, tests={counter_tests}, eol={eol_str})")
     else:
-        print("  Counters  : defaulting to 0 (no current adapter data)")
+        print("  Counters  : 0 (blank adapter)")
 
     if not args.yes:
         try:

@@ -141,7 +141,7 @@ getPadCount()             → pads per DUT slot
 getAdapterHardware()      → hardware ID enum
 getPinout()               → connector pinout; pad maps with the same pinout can run on this adapter
 channelForPin(adapterPin) → adapter pin (1-indexed) → mux logical channel
-selfTest(mux, adc)        → onboard reference-component sanity check, run once per adapter insertion
+selfTest(mux, adc)        → onboard reference-component sanity check, run once per adapter insertion; failure → FAULT
 connectorIsolationSweep(mux, adc, padMap)  → checks for cross-pad shorts on the connector (default: no-op, true)
 senseDutPresent(mux, adc, padMap)          → Kelvin sweep on presencePadA/B vs presenceThresholdV
 senseDutFlipped(mux, adc, padMap)          → same sweep, mirrored pin pair (adapterPin → 71-adapterPin)
@@ -275,9 +275,10 @@ checkAdapterAlive():
 modifying EEPROM state. In `NO_ADAPTER` state, a separate faster poll
 (`ADAPTER_POLL_INTERVAL_FAST_MS`) watches for an adapter appearing, reads its
 full EEPROM via `tryInitAdapter()`, instantiates the `AdapterBase` subclass via
-`AdapterRegistry`, runs `adapterSelfTest()`, and transitions to
-`ADAPTER_DETECTED` (or `EOL_ADAPTER` if already past its insertion limit, or
-`FAULT` on EEPROM read/CRC failure).
+`AdapterRegistry`, runs the adapter self-test and connector isolation sweep
+(`StateMachine::checkAdapter()`), and transitions to `ADAPTER_DETECTED` (or
+`EOL_ADAPTER` if already past its insertion limit, or `FAULT` on EEPROM
+read/CRC failure, a failed self-test or a connector short).
 
 ---
 

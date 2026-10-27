@@ -49,7 +49,7 @@ uv run tools/die_visualizer --file path/to/log.txt --padmap 3
 
 ## provision.py
 
-Writes the adapter EEPROM: sets hardware ID, pad map ID, and manufacture date. Queries the current adapter state first and asks for confirmation before writing.
+Writes the adapter EEPROM: sets hardware ID, pad map ID, and manufacture date. Queries the current adapter state first and asks for confirmation before writing. On re-provisioning, the insertion/test counters and manufacture date are kept; if the current record can't be read (and the adapter isn't blank), it refuses rather than resetting the counters to 0.
 
 ```sh
 uv run tools/provision.py --port /dev/tty.usbmodem1101 --hw 1 --padmap 2
@@ -62,8 +62,9 @@ uv run tools/provision.py --port COM3 --hw 1 --padmap 3 --date 20260601 --yes
 | `--baud` | `115200` | Baud rate |
 | `--hw` | *(required)* | Hardware ID (1 = Mezzanine70) |
 | `--padmap` | *(required)* | Pad map IDs, comma-separated (1 = Mezzanine70 COB v1, 2 = Mezzanine70 COB v2, 3 = Mezzanine70 COB v1 1×0.5, 4 = G801-MOSB, 5 = Mezzanine70 0.5×1, 6 = G801-TQVA) |
-| `--lifespan` | `100` | Max insertions before EOL |
-| `--date` | today | Manufacture date in `YYYYMMDD` format |
+| `--lifespan` | `250` | Max insertions before EOL |
+| `--date` | existing, else today | Manufacture date in `YYYYMMDD` format |
+| `--override` | `false` | Reset insertion/test counters and EOL to 0; also allows provisioning an adapter whose record can't be read |
 | `--yes` / `-y` | `false` | Skip confirmation prompt |
 
 ---

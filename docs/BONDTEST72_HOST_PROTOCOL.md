@@ -274,11 +274,19 @@ EVENT WRONG_ORIENTATION
 
 ### `EVENT FAULT`
 
-Sent on internal faults.
+Sent on internal faults. The tester stays in `FAULT` until the adapter is removed or re-provisioned.
 
 ```
 EVENT FAULT msg=<message>
 ```
+
+| `msg` | Cause |
+|-------|-------|
+| `ADAPTER_NOT_PROVISIONED` | Adapter EEPROM is blank; `PROVISION` it. Followed by `ADAPTER_INIT_FAILED` |
+| `ADAPTER_INIT_FAILED` | Adapter EEPROM unreadable or blank, unknown hardware ID, or no fitting pad map |
+| `ADAPTER_SELF_TEST_FAILED` | The adapter's onboard reference part (r1 diode, r2 1 kΩ) read out of range — the measurement path is not trustworthy |
+| `CONNECTOR_SHORT` | The connector isolation sweep, with the socket empty, found a pad pin conducting to its GND pin; that pad would read GOOD on every DUT. The shorted pins are in the log (`connector isolation: apin… SHORT?`) |
+| `EEPROM_WRITE_FAILED` | A counter or pad map write did not verify after one retry |
 
 ---
 

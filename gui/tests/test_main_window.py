@@ -113,6 +113,31 @@ def test_dropdown_marks_the_default_and_set_as_default_stores_the_active_map(win
     window._conn._serial = None
 
 
+def test_set_as_default_stores_the_map_picked_before_the_tester_confirms_it(window):
+    class FakeSerial:
+        def __init__(self):
+            self.sent: list[str] = []
+
+        def send(self, command):
+            self.sent.append(command)
+
+    window._conn._serial = serial = FakeSerial()
+    feed = window._conn._on_line
+    for line in ["ADAPTER aid=0000AA ahw=2 pm=2,3,5 ins=1 tests=1 dut=1 active=3 state=READY",
+                 "PADMAP id=2 pads=64 default=1 active=0 name=1x1 Mezzanine70 v2",
+                 "PADMAP id=3 pads=72 default=0 active=1 name=1x0p5",
+                 "PADMAP id=5 pads=64 default=0 active=0 name=other",
+                 "OK LIST_PADMAPS"]:
+        feed(line)
+
+    index = window._padmap_combo.findData(5)
+    window._padmap_combo.setCurrentIndex(index)
+    window._padmap_combo.activated.emit(index)         # user picks map 5; no reply yet
+    window._default_button.click()
+    assert serial.sent[-2:] == ["SET_PADMAP id=5\n", "SET_DEFAULT_PADMAP id=5\n"]
+    window._conn._serial = None
+
+
 def test_toolbar_button_hides_the_bottom_panel_and_the_choice_is_remembered(window):
     assert not window._dock.isHidden() and window._panel_button.isChecked()
     window._panel_button.click()

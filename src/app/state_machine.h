@@ -43,6 +43,9 @@ public:
 private:
     void transition(State next);
     void handleAdapterArrival(bool initOk);
+    // Both return false after escalating to EVENT FAULT + FAULT state.
+    bool checkAdapter();     // self-test, then sweepConnector(); after every successful tryInitAdapter()
+    bool sweepConnector();   // connector isolation sweep; a short only counts with the socket empty
     void handleDutEvent(DutEvent ev);
     void handleCommand(HostCommand cmd);
     void pollAdapterLiveness(uint32_t now);

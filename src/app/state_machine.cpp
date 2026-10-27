@@ -8,7 +8,6 @@
 #include "test/test_runner.h"
 #include "test/pad_map_registry.h"
 #include "debug/log.h"
-#include "debug/adapter_self_test.h"
 #include <Arduino.h>
 #include <string.h>
 
@@ -35,14 +34,15 @@ void StateMachine::begin() {
     LOG_I("begin, eeprom present=%d", _eepromMgr.isPresent());
     if (_eepromMgr.isPresent()) {
         bool ok = tryInitAdapter();
-        if (ok && _eepromData.eolReached != EepromData::EOL_REACHED)
-            _dutDetector.prime();  // sync detector with a DUT already seated at power-on
         handleAdapterArrival(ok);
-        // A primed detector never reports that DUT as INSERTED (it already
-        // counts as present), so move to READY here or the tester would sit
-        // in ADAPTER_DETECTED, ignoring START, until the DUT is re-inserted.
-        if (_state == State::ADAPTER_DETECTED)
+        // Sync the detector with a DUT already seated at power-on. A primed
+        // detector never reports that DUT as INSERTED (it already counts as
+        // present), so move to READY here or the tester would sit in
+        // ADAPTER_DETECTED, ignoring START, until the DUT is re-inserted.
+        if (_state == State::ADAPTER_DETECTED) {
+            _dutDetector.prime();
             syncStateToDut();
+        }
         LOG_I("adapter init %s -> %s", ok ? "ok" : "FAILED", stateName(_state));
     }
     _ledManager.update(_state);
@@ -156,20 +156,52 @@ void StateMachine::transition(State next) {
 void StateMachine::handleAdapterArrival(bool initOk) {
     // Shared tail of adapter arrival — used by boot (begin) and the runtime
     // insertion poll. Healthy arrivals go to ADAPTER_DETECTED; EOL adapters are
-    // rejected with an EVENT EOL_WARNING; init failure is fatal (FAULT). Callers
-    // that want to retry transient failures (the runtime insertion path) must
-    // handle those before calling this with false.
+    // rejected with an EVENT EOL_WARNING; init failure and a failed adapter
+    // check are fatal (FAULT). Callers that want to retry transient failures
+    // (the runtime insertion path) must handle those before calling this with false.
     if (!initOk) {
         _hostProtocol.sendFault("ADAPTER_INIT_FAILED");
         transition(State::FAULT);
         return;
     }
+    if (!checkAdapter()) return;
     if (_eepromData.eolReached == EepromData::EOL_REACHED) {
         LOG_W("adapter: EOL — rejecting");
         transition(State::EOL_ADAPTER);  // sends EVENT EOL_WARNING to the host
     } else {
         transition(State::ADAPTER_DETECTED);
     }
+}
+
+// Runs the adapter's reference-part self-test, then the connector isolation
+// sweep. Returns false after EVENT FAULT + FAULT; re-seating the adapter (or
+// PROVISION) runs both again.
+bool StateMachine::checkAdapter() {
+    if (!_adapter->selfTest(_mux, _adc)) {
+        // The whole measurement chain (mux, pullups, Kelvin sense, ADC) read a
+        // known part wrong, so no pad reading on this adapter can be trusted.
+        LOG_E("adapter: self-test FAILED");
+        _hostProtocol.sendFault("ADAPTER_SELF_TEST_FAILED");
+        transition(State::FAULT);
+        return false;
+    }
+    return sweepConnector();
+}
+
+// The sweep also discharges the connector pins before the next measurement,
+// so it runs even when its result can't be used. A pad shorted to its GND pin
+// reads as a GOOD bond on every DUT, hiding opens — but a seated DUT's bonds
+// conduct the same way, so a short only counts with the socket empty.
+// Returns false after EVENT FAULT + FAULT.
+bool StateMachine::sweepConnector() {
+    if (_adapter->connectorIsolationSweep(_mux, _adc, *_padMap)) return true;
+    if (_dutDetector.checkNow()) {
+        LOG_I("connector isolation: DUT seated, sweep result not usable");
+        return true;
+    }
+    _hostProtocol.sendFault("CONNECTOR_SHORT");
+    transition(State::FAULT);
+    return false;
 }
 
 void StateMachine::handleDutEvent(DutEvent ev) {
@@ -192,7 +224,7 @@ void StateMachine::handleDutEvent(DutEvent ev) {
             if (_state != State::PASS && _state != State::FAIL)
                 transition(State::ADAPTER_DETECTED);
             if (_adapter && _padMap)
-                _adapter->connectorIsolationSweep(_mux, _adc, *_padMap);
+                sweepConnector();
             break;
         case DutEvent::WRONG_ORIENTATION:
             _hostProtocol.sendWrongOrientation();
@@ -272,13 +304,13 @@ void StateMachine::handleCommand(HostCommand cmd) {
                 _hostProtocol.sendError(ErrorCode::PROVISION_FAILED, "PROVISION_FAILED");
             } else {
                 _adapter = nullptr; _padMap = nullptr;
-                if (tryInitAdapter()) {
+                if (!tryInitAdapter()) {
+                    transition(State::FAULT);
+                } else if (checkAdapter()) {
                     transition(State::ADAPTER_DETECTED);
                     // Re-provisioning with a DUT seated: same situation as boot.
                     _dutDetector.prime();
                     syncStateToDut();
-                } else {
-                    transition(State::FAULT);
                 }
                 _hostProtocol.sendOk("PROVISION");
             }
@@ -362,7 +394,6 @@ bool StateMachine::tryInitAdapter() {
     char uidBuf[17];
     _hostProtocol.setAdapterUid(_eepromMgr.readSerialUid(uidBuf, sizeof(uidBuf)) ? uidBuf : nullptr);
 
-    adapterSelfTest(_adapter, _mux, _adc);
     _dutDetector.setAdapter(_adapter);
     selectPadMap();
     if (!_padMap) {
@@ -371,8 +402,6 @@ bool StateMachine::tryInitAdapter() {
         LOG_E("adapter: no built-in pad map fits this adapter");
         return false;
     }
-    // Discharge any residual charge on the connector pins before the first test to avoid false readings
-    _adapter->connectorIsolationSweep(_mux, _adc, *_padMap);
     LOG_I("adapter: init ok, padmap=%u (%s)", _padMap->id, _padMap->name);
     return true;
 }

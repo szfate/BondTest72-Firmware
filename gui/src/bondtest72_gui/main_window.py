@@ -411,9 +411,11 @@ class MainWindow(QMainWindow):
             self._conn.set_padmap(padmap_id)
 
     def _set_default_padmap(self) -> None:
-        active = self._conn.session.active_padmap
-        if active is not None and self._conn.session.can_set_padmap:
-            self._conn.set_default_padmap(active)
+        # The map shown in the dropdown, not session.active_padmap: right after a
+        # pick, SET_PADMAP is still in flight and the session reports the old map.
+        padmap_id = self._padmap_combo.currentData()
+        if padmap_id is not None and self._conn.session.can_set_padmap:
+            self._conn.set_default_padmap(padmap_id)
 
     # ——— display ————————————————————————————————————————————————————————————
 

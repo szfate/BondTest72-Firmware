@@ -50,7 +50,7 @@ from provision import (  # noqa: E402
     PAD_MAPS,
     parse_error_line,
     print_adapter_info,
-    query_adapter,
+    query_adapter_retry,
     send_provision,
 )
 
@@ -196,19 +196,6 @@ def query_hello(ser: "serial.Serial", timeout: float = 10) -> dict | None:
             if line.startswith("HELLO "):
                 return dict(t.partition("=")[::2] for t in line[6:].split() if "=" in t)
     return None
-
-
-def query_adapter_retry(ser: "serial.Serial", timeout: float = 8) -> tuple[dict | None, str | None]:
-    """The tester polls for adapters every 2 s after boot, so NO_ADAPTER right after
-    a reboot is not final."""
-    deadline = time.time() + timeout
-    info, err = None, None
-    while time.time() < deadline:
-        info, err = query_adapter(ser, timeout=2)
-        if info or (err and "ADAPTER_NOT_PROVISIONED" in err):
-            return info, err
-        time.sleep(0.5)
-    return info, err
 
 
 def provision_adapter(ser: "serial.Serial", hw: int, padmaps: list[int], lifespan: int,
