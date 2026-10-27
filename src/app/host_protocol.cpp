@@ -5,9 +5,6 @@
 #include <Arduino.h>
 #include <pico/unique_id.h>
 #include <string.h>
-#include <stdlib.h>
-
-static constexpr uint16_t LINE_OVERFLOW_WARN_LEN = 250;  // warn as the line approaches the 256-byte _lineBuf
 
 void HostProtocol::begin() {
     _lineLen = 0;
@@ -18,19 +15,22 @@ HostCommand HostProtocol::poll() {
     while (Serial.available()) {
         char c = (char)Serial.read();
         if (c == '\n' || c == '\r') {
-            if (_lineLen > 0) {
+            if (_lineOverflow) {
+                // Never run what's left of an over-long line: a PROVISION cut
+                // short would lose its trailing counters, which default to 0.
+                _lineOverflow = false;
+                _lineLen = 0;
+                sendError(ErrorCode::LINE_TOO_LONG, "LINE_TOO_LONG");
+            } else if (_lineLen > 0) {
                 _lineBuf[_lineLen] = '\0';
                 _lineLen = 0;
-                _overflowWarned = false;
                 HostCommand cmd = processLine(_lineBuf);
                 if (cmd != HostCommand::NONE) return cmd;
             }
         } else if (_lineLen < sizeof(_lineBuf) - 1) {
             _lineBuf[_lineLen++] = c;
-            if (_lineLen >= LINE_OVERFLOW_WARN_LEN && !_overflowWarned) {
-                _overflowWarned = true;
-                LOG_W("host: command line approaching buffer limit");
-            }
+        } else {
+            _lineOverflow = true;  // rest of the line is dropped; reported at its end
         }
     }
     return HostCommand::NONE;
@@ -44,8 +44,8 @@ HostCommand HostProtocol::processLine(const char* line) {
     if (strcmp(line, "LIST_PADMAPS") == 0)      return HostCommand::LIST_PADMAPS;
 
     // SET_PADMAP and SET_DEFAULT_PADMAP share one id= argument. A missing or
-    // out-of-range id still dispatches the command, as PADMAP_UNSET, so the
-    // host gets an UNKNOWN_PADMAP error instead of silence. The name must be
+    // invalid id still dispatches the command, as PADMAP_UNSET, so the host
+    // gets an UNKNOWN_PADMAP error instead of silence. The name must be
     // followed by a space or end of line, so "SET_PADMAPX" doesn't match.
     const struct { const char* name; HostCommand cmd; } padmapCmds[] = {
         { "SET_PADMAP",         HostCommand::SET_PADMAP },
@@ -55,74 +55,132 @@ HostCommand HostProtocol::processLine(const char* line) {
         const size_t len = strlen(pc.name);
         if (strncmp(line, pc.name, len) != 0 || (line[len] != ' ' && line[len] != '\0')) continue;
         uint32_t id;
-        _padmapIdArg = (parseKvUint(line + len, "id", id) && id < EepromData::PADMAP_UNSET)
+        _padmapIdArg = (parseKvUint(line + len, "id", id) == KvStatus::OK && id < EepromData::PADMAP_UNSET)
                            ? (uint8_t)id : EepromData::PADMAP_UNSET;
         return pc.cmd;
     }
 
-    if (strncmp(line, "PROVISION ", sizeof("PROVISION ") - 1) == 0) {
-        _provision.markUnset();
-        uint32_t hw;
-        if (parseKvUint(line + sizeof("PROVISION ") - 1, "hw", hw)) _provision.hwId = (uint8_t)hw;
-        uint32_t ls;
-        if (parseKvUint(line + sizeof("PROVISION ") - 1, "lifespan", ls)) _provision.designedLifespan = ls;
-        if (!parseKvUintList(line + sizeof("PROVISION ") - 1, "padmap", _provision.padmapIds, AdapterBase::PADMAP_ID_COUNT))
-            return HostCommand::PROVISION_INVALID;
-        uint32_t dt;
-        if (parseKvUint(line + sizeof("PROVISION ") - 1, "date", dt)) _provision.dateOfManufacture = dt;
-        uint32_t ins;
-        if (parseKvUint(line + sizeof("PROVISION ") - 1, "ins", ins)) _provision.insertionCount = ins;
-        uint32_t tests;
-        if (parseKvUint(line + sizeof("PROVISION ") - 1, "tests", tests)) _provision.testCount = tests;
-        uint32_t eol;
-        if (parseKvUint(line + sizeof("PROVISION ") - 1, "eol", eol)) _provision.eol = eol;
-        return HostCommand::PROVISION;
-    }
+    if (strncmp(line, "PROVISION ", sizeof("PROVISION ") - 1) == 0)
+        return parseProvision(line + sizeof("PROVISION ") - 1);
 
     return HostCommand::NONE;
 }
 
-bool HostProtocol::parseKvUint(const char* kv, const char* key, uint32_t& out) {
+// YYYYMMDD with a plausible year and in-range month and day.
+static bool isValidDate(uint32_t d) {
+    const uint32_t year = d / 10000, month = d / 100 % 100, day = d % 100;
+    return year >= 2000 && year <= 2099 && month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}
+
+// Fills _provision. Omitted fields keep their unset sentinels; the state
+// machine reports the required ones as MISSING_<FIELD>. A field that is
+// present but malformed or out of range makes the whole request
+// PROVISION_INVALID, naming the first such field in _provisionError, so
+// nothing is written from a half-understood line. The sentinels themselves
+// (0xFF, 0xFFFFFFFF) are out of range, so a host can't send "unset".
+// Unknown keys are ignored, so newer hosts can add fields.
+HostCommand HostProtocol::parseProvision(const char* args) {
+    _provision.markUnset();
+    _provisionError = nullptr;
+
+    uint32_t hw;
+    KvStatus hwStatus = parseKvUint(args, "hw", hw);
+    if (hwStatus == KvStatus::INVALID || (hwStatus == KvStatus::OK && hw >= EepromData::HWID_UNSET)) {
+        _provisionError = "INVALID_HW";
+        return HostCommand::PROVISION_INVALID;
+    }
+    if (hwStatus == KvStatus::OK) _provision.hwId = (uint8_t)hw;
+
+    if (parseKvUintList(args, "padmap", _provision.padmapIds, AdapterBase::PADMAP_ID_COUNT) == KvStatus::INVALID) {
+        _provisionError = "INVALID_PADMAP";
+        return HostCommand::PROVISION_INVALID;
+    }
+
+    struct Field { const char* key; uint32_t* dst; uint32_t min, max; const char* error; };
+    const Field fields[] = {
+        { "lifespan", &_provision.designedLifespan,  1, EepromData::FIELD_UNSET - 1, "INVALID_LIFESPAN" },
+        { "date",     &_provision.dateOfManufacture, 0, EepromData::FIELD_UNSET - 1, "INVALID_DATE" },
+        { "ins",      &_provision.insertionCount,    0, EepromData::FIELD_UNSET - 1, "INVALID_INS" },
+        { "tests",    &_provision.testCount,         0, EepromData::FIELD_UNSET - 1, "INVALID_TESTS" },
+        { "eol",      &_provision.eol,               0, 1,                           "INVALID_EOL" },
+    };
+    for (const Field& f : fields) {
+        uint32_t v;
+        KvStatus st = parseKvUint(args, f.key, v);
+        if (st == KvStatus::ABSENT) continue;
+        if (st == KvStatus::INVALID || v < f.min || v > f.max) {
+            _provisionError = f.error;
+            return HostCommand::PROVISION_INVALID;
+        }
+        *f.dst = v;
+    }
+    if (_provision.hasDate() && !isValidDate(_provision.dateOfManufacture)) {
+        _provisionError = "INVALID_DATE";
+        return HostCommand::PROVISION_INVALID;
+    }
+    return HostCommand::PROVISION;
+}
+
+// Unsigned decimal at s: one or more digits, no sign, no overflow. *end is set
+// to the first character after the digits.
+static bool parseDecimal(const char* s, const char** end, uint32_t& out) {
+    uint32_t v = 0;
+    const char* p = s;
+    for (; *p >= '0' && *p <= '9'; p++) {
+        const uint32_t digit = *p - '0';
+        if (v > (UINT32_MAX - digit) / 10) return false;
+        v = v * 10 + digit;
+    }
+    if (p == s) return false;
+    *end = p;
+    out = v;
+    return true;
+}
+
+// Finds key=<value> among space-separated tokens. INVALID if the value is not
+// a plain decimal running up to the next space or end of line.
+HostProtocol::KvStatus HostProtocol::parseKvUint(const char* kv, const char* key, uint32_t& out) {
     uint8_t klen = strlen(key);
     const char* p = kv;
     while (*p) {
         if (strncmp(p, key, klen) == 0 && p[klen] == '=') {
-            out = (uint32_t)atol(p + klen + 1);
-            return true;
+            const char* end;
+            if (!parseDecimal(p + klen + 1, &end, out) || (*end != ' ' && *end != '\0')) return KvStatus::INVALID;
+            return KvStatus::OK;
         }
         while (*p && *p != ' ') p++;
         if (*p == ' ') p++;
     }
-    return false;
+    return KvStatus::ABSENT;
 }
 
-bool HostProtocol::parseKvUintList(const char* kv, const char* key, uint8_t* out, uint8_t maxCount) {
+// key=<id>[,<id>...] into out, PADMAP_UNSET-terminated. INVALID on an empty
+// or non-numeric entry (a trailing or doubled comma would otherwise be a
+// phantom ID), an ID that collides with PADMAP_UNSET, or more than maxCount
+// entries.
+HostProtocol::KvStatus HostProtocol::parseKvUintList(const char* kv, const char* key, uint8_t* out, uint8_t maxCount) {
     uint8_t klen = strlen(key);
     const char* p = kv;
     while (*p) {
         if (strncmp(p, key, klen) == 0 && p[klen] == '=') {
             const char* val = p + klen + 1;
             uint8_t count = 0;
-            while (count < maxCount) {
-                out[count] = (uint8_t)atol(val);
-                count++;
-                while (*val && *val != ',' && *val != ' ') val++;
-                if (*val == ',') {
-                    val++;
-                    // Empty field (trailing or doubled comma) would atol() as 0 — a
-                    // phantom padmap ID. Reject the whole list instead.
-                    if (*val == ',' || *val == ' ' || *val == '\0') return false;
-                    continue;
-                }
+            while (true) {
+                uint32_t id;
+                if (count == maxCount || !parseDecimal(val, &val, id) || id >= EepromData::PADMAP_UNSET)
+                    return KvStatus::INVALID;
+                out[count++] = (uint8_t)id;
+                if (*val == ',') { val++; continue; }
+                if (*val != ' ' && *val != '\0') return KvStatus::INVALID;
                 break;
             }
             while (count < maxCount) out[count++] = EepromData::PADMAP_UNSET;
-            return true;
+            return KvStatus::OK;
         }
         while (*p && *p != ' ') p++;
         if (*p == ' ') p++;
     }
-    return false;
+    return KvStatus::ABSENT;
 }
 
 // aid= on the wire: the adapter's 16-hex-digit AT21CS01 serial (HELLO's uid=

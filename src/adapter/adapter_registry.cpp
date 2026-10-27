@@ -39,3 +39,13 @@ AdapterBase* AdapterRegistry::create(const EepromData& eeprom) {
     _bufOccupied = true;
     return a;
 }
+
+// No default case: -Wswitch flags a new AdapterHardware left out here.
+bool AdapterRegistry::isKnown(uint8_t hwId) {
+    switch (static_cast<AdapterHardware>(hwId)) {
+        case AdapterHardware::Mezzanine70:
+        case AdapterHardware::Mezzanine70r2:
+            return true;
+    }
+    return false;
+}

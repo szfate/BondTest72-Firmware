@@ -33,7 +33,15 @@ StateMachine::StateMachine(MuxController&    mux,
 void StateMachine::begin() {
     LOG_I("begin, eeprom present=%d", _eepromMgr.isPresent());
     if (_eepromMgr.isPresent()) {
+        // A read that fails outright is retried, as at insertion: contacts and
+        // rails may still be settling at power-up. A blank or unusable record
+        // won't change on a re-read and goes straight to FAULT.
         bool ok = tryInitAdapter();
+        for (uint8_t i = 1; !ok && eepromReadFailed() && i < BOOT_INIT_ATTEMPTS; i++) {
+            LOG_W("adapter: init failed at boot, retrying");
+            delay(ADAPTER_INSERT_SETTLE_MS);
+            ok = tryInitAdapter();
+        }
         handleAdapterArrival(ok);
         // Sync the detector with a DUT already seated at power-on. A primed
         // detector never reports that DUT as INSERTED (it already counts as
@@ -104,8 +112,8 @@ void StateMachine::pollAdapterInsertion(uint32_t now) {
     // connector makes early reads fail or return garbage (a floating SWI line
     // reads as 0xFF, which looks like a blank header → spurious
     // ADAPTER_NOT_PROVISIONED). Init failure retries on the next poll instead of
-    // latching FAULT — insertion bounce must not wedge the tester. Only a
-    // genuinely blank adapter (read succeeded, header really is blank) latches.
+    // latching FAULT — insertion bounce must not wedge the tester. A record
+    // that was read but can't be used (blank header, unknown hardware) latches.
     if (_state != State::NO_ADAPTER) return;
     if (now - _lastAdapterInsertPoll >= ADAPTER_POLL_INTERVAL_FAST_MS) {
         _lastAdapterInsertPoll = now;
@@ -116,9 +124,9 @@ void StateMachine::pollAdapterInsertion(uint32_t now) {
                 if (tryInitAdapter()) {
                     _adapterSettleUntil = 0;
                     handleAdapterArrival(true);
-                } else if (_lastEepromResult == EepromManager::ReadResult::Blank) {
+                } else if (!eepromReadFailed()) {
                     _adapterSettleUntil = 0;
-                    handleAdapterArrival(false);  // fully seated but unprovisioned — permanent
+                    handleAdapterArrival(false);  // fully seated, record unusable — permanent
                 } else {
                     _adapterSettleUntil = 0;  // transient read failure — retry after another settle
                     LOG_W("adapter: init failed during detection, retrying");
@@ -157,8 +165,8 @@ void StateMachine::handleAdapterArrival(bool initOk) {
     // Shared tail of adapter arrival — used by boot (begin) and the runtime
     // insertion poll. Healthy arrivals go to ADAPTER_DETECTED; EOL adapters are
     // rejected with an EVENT EOL_WARNING; init failure and a failed adapter
-    // check are fatal (FAULT). Callers that want to retry transient failures
-    // (the runtime insertion path) must handle those before calling this with false.
+    // check are fatal (FAULT). Callers retry a failed EEPROM read
+    // (eepromReadFailed()) themselves before calling this with false.
     if (!initOk) {
         _hostProtocol.sendFault("ADAPTER_INIT_FAILED");
         transition(State::FAULT);
@@ -277,7 +285,10 @@ void StateMachine::handleCommand(HostCommand cmd) {
             tryStartTest();
             break;
         case HostCommand::GET_RESULTS:
-            sendResults();
+            if (_lastResultPadMap)
+                sendResults();
+            else
+                _hostProtocol.sendError(ErrorCode::NO_RESULTS, "NO_RESULTS");
             break;
         case HostCommand::SET_PADMAP:
             handleSetPadMap();
@@ -294,6 +305,8 @@ void StateMachine::handleCommand(HostCommand cmd) {
                 _hostProtocol.sendError(ErrorCode::NO_ADAPTER, "NO_ADAPTER");
             } else if (!req.hasHw()) {
                 _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_HW");
+            } else if (!AdapterRegistry::isKnown(req.hwId)) {
+                _hostProtocol.sendError(ErrorCode::INVALID_FIELD, "INVALID_HW");
             } else if (!req.hasPadmap()) {
                 _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_PADMAP");
             } else if (!req.hasLifespan()) {
@@ -317,7 +330,7 @@ void StateMachine::handleCommand(HostCommand cmd) {
             break;
         }
         case HostCommand::PROVISION_INVALID:
-            _hostProtocol.sendError(ErrorCode::MISSING_FIELD, "MISSING_PADMAP");
+            _hostProtocol.sendError(ErrorCode::INVALID_FIELD, _hostProtocol.provisionError());
             break;
         case HostCommand::GET_ADAPTER:
             if (!_adapter) {
@@ -362,7 +375,19 @@ bool StateMachine::provisionEeprom(const ProvisionRequest& req) {
     return true;
 }
 
+// The last tryInitAdapter() failed to read the EEPROM at all (I/O or CRC
+// error) — worth retrying, unlike a record that read fine but is unusable.
+bool StateMachine::eepromReadFailed() const {
+    return _lastEepromResult == EepromManager::ReadResult::IoError ||
+           _lastEepromResult == EepromManager::ReadResult::CrcError;
+}
+
 bool StateMachine::tryInitAdapter() {
+    // A new adapter session: the last result belongs to the adapter that was
+    // here before, and replaying it through this one's channel map would
+    // mislabel its pads. GET_RESULTS answers NO_RESULTS until the next test.
+    _lastResultPadMap = nullptr;
+
     auto result = _eepromMgr.read(_eepromData);
     _lastEepromResult = result;
 
@@ -538,7 +563,9 @@ bool StateMachine::flushEeprom() {
     // eolReached, and the padmap list order (SET_DEFAULT_PADMAP). The rest
     // (hwId, lifespan, dateOfManufacture) is loaded once in tryInitAdapter()
     // and never changed, so writing back the whole header is safe.
-    if (_eepromData.insertionCount >= _eepromData.designedLifespan &&
+    // The lifespan counts usable insertions: the N-th of N may still test, the
+    // one after it sets EOL.
+    if (_eepromData.insertionCount > _eepromData.designedLifespan &&
         _eepromData.eolReached != EepromData::EOL_REACHED) {
         _eepromData.eolReached = EepromData::EOL_REACHED;
         LOG_W("adapter: EOL reached (%lu insertions)", _eepromData.insertionCount);

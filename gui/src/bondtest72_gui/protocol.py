@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 # Protocol version this module implements. Tester firmware that reports a lower
 # proto= lacks some commands (see the version table in the protocol doc).
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 3
 
 # PAD measurement methods; the _FW/_REV suffix says which direction(s) the line carries.
 PAD_METHODS = frozenset({"STD", "STD_FW", "STD_REV", "CAP", "CAP_FW", "CAP_REV"})

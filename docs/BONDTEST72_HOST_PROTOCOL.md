@@ -1,6 +1,6 @@
 # BondTest72 Host Protocol
 
-USB CDC serial protocol, 115200 baud, 8N1. Lines are newline-terminated (`\n` or `\r\n`).
+USB CDC serial protocol, 115200 baud, 8N1. Lines are newline-terminated (`\n` or `\r\n`). A command line may be at most 255 characters; a longer one is discarded whole and answered with `ERROR code=12 msg=LINE_TOO_LONG`.
 
 All communication is plain ASCII. The host sends commands (uppercase), the tester responds with events and results (uppercase). Key-value pairs use `key=value` format, space-separated.
 
@@ -16,6 +16,7 @@ All communication is plain ASCII. The host sends commands (uppercase), the teste
 |---------|---------|
 | 1 | Original protocol |
 | 2 | `LIST_PADMAPS`, `SET_DEFAULT_PADMAP`; `SET_PADMAP` replies `OK` and checks adapter compatibility; `active=` on `ADAPTER`, `EVENT ADAPTER_DETECTED` and `EVENT TEST_START`; `state=` on `ADAPTER`; `type=` on `PAD` |
+| 3 | `PROVISION` fields are validated and rejected with `ERROR code=11 msg=INVALID_<FIELD>`; over-long lines are answered with `ERROR code=12 msg=LINE_TOO_LONG` instead of being run truncated; `GET_RESULTS` with no result is answered with `ERROR code=13 msg=NO_RESULTS` instead of silence |
 
 New fields may be added to existing lines without a version bump, so parsers must ignore keys they don't know.
 
@@ -158,17 +159,19 @@ Write configuration values to an adapter EEPROM. Requires an adapter to be physi
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `hw` | uint8 | Yes | Hardware ID (adapter board identifier). |
-| `padmap` | uint8[] | Yes | Pad map IDs to provision, comma-separated (1–4 IDs). |
-| `lifespan` | uint32 | Yes | Designed lifespan — max insertions before EOL. |
-| `date` | uint32 | Yes | Manufacturing date as YYYYMMDD. |
+| `hw` | uint8 | Yes | Hardware ID (adapter board identifier). Must be an adapter this firmware supports. |
+| `padmap` | uint8[] | Yes | Pad map IDs to provision, comma-separated (1–4 IDs, each 0–254). IDs this firmware doesn't know are accepted, so an adapter can name maps from newer firmware. |
+| `lifespan` | uint32 | Yes | Designed lifespan — max insertions before EOL. At least 1. |
+| `date` | uint32 | Yes | Manufacturing date as YYYYMMDD, year 2000–2099. |
 | `ins` | uint32 | No | Insertion count to write. Default: 0. |
 | `tests` | uint32 | No | Test count to write. Default: 0. |
-| `eol` | uint32 | No | EOL flag (0=ok, 1=end-of-life). Default: 0. |
+| `eol` | uint32 | No | EOL flag, `0` (ok) or `1` (end-of-life). Default: 0. |
+
+Values are plain unsigned decimals (no sign, no other characters); `ins`, `tests` and `lifespan` must be below 4294967295. A field that is present but malformed or out of range rejects the whole command and nothing is written. Unknown keys are ignored.
 
 **Response (success):** `OK PROVISION`
 
-**Response (error):** `ERROR code=1 msg=NO_ADAPTER`, `ERROR code=6 msg=MISSING_<FIELD>`, or `ERROR code=4 msg=PROVISION_FAILED`
+**Response (error):** `ERROR code=1 msg=NO_ADAPTER`, `ERROR code=6 msg=MISSING_<FIELD>`, `ERROR code=11 msg=INVALID_<FIELD>` (`INVALID_HW`, `INVALID_PADMAP`, `INVALID_LIFESPAN`, `INVALID_DATE`, `INVALID_INS`, `INVALID_TESTS` or `INVALID_EOL`; the first bad field), or `ERROR code=4 msg=PROVISION_FAILED`
 
 After successful provisioning, the tester reinitializes the adapter and transitions to `ADAPTER_DETECTED` (or `FAULT` on failure).
 
@@ -181,6 +184,8 @@ Resend the most recent test results.
 **Request:** `GET_RESULTS`
 
 **Response:** Re-sends the `SLOT`/`PAD` lines and the `SUMMARY` line from the last test, in the same order as the original `RUN` response (no `EVENT TEST_START` line is repeated).
+
+**Response (error):** `ERROR code=13 msg=NO_RESULTS` if no test has run since the adapter was detected. Results are dropped whenever an adapter is detected (insertion, power-up or `PROVISION`), since they were measured on the adapter that was there before.
 
 ---
 
@@ -283,7 +288,7 @@ EVENT FAULT msg=<message>
 | `msg` | Cause |
 |-------|-------|
 | `ADAPTER_NOT_PROVISIONED` | Adapter EEPROM is blank; `PROVISION` it. Followed by `ADAPTER_INIT_FAILED` |
-| `ADAPTER_INIT_FAILED` | Adapter EEPROM unreadable or blank, unknown hardware ID, or no fitting pad map |
+| `ADAPTER_INIT_FAILED` | Adapter EEPROM blank, unknown hardware ID, no fitting pad map, or still unreadable after 3 attempts at power-up. An adapter inserted later whose EEPROM can't be read is retried until it reads, without a fault |
 | `ADAPTER_SELF_TEST_FAILED` | The adapter's onboard reference part (r1 diode, r2 1 kΩ) read out of range — the measurement path is not trustworthy |
 | `CONNECTOR_SHORT` | The connector isolation sweep, with the socket empty, found a pad pin conducting to its GND pin; that pad would read GOOD on every DUT. The shorted pins are in the log (`connector isolation: apin… SHORT?`) |
 | `EEPROM_WRITE_FAILED` | A counter or pad map write did not verify after one retry |
@@ -366,6 +371,9 @@ ERROR code=<code> msg=<message>
 | 8 | `WRONG_STATE` | Command not valid in the tester's current state (msg = current state name; see the per-state table below) |
 | 9 | `EEPROM_WRITE_FAILED` | **Reserved** — never emitted. A runtime flush that fails even after write-verify + one retry now escalates to `EVENT FAULT msg=EEPROM_WRITE_FAILED` and the FAULT state instead |
 | 10 | `PADMAP_INCOMPATIBLE` | The pad map exists but is written for a different adapter pinout |
+| 11 | `INVALID_FIELD` | A PROVISION field is malformed or out of range (msg=INVALID_HW, INVALID_PADMAP, INVALID_LIFESPAN, INVALID_DATE, INVALID_INS, INVALID_TESTS or INVALID_EOL) |
+| 12 | `LINE_TOO_LONG` | The command line exceeded 255 characters and was discarded without being run |
+| 13 | `NO_RESULTS` | `GET_RESULTS` with no test run since the adapter was detected |
 
 ---
 

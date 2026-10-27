@@ -22,6 +22,7 @@ enum class DutEvent : uint8_t;
 
 constexpr uint32_t ADAPTER_POLL_INTERVAL_MS       = 1500;
 constexpr uint32_t ADAPTER_POLL_INTERVAL_FAST_MS  = 100;
+constexpr uint8_t  BOOT_INIT_ATTEMPTS        = 3;    // adapter EEPROM reads at power-up before a read failure latches FAULT
 constexpr uint32_t ADAPTER_INSERT_SETTLE_MS  = 100;  // wait after adapter presence first detected before the first EEPROM read — half-seated contacts read as garbage/blank
 constexpr uint32_t DUT_INSERT_SETTLE_MS      = 1000;  // debounce: ignore poll after insertion until connector is seated
 constexpr uint32_t DUT_POLL_INTERVAL_MS      = 250;   // DUT presence cadence — owned by the app's poll loop, not the detector
@@ -52,6 +53,7 @@ private:
     void pollDut(uint32_t now);
     void pollAdapterInsertion(uint32_t now);
     bool tryInitAdapter();
+    bool eepromReadFailed() const;  // last tryInitAdapter() couldn't read the EEPROM — retryable
     bool provisionEeprom(const ProvisionRequest& req);
     void sendNoAdapterError();
 

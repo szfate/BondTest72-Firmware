@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 
 class AdapterBase;
 struct EepromData;
@@ -10,4 +11,7 @@ public:
     // (not just boot); ends the previous occupant's lifetime before reusing the
     // buffer — see adapter_registry.cpp.
     static AdapterBase* create(const EepromData& eeprom);
+    // True if create() can build this hardware ID. PROVISION checks it before
+    // writing a record the tester could never use.
+    static bool isKnown(uint8_t hwId);
 };

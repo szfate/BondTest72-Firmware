@@ -121,9 +121,9 @@ exposed as the adapter's `aid=` on `ADAPTER`/`EVENT ADAPTER_DETECTED`/`EVENT TES
 
 - `insertion_count` — incremented on DUT **absent → present** transition
 - `test_count` — incremented on each completed test run (after it completes)
-- `eol_reached` — written by firmware when `insertion_count` reaches
-  `designed_lifespan`; drives the ID LED on the adapter board and blocks
-  further testing (state → `EOL_ADAPTER`)
+- `eol_reached` — written by firmware when `insertion_count` exceeds
+  `designed_lifespan` (a lifespan of N allows N tested insertions); drives the
+  ID LED on the adapter board and blocks further testing (state → `EOL_ADAPTER`)
 - If the CRC check fails on read → treat as `CrcError`; a blank (all-0xFF)
   EEPROM is distinguished as `Blank` (`EepromManager::ReadResult`) and reported
   to the host as `ERROR code=7 msg=ADAPTER_NOT_PROVISIONED`, not a generic fault

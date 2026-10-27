@@ -11,7 +11,10 @@
 //   2 — LIST_PADMAPS, SET_DEFAULT_PADMAP, OK reply to SET_PADMAP,
 //       active= on ADAPTER/ADAPTER_DETECTED/TEST_START, state= on ADAPTER,
 //       type= on PAD
-constexpr uint8_t PROTOCOL_VERSION = 2;
+//   3 — PROVISION fields validated (ERROR INVALID_FIELD); over-long lines
+//       answered with ERROR LINE_TOO_LONG instead of running truncated;
+//       GET_RESULTS with no result answered with ERROR NO_RESULTS
+constexpr uint8_t PROTOCOL_VERSION = 3;
 
 enum class ErrorCode : uint8_t {
     NO_ADAPTER            = 1,
@@ -24,6 +27,9 @@ enum class ErrorCode : uint8_t {
     WRONG_STATE             = 8,  // command not valid in the tester's current state
     EEPROM_WRITE_FAILED     = 9,  // reserved, never emitted — write failures are reported as EVENT FAULT
     PADMAP_INCOMPATIBLE     = 10, // pad map exists but is written for a different adapter pinout
+    INVALID_FIELD           = 11, // PROVISION field malformed or out of range (msg=INVALID_<FIELD>)
+    LINE_TOO_LONG           = 12, // line exceeded the receive buffer and was discarded
+    NO_RESULTS              = 13, // GET_RESULTS with no test run since the adapter was detected
 };
 
 enum class HostCommand : uint8_t {
@@ -48,6 +54,8 @@ public:
     uint8_t     padmapIdArg() const { return _padmapIdArg; }
 
     const ProvisionRequest& provisionRequest() const { return _provision; }
+    // INVALID_<FIELD> naming the first bad field of the last PROVISION_INVALID.
+    const char* provisionError() const { return _provisionError; }
 
     void setAdapterUid(const char* uid16);
 
@@ -79,9 +87,12 @@ public:
     void sendHello();
 
 private:
+    enum class KvStatus : uint8_t { ABSENT, OK, INVALID };
+
     HostCommand processLine(const char* line);
-    static bool parseKvUint(const char* kv, const char* key, uint32_t& out);
-    static bool parseKvUintList(const char* kv, const char* key, uint8_t* out, uint8_t maxCount);
+    HostCommand parseProvision(const char* args);
+    static KvStatus parseKvUint(const char* kv, const char* key, uint32_t& out);
+    static KvStatus parseKvUintList(const char* kv, const char* key, uint8_t* out, uint8_t maxCount);
     void printPadmapList(const uint8_t (&padmapIds)[AdapterBase::PADMAP_ID_COUNT]);
     void printActivePadmap(const PadMap* activePadMap);
     void printBondThreshold(const PadMap* padMap);
@@ -89,8 +100,9 @@ private:
 
     char     _lineBuf[256];
     uint16_t _lineLen           = 0;
-    bool     _overflowWarned    = false;
+    bool     _lineOverflow      = false;  // chars were dropped; the line is answered LINE_TOO_LONG
     uint8_t  _padmapIdArg       = EepromData::PADMAP_UNSET;
     ProvisionRequest _provision;  // markUnset()ed at the start of each PROVISION parse
+    const char* _provisionError = nullptr;
     char     _adapterUid[17]    = {};  // aid= on the wire — adapter's AT21CS01 serial (HELLO's uid= is the tester's own board ID)
 };
