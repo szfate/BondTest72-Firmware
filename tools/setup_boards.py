@@ -48,6 +48,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from provision import (  # noqa: E402
     ADAPTER_HW_NAMES,
     PAD_MAPS,
+    lifespan_cut_error,
     parse_error_line,
     print_adapter_info,
     query_adapter_retry,
@@ -58,6 +59,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_UF2 = REPO_ROOT / ".pio" / "build" / "pico2" / "firmware.uf2"
 BUILD_INFO_H = REPO_ROOT / "src" / "build_info.h"
 DEFAULT_DB = Path(__file__).resolve().parent / "boards.csv"
+DEFAULT_LIFESPAN = 9999  # insertions, for a blank adapter; re-provisioning keeps the adapter's
 
 RPI_VID = 0x2E8A
 BOOTSEL_VOLUME_NAME = "RP2350"
@@ -198,12 +200,20 @@ def query_hello(ser: "serial.Serial", timeout: float = 10) -> dict | None:
     return None
 
 
-def provision_adapter(ser: "serial.Serial", hw: int, padmaps: list[int], lifespan: int,
+def provision_adapter(ser: "serial.Serial", hw: int, padmaps: list[int], lifespan_arg: int | None,
                       date_arg: str | None) -> bool:
     info, err = query_adapter_retry(ser)
     if info:
         print("  Adapter already provisioned — re-provisioning, counters preserved:")
         print_adapter_info(info)
+        # Keep the adapter's lifespan unless --lifespan is given; raising it above
+        # the insertion count is what clears the EOL flag.
+        existing_lifespan = info.get("lifespan", "")
+        lifespan = (lifespan_arg if lifespan_arg is not None
+                    else int(existing_lifespan) if existing_lifespan.isdigit() else DEFAULT_LIFESPAN)
+        if cut := lifespan_cut_error(lifespan, info):
+            print(f"  ERROR: {cut} To reset the counters too, use tools/provision.py --override.")
+            return False
         ins = int(info.get("ins", "0"))
         tests = int(info.get("tests", "0"))
         eol = 0 if lifespan > ins else (1 if info.get("eol") == "1" else 0)
@@ -211,6 +221,7 @@ def provision_adapter(ser: "serial.Serial", hw: int, padmaps: list[int], lifespa
         mfg_date = date_arg or (existing_date if existing_date != "0" else date.today().strftime("%Y%m%d"))
     elif err and "ADAPTER_NOT_PROVISIONED" in err:
         print("  Adapter blank — provisioning.")
+        lifespan = lifespan_arg if lifespan_arg is not None else DEFAULT_LIFESPAN
         ins = tests = eol = None
         mfg_date = date_arg or date.today().strftime("%Y%m%d")
     else:
@@ -349,7 +360,8 @@ def main():
                     help=f"Adapter hardware ID ({', '.join(f'{k}={v}' for k, v in ADAPTER_HW_NAMES.items())})")
     ap.add_argument("--padmap", default=None,
                     help=f"Pad map IDs, comma-separated ({', '.join(f'{k}={v.split()[0]}' for k, v in PAD_MAPS.items())})")
-    ap.add_argument("--lifespan", type=int, default=9999, help="Max insertions before EOL (default: 9999)")
+    ap.add_argument("--lifespan", type=int, default=None,
+                    help=f"Max insertions before EOL (default: keep existing, else {DEFAULT_LIFESPAN})")
     ap.add_argument("--date", default=None,
                     help="Manufacture date YYYYMMDD (default: keep existing, else today)")
     ap.add_argument("--db", type=Path, default=DEFAULT_DB, help=f"CSV database (default: {DEFAULT_DB})")
@@ -402,7 +414,7 @@ def main():
         print("Adapter  : not provisioning")
     else:
         print(f"Adapter  : hw {args.hw} ({ADAPTER_HW_NAMES[args.hw]}), padmap {args.padmap}, "
-              f"lifespan {args.lifespan}")
+              f"lifespan {args.lifespan if args.lifespan is not None else f'existing, else {DEFAULT_LIFESPAN}'}")
     print(f"Database : {args.db}")
 
     db_rows = load_db(args.db)

@@ -260,7 +260,7 @@ src/
 ├── adapter/              adapter abstraction, EEPROM layout/manager, Mezzanine70 drivers
 ├── test/                 test runner, pad maps, DUT detector
 ├── app/                  state machine, LED manager, host protocol
-└── debug/                log + adapter self-test
+└── debug/                logging
 docs/
 ├── ARCHITECTURE.md       detailed firmware design notes
 ├── BONDTEST72_HOST_PROTOCOL.md  full host protocol reference

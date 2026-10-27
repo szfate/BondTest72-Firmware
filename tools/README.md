@@ -12,38 +12,10 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ---
 
-## live_serial_viewer.py
+## Viewing results
 
-Real-time die map GUI that reads from a serial port. Pads light up as PAD results arrive; the results table updates incrementally. The active adapter and pad map are auto-detected from the tester.
-
-![live_serial_viewer](../docs/images/live_serial_viewer.png)
-
-```sh
-uv run tools/live_serial_viewer.py --port /dev/tty.usbmodem1101
-uv run tools/live_serial_viewer.py --port COM3 --baud 115200
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--port` | *(required)* | Serial port |
-| `--baud` | `115200` | Baud rate |
-| `--padmap` | auto | Override pad map ID (1–6); normally detected from the adapter |
-
----
-
-## die_visualizer (package)
-
-Offline die map viewer. Reads a saved protocol log file and renders the bond results.
-
-```sh
-uv run tools/die_visualizer --file path/to/log.txt
-uv run tools/die_visualizer --file path/to/log.txt --padmap 3
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--file` | *(required)* | Protocol log file to visualize |
-| `--padmap` | `2` | Pad map ID (1 = 1×1 v1, 2 = 1×1 v2, 3 = 1×0.5, 4 = G801-MOSB, 5 = 0.5×1, 6 = G801-TQVA) |
+The die map viewers that used to live here (`live_serial_viewer.py`, `die_visualizer`) have been replaced by
+the desktop app in [`gui/`](../gui/README.md), which shows live tests and opens saved results files.
 
 ---
 
@@ -62,9 +34,9 @@ uv run tools/provision.py --port COM3 --hw 1 --padmap 3 --date 20260601 --yes
 | `--baud` | `115200` | Baud rate |
 | `--hw` | *(required)* | Hardware ID (1 = Mezzanine70) |
 | `--padmap` | *(required)* | Pad map IDs, comma-separated (1 = Mezzanine70 COB v1, 2 = Mezzanine70 COB v2, 3 = Mezzanine70 COB v1 1×0.5, 4 = G801-MOSB, 5 = Mezzanine70 0.5×1, 6 = G801-TQVA) |
-| `--lifespan` | `250` | Max insertions before EOL |
+| `--lifespan` | existing, else `250` | Max insertions before EOL. Raising it above the insertion count clears the EOL flag; lowering it to the insertion count or below is refused (counters kept) |
 | `--date` | existing, else today | Manufacture date in `YYYYMMDD` format |
-| `--override` | `false` | Reset insertion/test counters and EOL to 0; also allows provisioning an adapter whose record can't be read |
+| `--override` | `false` | Reset insertion/test counters and EOL to 0; also allows provisioning an adapter whose record can't be read, or a lifespan at or below the old insertion count |
 | `--yes` / `-y` | `false` | Skip confirmation prompt |
 
 ---
@@ -90,7 +62,7 @@ Database columns: `timestamp, tester_uid, fw_build, proto, adapter_uid, adapter_
 |------|---------|-------------|
 | `--hw` | *(required unless `--no-provision`)* | Adapter hardware ID (1 = Mezzanine70 r1, 2 = Mezzanine70 r2) |
 | `--padmap` | *(required unless `--no-provision`)* | Pad map IDs, comma-separated |
-| `--lifespan` | `9999` | Max insertions before EOL |
+| `--lifespan` | existing, else `9999` | Max insertions before EOL. Raising it above the insertion count clears the EOL flag; lowering it to the insertion count or below is refused (counters kept) |
 | `--date` | existing, else today | Manufacture date `YYYYMMDD` |
 | `--db` | `tools/boards.csv` | CSV database file |
 | `--uf2` | build | Flash this UF2 instead of building |

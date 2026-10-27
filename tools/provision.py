@@ -45,6 +45,8 @@ ADAPTER_HW_NAMES = {
     2: "Mezzanine70 r2",
 }
 
+DEFAULT_LIFESPAN = 250  # insertions, for a new record; re-provisioning keeps the adapter's
+
 
 def parse_adapter_line(line: str) -> dict:
     """Parse 'ADAPTER aid=X ahw=N pm=N[,N] ... mfg_date=N ins=N tests=N eol=N dut=N'"""
@@ -101,6 +103,18 @@ def query_adapter_retry(ser: "serial.Serial", timeout: float = 8) -> tuple[dict 
             return info, err
         time.sleep(0.5)
     return info, err
+
+
+def lifespan_cut_error(lifespan: int, info: dict) -> str | None:
+    """Error text if `lifespan` lowers the adapter's lifespan to its insertion count
+    or below. With the counters kept, that only retires the adapter at its next
+    insertion, which is never the point of re-provisioning."""
+    ins = int(info.get("ins", "0"))
+    existing = info.get("lifespan", "")
+    if lifespan > ins or (existing.isdigit() and lifespan >= int(existing)):
+        return None
+    return (f"lifespan {lifespan} is not above the adapter's {ins} insertions "
+            f"(current lifespan {existing or '?'}); it would reach end-of-life at the next insertion.")
 
 
 def send_provision(ser: "serial.Serial", hw_id: int, padmap_ids: list[int], lifespan: int, mfg_date: str,
@@ -175,8 +189,9 @@ def main():
                     help=f"Pad map IDs, comma-separated ({', '.join(f'{k}={v.split()[0]}' for k, v in PAD_MAPS.items())})")
     ap.add_argument("--date",    default=None,
                     help="Manufacture date YYYYMMDD (default: keep the adapter's date; today for a blank adapter)")
-    ap.add_argument("--lifespan", type=int, default=250,
-                    help="Designed lifespan — max insertions before EOL (default: 250)")
+    ap.add_argument("--lifespan", type=int, default=None,
+                    help=f"Designed lifespan — max insertions before EOL (default: keep the adapter's; "
+                         f"{DEFAULT_LIFESPAN} for a blank adapter)")
     ap.add_argument("--yes", "-y", action="store_true",
                     help="Skip confirmation prompt")
     ap.add_argument("--override", action="store_true",
@@ -247,6 +262,21 @@ def main():
         ser.close()
         sys.exit(1)
 
+    # Keep the adapter's lifespan on re-provisioning unless --lifespan is given;
+    # raising it above the insertion count is what clears the EOL flag below.
+    if args.lifespan is not None:
+        lifespan = args.lifespan
+    elif info and info.get("lifespan", "").isdigit():
+        lifespan = int(info["lifespan"])
+    else:
+        lifespan = DEFAULT_LIFESPAN
+
+    if info and not args.override and (cut := lifespan_cut_error(lifespan, info)):
+        print(f"\nERROR: {cut}")
+        print("       Give a higher --lifespan, or --override to reset the counters as well.")
+        ser.close()
+        sys.exit(1)
+
     if args.override or not info:
         counter_ins = None
         counter_tests = None
@@ -255,7 +285,7 @@ def main():
         counter_ins = int(info.get("ins", "0"))
         counter_tests = int(info.get("tests", "0"))
         counter_eol = 1 if info.get("eol", "0") == "1" else 0
-        if args.lifespan > counter_ins:
+        if lifespan > counter_ins:
             counter_eol = 0
 
     # Keep the adapter's manufacture date on re-provisioning; today is only for a
@@ -268,7 +298,7 @@ def main():
     print(f"\nProvision with:")
     print(f"  Hardware : {args.hw} — {ADAPTER_HW_NAMES[args.hw]}")
     print(f"  Pad maps : {pm_display}")
-    print(f"  Lifespan : {args.lifespan} insertions")
+    print(f"  Lifespan : {lifespan} insertions")
     print(f"  Mfg date : {fmt_date(mfg_date)}")
     if args.override:
         print("  Counters  : resetting to 0 (--override)")
@@ -291,7 +321,7 @@ def main():
             sys.exit(0)
 
     print("\nProvisioning …")
-    if not send_provision(ser, args.hw, padmap_ids, args.lifespan, mfg_date,
+    if not send_provision(ser, args.hw, padmap_ids, lifespan, mfg_date,
                           ins=counter_ins, tests=counter_tests, eol=counter_eol):
         ser.close()
         sys.exit(1)
