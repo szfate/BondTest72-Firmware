@@ -633,9 +633,9 @@ void StateMachine::startTest() {
     // On flush failure the machine is in FAULT — skip results/host reporting.
     if (!flushEeprom()) return;
 
-    static const char* const outcomeStr[] = { "PASS", "FAIL", "FAIL_DUT_REMOVED", "WRONG_ORIENTATION" };
+    static const char* const outcomeStr[] = { "PASS", "FAIL", "FAIL_DUT_REMOVED" };
     uint8_t oi = (uint8_t)_lastResult.outcome;
-    LOG_I("test done: outcome=%s", oi < 4 ? outcomeStr[oi] : "?");
+    LOG_I("test done: outcome=%s", oi < 3 ? outcomeStr[oi] : "?");
     for (uint8_t s = 0; s < _lastResult.slotCount; s++)
         LOG_I("  slot %u: %u/%u good", s, _lastResult.slots[s].goodCount, _lastResult.slots[s].testedCount);
 

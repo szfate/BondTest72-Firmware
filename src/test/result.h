@@ -39,7 +39,6 @@ enum class TestOutcome : uint8_t {
     PASS,
     FAIL,
     FAIL_DUT_REMOVED,
-    WRONG_ORIENTATION,
 };
 
 struct TestResult {
